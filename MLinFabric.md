@@ -26,6 +26,7 @@
 3. [Workflow complet de bout en bout](#3--workflow-complet-de-bout-en-bout)
 4. [Bonnes pratiques de production](#4--bonnes-pratiques-de-production)
 5. [Appel REST de l'endpoint](#5--appel-rest-de-lendpoint)
+6. [Tests unitaires (PyTest)](#6--tests-unitaires-pytest)
 
 ---
 
@@ -163,6 +164,8 @@ class LoggedModel(mlflow.pyfunc.PythonModel):
 
 ### Variante – Logging vers le Lakehouse Fabric
 
+> ℹ️ Cette méthode est désormais intégrée directement dans la classe `CustomEndpointModel` via `_persist_log_lakehouse()` (voir [§2](#2--personnalisation-des-endpoints-preprocessing-appels-db)). Voici la version standalone pour référence :
+
 ```python
 def _persist_log_lakehouse(self, log_entry):
     """Écrit le log directement dans une table Delta du Lakehouse Fabric.
@@ -236,6 +239,23 @@ sequenceDiagram
     Endpoint-->>Client: JSON response
 ```
 
+### Les 10 exigences de conception de la classe `CustomEndpointModel`
+
+La classe `CustomEndpointModel` hérite de `mlflow.pyfunc.PythonModel` et implémente un pipeline d'inférence complet. Voici les 10 exigences que cette classe doit respecter :
+
+| # | Exigence | Méthode concernée | Description |
+|---|---|---|---|
+| 1 | **Validation des entrées** | `_validate_input()` | Vérifie que toutes les colonnes attendues (`customer_id`, `col_a`, `col_b`) sont présentes dans le DataFrame d'entrée. Lève une `ValueError` explicite si des colonnes sont manquantes. |
+| 2 | **Enrichissement SQL via identité managée** | `_enrich_from_db()` | Interroge une base SQL Server via `pyodbc` en utilisant l'authentification `ActiveDirectoryMsi` (identité managée Azure). Récupère des features complémentaires (`segment`, `credit_score`) et les fusionne avec les données d'entrée. |
+| 3 | **Prétraitement des données** | `_preprocess()` | Applique des transformations avant l'inférence : remplacement des valeurs manquantes (`fillna(0)`) et calcul de nouvelles features (ex : `ratio = col_a / (col_b + 1)`). |
+| 4 | **Inférence scikit-learn** | `predict()` + `load_context()` | Charge le modèle scikit-learn depuis les artifacts MLflow via `joblib.load()` dans `load_context()`, puis appelle `model.predict()` dans `predict()`. |
+| 5 | **Logging vers Azure Blob Storage** | `_persist_log()` | Persiste un log structuré au format JSON dans Azure Blob Storage. Chaque log contient : `request_id`, `timestamp`, `duration_ms`, les entrées, les sorties, le statut et les erreurs éventuelles. Le partitionnement se fait par date (`inference/YYYY-MM-DD/<uuid>.json`). |
+| 6 | **Traçabilité via `logging`** | Toutes les méthodes | Utilise la bibliothèque standard `logging` pour tracer les étapes clés : chargement du modèle, initialisation de la connexion DB, début/fin de l'inférence, erreurs rencontrées. |
+| 7 | **Gestion robuste des erreurs** | `predict()`, `_enrich_from_db()`, `_persist_log()` | Encapsule les appels critiques (DB, enrichissement, logging) dans des blocs `try/except`. Le logging est en mode *best-effort* : un échec de logging ne bloque pas la réponse. Les erreurs d'enrichissement DB sont également capturées et tracées. |
+| 8 | **Logging alternatif Lakehouse Fabric** | `_persist_log_lakehouse()` | Méthode alternative qui écrit les logs dans une table Delta du Lakehouse Fabric via Spark, permettant ensuite de les requêter avec SQL/Spark. |
+| 9 | **Docstrings explicatifs** | Toutes les méthodes | Chaque méthode dispose d'une docstring décrivant son rôle, ses paramètres, ses valeurs de retour et les exceptions levées. |
+| 10 | **Test unitaire PyTest** | `test_validate_input()` | Un test PyTest valide le comportement de `_validate_input()` : cas nominal (colonnes présentes) et cas d'erreur (colonnes manquantes → `ValueError`). Voir [§6](#6--tests-unitaires-pytest). |
+
 ### Structure du wrapper
 
 ```mermaid
@@ -248,13 +268,14 @@ classDiagram
 
     class CustomEndpointModel {
         -model
-        -db_connection
+        -conn
         +load_context(context)
         +predict(context, model_input)
         -_validate_input(df) → DataFrame
         -_enrich_from_db(df) → DataFrame
         -_preprocess(df) → DataFrame
         -_persist_log(log_entry)
+        -_persist_log_lakehouse(log_entry)
     }
 
     PythonModel <|-- CustomEndpointModel
@@ -264,109 +285,277 @@ classDiagram
 
 ### Exemple de code complet
 
+> ℹ️ Ce code implémente les **10 exigences** décrites ci-dessus. Chaque méthode est documentée et les blocs `try/except` garantissent une gestion robuste des erreurs.
+
 ```python
 import mlflow.pyfunc
 import pandas as pd
 import datetime
 import uuid
+import json
 import logging
 
 logger = logging.getLogger(__name__)
 
 class CustomEndpointModel(mlflow.pyfunc.PythonModel):
     """
-    Wrapper complet qui :
-    1. Valide les inputs
-    2. Enrichit les données depuis SQL Server
-    3. Applique un preprocessing
-    4. Exécute l'inférence
-    5. Logue le tout
+    Wrapper MLflow PyFunc pour un endpoint personnalisé dans Microsoft Fabric.
+
+    Cette classe hérite de mlflow.pyfunc.PythonModel et implémente un pipeline
+    d'inférence complet avec :
+      1. Validation des données d'entrée (colonnes attendues).
+      2. Enrichissement via une base SQL Server (identité managée Azure / pyodbc).
+      3. Prétraitement (fillna, calcul de ratio).
+      4. Inférence avec un modèle scikit-learn chargé depuis les artifacts.
+      5. Logging structuré (JSON) vers Azure Blob Storage.
+      6. Traçabilité via la bibliothèque logging.
+      7. Gestion robuste des erreurs (try/except best-effort).
+      8. Méthode alternative _persist_log_lakehouse() pour écrire dans un Lakehouse Fabric.
+
+    Attributes:
+        model: Le modèle scikit-learn chargé depuis les artifacts.
+        conn: La connexion pyodbc vers SQL Server (identité managée).
     """
 
     def load_context(self, context):
+        """
+        Charge le modèle scikit-learn et initialise la connexion à la base de données.
+
+        Cette méthode est appelée une seule fois par MLflow lors du chargement
+        de l'endpoint. Elle charge le modèle depuis les artifacts (joblib) et
+        ouvre une connexion persistante vers SQL Server via l'authentification
+        ActiveDirectoryMsi (identité managée Azure).
+
+        Args:
+            context: Contexte MLflow contenant les artifacts et la configuration.
+
+        Raises:
+            FileNotFoundError: Si l'artifact du modèle est introuvable.
+            pyodbc.Error: Si la connexion à la base de données échoue.
+        """
         import joblib
         import pyodbc
 
-        # Chargement du modèle
+        # Chargement du modèle scikit-learn depuis les artifacts
+        logger.info("⏳ Chargement du modèle depuis les artifacts...")
         self.model = joblib.load(context.artifacts["model"])
+        logger.info("✅ Modèle scikit-learn chargé avec succès")
 
-        # Connexion DB (initialisée une seule fois au chargement)
-        # ⚠️ En production : utiliser Key Vault pour les credentials
-        self.conn = pyodbc.connect(
-            "DRIVER={ODBC Driver 18 for SQL Server};"
-            "SERVER=myserver.database.windows.net;"
-            "DATABASE=mydb;"
-            "Authentication=ActiveDirectoryMsi"  # Authentification managée
-        )
-        logger.info("✅ Modèle et connexion DB initialisés")
+        # Connexion DB avec identité managée Azure (initialisée une seule fois)
+        # ⚠️ En production : utiliser Key Vault pour les paramètres de connexion
+        try:
+            self.conn = pyodbc.connect(
+                "DRIVER={ODBC Driver 18 for SQL Server};"
+                "SERVER=myserver.database.windows.net;"
+                "DATABASE=mydb;"
+                "Authentication=ActiveDirectoryMsi"  # Authentification via identité managée
+            )
+            logger.info("✅ Connexion DB initialisée (ActiveDirectoryMsi)")
+        except Exception as e:
+            logger.error(f"❌ Échec de la connexion DB : {e}")
+            self.conn = None  # Le modèle peut fonctionner sans enrichissement DB
 
     def _validate_input(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Vérifie que les colonnes attendues sont présentes."""
+        """
+        Valide que le DataFrame d'entrée contient toutes les colonnes attendues.
+
+        Vérifie la présence des colonnes requises : 'customer_id', 'col_a', 'col_b'.
+        Lève une ValueError avec la liste des colonnes manquantes si la validation
+        échoue.
+
+        Args:
+            df (pd.DataFrame): Le DataFrame d'entrée à valider.
+
+        Returns:
+            pd.DataFrame: Le DataFrame validé (inchangé si la validation réussit).
+
+        Raises:
+            ValueError: Si une ou plusieurs colonnes requises sont absentes.
+        """
         required_cols = {"customer_id", "col_a", "col_b"}
         missing = required_cols - set(df.columns)
         if missing:
+            logger.error(f"❌ Colonnes manquantes : {missing}")
             raise ValueError(f"❌ Colonnes manquantes : {missing}")
+        logger.info("✅ Validation des colonnes d'entrée réussie")
         return df
 
     def _enrich_from_db(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Récupère des features complémentaires depuis la base."""
-        ids = tuple(df["customer_id"].tolist())
-        if len(ids) == 1:
-            ids = f"({ids[0]})"  # Gestion du cas tuple à un élément
-
-        query = f"""
-            SELECT customer_id, segment, credit_score
-            FROM customers
-            WHERE customer_id IN {ids}
         """
-        extra_features = pd.read_sql(query, self.conn)
-        return df.merge(extra_features, on="customer_id", how="left")
+        Enrichit les données en interrogeant une base SQL Server via identité managée.
+
+        Récupère les features complémentaires (segment, credit_score) depuis la table
+        'customers' et les fusionne (LEFT JOIN) avec le DataFrame d'entrée. Si la
+        connexion DB n'est pas disponible ou si la requête échoue, retourne le
+        DataFrame d'origine sans enrichissement (mode dégradé).
+
+        Args:
+            df (pd.DataFrame): Le DataFrame contenant au minimum la colonne 'customer_id'.
+
+        Returns:
+            pd.DataFrame: Le DataFrame enrichi avec les colonnes 'segment' et 'credit_score',
+                          ou le DataFrame d'origine en cas d'erreur.
+        """
+        if self.conn is None:
+            logger.warning("⚠️ Pas de connexion DB – enrichissement ignoré")
+            return df
+
+        try:
+            ids = tuple(df["customer_id"].tolist())
+            if len(ids) == 1:
+                ids = f"({ids[0]})"  # Gestion du cas tuple à un seul élément
+
+            query = f"""
+                SELECT customer_id, segment, credit_score
+                FROM customers
+                WHERE customer_id IN {ids}
+            """
+            extra_features = pd.read_sql(query, self.conn)
+            enriched = df.merge(extra_features, on="customer_id", how="left")
+            logger.info(f"✅ Enrichissement DB réussi ({len(extra_features)} lignes récupérées)")
+            return enriched
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de l'enrichissement DB : {e}")
+            return df  # Mode dégradé : on continue sans enrichissement
 
     def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transformations avant inférence."""
+        """
+        Applique les transformations de prétraitement avant l'inférence.
+
+        Opérations effectuées :
+          - Remplacement des valeurs manquantes par 0 (fillna).
+          - Calcul d'une feature dérivée : ratio = col_a / (col_b + 1).
+
+        Args:
+            df (pd.DataFrame): Le DataFrame enrichi à prétraiter.
+
+        Returns:
+            pd.DataFrame: Le DataFrame prétraité, prêt pour l'inférence.
+        """
         df = df.fillna(0)
         df["ratio"] = df["col_a"] / (df["col_b"] + 1)
+        logger.info("✅ Prétraitement appliqué (fillna + ratio)")
         return df
 
     def predict(self, context, model_input: pd.DataFrame):
+        """
+        Exécute le pipeline complet : validation → enrichissement → preprocessing → inférence → logging.
+
+        Orchestre les 5 phases du pipeline. Chaque phase critique est encapsulée dans
+        un bloc try/except pour garantir la robustesse. Le logging est en mode best-effort :
+        un échec de persistance des logs ne bloque pas la réponse au client.
+
+        Args:
+            context: Contexte MLflow (non utilisé directement dans predict).
+            model_input (pd.DataFrame): Les données d'entrée envoyées par le client.
+
+        Returns:
+            numpy.ndarray: Les prédictions du modèle.
+
+        Raises:
+            ValueError: Si la validation des entrées échoue (colonnes manquantes).
+        """
         request_id = str(uuid.uuid4())
         start = datetime.datetime.utcnow()
+        error_msg = None
+        predictions = None
 
-        # Pipeline complet
-        validated = self._validate_input(model_input)
-        enriched  = self._enrich_from_db(validated)
-        processed = self._preprocess(enriched)
-        predictions = self.model.predict(processed)
-
-        # Logging best-effort
-        duration_ms = (datetime.datetime.utcnow() - start).total_seconds() * 1000
-        log_entry = {
-            "request_id": request_id,
-            "timestamp": start.isoformat(),
-            "duration_ms": duration_ms,
-            "input_rows": len(model_input),
-            "input": model_input.to_dict(orient="records"),
-            "output": predictions.tolist()
-        }
         try:
-            self._persist_log(log_entry)
+            # Phase 1 – Validation
+            validated = self._validate_input(model_input)
+
+            # Phase 2 – Enrichissement (best-effort, mode dégradé si DB indisponible)
+            enriched = self._enrich_from_db(validated)
+
+            # Phase 3 – Prétraitement
+            processed = self._preprocess(enriched)
+
+            # Phase 4 – Inférence
+            predictions = self.model.predict(processed)
+            logger.info(f"✅ Inférence réussie pour {request_id} ({len(predictions)} prédictions)")
+
+        except ValueError:
+            raise  # Erreur de validation → remonter au client
         except Exception as e:
-            logger.error(f"Logging failed for {request_id}: {e}")
+            error_msg = str(e)
+            logger.error(f"❌ Erreur dans le pipeline pour {request_id}: {e}")
+            raise
+
+        finally:
+            # Phase 5 – Logging (best-effort, ne bloque jamais la réponse)
+            duration_ms = (datetime.datetime.utcnow() - start).total_seconds() * 1000
+            log_entry = {
+                "request_id": request_id,
+                "timestamp": start.isoformat(),
+                "duration_ms": duration_ms,
+                "input_rows": len(model_input),
+                "input": model_input.to_dict(orient="records"),
+                "output": predictions.tolist() if predictions is not None else None,
+                "status": "success" if error_msg is None else "error",
+                "error": error_msg
+            }
+            try:
+                self._persist_log(log_entry)
+            except Exception as log_err:
+                logger.error(f"❌ Échec du logging pour {request_id}: {log_err}")
 
         return predictions
 
     def _persist_log(self, log_entry):
-        """Persistance du log vers Azure Blob (ou Lakehouse)."""
-        import json
+        """
+        Persiste le log d'inférence au format JSON dans Azure Blob Storage.
+
+        Le log est partitionné par date (YYYY-MM-DD) et nommé par request_id
+        pour faciliter les requêtes et l'audit.
+
+        Structure du blob : inference/<YYYY-MM-DD>/<request_id>.json
+
+        Args:
+            log_entry (dict): Dictionnaire contenant les données de log
+                              (request_id, timestamp, duration_ms, input, output, status, error).
+
+        Raises:
+            Exception: Si l'écriture dans le Blob Storage échoue.
+        """
         from azure.storage.blob import BlobServiceClient
         import os
 
         conn_str = os.environ.get("BLOB_CONN_STRING")
+        if not conn_str:
+            logger.warning("⚠️ BLOB_CONN_STRING non définie – logging Blob ignoré")
+            return
+
         client = BlobServiceClient.from_connection_string(conn_str)
-        ts = log_entry["timestamp"][:10]
-        blob_name = f"inference/{{ts}}/{{log_entry['request_id']}}.json"
+        ts = log_entry["timestamp"][:10]  # YYYY-MM-DD
+        blob_name = f"inference/{ts}/{log_entry['request_id']}.json"
         blob = client.get_blob_client("logs", blob_name)
         blob.upload_blob(json.dumps(log_entry, default=str), overwrite=True)
+        logger.info(f"✅ Log persisté dans Blob Storage : {blob_name}")
+
+    def _persist_log_lakehouse(self, log_entry):
+        """
+        Méthode alternative : persiste le log dans une table Delta du Lakehouse Fabric.
+
+        Utilise PySpark pour écrire le log dans la table 'Tables/inference_logs'
+        au format Delta, en mode append. Cela permet ensuite de requêter les logs
+        avec SQL Analytics ou Spark dans Fabric.
+
+        Args:
+            log_entry (dict): Dictionnaire contenant les données de log
+                              (request_id, timestamp, duration_ms, input, output, status, error).
+
+        Raises:
+            Exception: Si l'écriture dans le Lakehouse échoue.
+        """
+        try:
+            from pyspark.sql import SparkSession
+            spark = SparkSession.builder.getOrCreate()
+
+            df = spark.createDataFrame([log_entry])
+            df.write.format("delta").mode("append").save("Tables/inference_logs")
+            logger.info("✅ Log persisté dans le Lakehouse Fabric (Delta)")
+        except Exception as e:
+            logger.error(f"❌ Échec de l'écriture Lakehouse : {e}")
 ```
 
 ### Enregistrement et déploiement
@@ -543,6 +732,113 @@ curl -X POST \
 
 ---
 
+---
+
+## 6. 🧪 Tests unitaires (PyTest)
+
+### Pourquoi tester `_validate_input()` ?
+
+La validation des entrées est la première ligne de défense de l'endpoint. Un test unitaire permet de :
+- ✅ Vérifier que les colonnes valides sont acceptées sans erreur.
+- ✅ Vérifier qu'une `ValueError` claire est levée quand des colonnes sont manquantes.
+- ✅ S'assurer que le message d'erreur contient le nom des colonnes manquantes.
+- ✅ Garantir la non-régression lors des évolutions du schéma.
+
+### Exemple de test PyTest
+
+> ℹ️ **Prérequis** : Enregistrez le code de la classe `CustomEndpointModel` dans un fichier nommé `custom_endpoint_model.py` dans le même répertoire que le fichier de test.
+
+```python
+import pytest
+import pandas as pd
+from custom_endpoint_model import CustomEndpointModel
+
+
+@pytest.fixture
+def model_instance():
+    """Crée une instance de CustomEndpointModel sans charger de modèle ni de connexion DB."""
+    instance = CustomEndpointModel()
+    instance.model = None  # Pas besoin du modèle pour tester la validation
+    instance.conn = None
+    return instance
+
+
+class TestValidateInput:
+    """Tests unitaires pour la méthode _validate_input() de CustomEndpointModel."""
+
+    def test_valid_input(self, model_instance):
+        """Vérifie que _validate_input accepte un DataFrame avec toutes les colonnes requises."""
+        df = pd.DataFrame({
+            "customer_id": [1, 2, 3],
+            "col_a": [10.0, 20.0, 30.0],
+            "col_b": [5.0, 15.0, 25.0]
+        })
+        result = model_instance._validate_input(df)
+        assert result.equals(df), "Le DataFrame retourné doit être identique à l'entrée"
+
+    def test_valid_input_with_extra_columns(self, model_instance):
+        """Vérifie que des colonnes supplémentaires ne provoquent pas d'erreur."""
+        df = pd.DataFrame({
+            "customer_id": [1],
+            "col_a": [10.0],
+            "col_b": [5.0],
+            "extra_col": ["foo"]
+        })
+        result = model_instance._validate_input(df)
+        assert "extra_col" in result.columns
+
+    def test_missing_single_column(self, model_instance):
+        """Vérifie qu'une ValueError est levée quand une colonne est manquante."""
+        df = pd.DataFrame({
+            "customer_id": [1],
+            "col_a": [10.0]
+            # col_b manquante
+        })
+        with pytest.raises(ValueError, match="Colonnes manquantes"):
+            model_instance._validate_input(df)
+
+    def test_missing_multiple_columns(self, model_instance):
+        """Vérifie qu'une ValueError est levée quand plusieurs colonnes sont manquantes."""
+        df = pd.DataFrame({
+            "customer_id": [1]
+            # col_a et col_b manquantes
+        })
+        with pytest.raises(ValueError, match="Colonnes manquantes"):
+            model_instance._validate_input(df)
+
+    def test_empty_dataframe_with_correct_columns(self, model_instance):
+        """Vérifie qu'un DataFrame vide mais avec les bonnes colonnes est accepté."""
+        df = pd.DataFrame(columns=["customer_id", "col_a", "col_b"])
+        result = model_instance._validate_input(df)
+        assert len(result) == 0
+
+    def test_all_columns_missing(self, model_instance):
+        """Vérifie qu'une ValueError est levée quand le DataFrame n'a aucune colonne attendue."""
+        df = pd.DataFrame({"x": [1], "y": [2]})
+        with pytest.raises(ValueError, match="Colonnes manquantes"):
+            model_instance._validate_input(df)
+```
+
+### Exécution des tests
+
+```bash
+# Depuis le répertoire du projet
+pytest test_custom_endpoint_model.py -v
+```
+
+Sortie attendue :
+
+```
+test_custom_endpoint_model.py::TestValidateInput::test_valid_input PASSED
+test_custom_endpoint_model.py::TestValidateInput::test_valid_input_with_extra_columns PASSED
+test_custom_endpoint_model.py::TestValidateInput::test_missing_single_column PASSED
+test_custom_endpoint_model.py::TestValidateInput::test_missing_multiple_columns PASSED
+test_custom_endpoint_model.py::TestValidateInput::test_empty_dataframe_with_correct_columns PASSED
+test_custom_endpoint_model.py::TestValidateInput::test_all_columns_missing PASSED
+```
+
+---
+
 ## 📚 Ressources
 
 | Ressource | Lien |
@@ -565,6 +861,7 @@ curl -X POST \
 | **Déploiement** | Model Registry Fabric → activation endpoint → REST API | [§3](#3--workflow-complet-de-bout-en-bout) |
 | **Sécurité** | Key Vault, MSI auth, masquage PII, RBAC | [§4](#4--bonnes-pratiques-de-production) |
 | **Appel client** | `POST /score` avec Bearer token Azure AD | [§5](#5--appel-rest-de-lendpoint) |
+| **Tests unitaires** | PyTest pour valider `_validate_input()` et le schéma d'entrée | [§6](#6--tests-unitaires-pytest) |
 
 ---
 
