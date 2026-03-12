@@ -4,13 +4,13 @@
 
 ---
 
-## 💬 Questions traitées dans ce document
+## 💬 Contexte
 
-> *« Pour nos endpoints auto-déployés à partir des ML Model, nous souhaiterions mettre en place un logging systématique des entrées/sorties. Quelle est la méthode préconisée dans Fabric pour persister ces logs ? »*
+> Ce document adresse trois problématiques clés rencontrées lors de l'utilisation des **ML Model Endpoints (Preview)** dans Microsoft Fabric :
 >
-> *« Nous avons besoin de surcharger le comportement de certains endpoints, soit pour intégrer des appels DB, soit pour du preprocessing à la volée. La méthode officielle consiste-t-elle à utiliser un wrapper MLflow PyFunc ? »*
->
-> *« Est-ce que tu aurais des exemples à nous partager ? »*
+> 1. **Comment mettre en place un logging systématique des entrées/sorties** des endpoints auto-déployés, et quelle méthode de persistance privilégier dans Fabric.
+> 2. **Comment personnaliser le comportement des endpoints** pour y intégrer du preprocessing, des appels à une base de données, ou toute autre logique métier autour de l'inférence.
+> 3. **Quels exemples de code concrets** permettent d'implémenter ces solutions de bout en bout.
 
 **Réponses courtes** :
 - ✅ **Logging I/O** → La méthode préconisée est d'utiliser un **wrapper `mlflow.pyfunc.PythonModel`** qui intercepte les entrées/sorties dans la méthode `predict()` et les persiste vers un **Lakehouse**, **Azure Blob Storage** ou **Application Insights**.
