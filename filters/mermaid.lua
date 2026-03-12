@@ -54,10 +54,19 @@ function CodeBlock(block)
 
   counter = counter + 1
 
-  -- Write mermaid source to a temp file
-  local input_file = os.tmpname() .. ".mmd"
-  local output_file = os.tmpname() .. ".png"
-  local config_file = os.tmpname() .. ".json"
+  -- Write mermaid source to temp files
+  local base = os.tmpname()
+  local input_file = base .. ".mmd"
+  local output_file = base .. ".png"
+  local config_file = base .. ".json"
+
+  -- Helper to clean up all temp files
+  local function cleanup()
+    os.remove(base)
+    os.remove(input_file)
+    os.remove(output_file)
+    os.remove(config_file)
+  end
 
   -- Write puppeteer config
   local cf = io.open(config_file, "w")
@@ -78,33 +87,24 @@ function CodeBlock(block)
   local result = handle:read("*a")
   local success = handle:close()
 
-  -- Clean up temp files
-  os.remove(input_file)
-  os.remove(config_file)
-
   if success then
     -- Read the generated image
     local img_f = io.open(output_file, "rb")
     if img_f then
       local img_data = img_f:read("*a")
       img_f:close()
-      os.remove(output_file)
+      cleanup()
 
-      -- Create an image element
+      -- Create an image element and store in media bag
       local fname = "mermaid-" .. counter .. ".png"
-      local mime = "image/png"
-      local img = pandoc.Image({}, fname, "", { width = "100%" })
-      img.src = fname
+      pandoc.mediabag.insert(fname, "image/png", img_data)
 
-      -- Store the image in the media bag
-      pandoc.mediabag.insert(fname, mime, img_data)
-
-      -- Return a figure with the image
-      return pandoc.Para({ img })
+      return pandoc.Para({ pandoc.Image({}, fname, "", { width = "100%" }) })
     end
   end
 
-  -- If rendering failed, keep the code block and add an error note
+  -- If rendering failed, clean up and keep the original code block
+  cleanup()
   io.stderr:write("WARNING: Failed to render mermaid diagram #" .. counter .. "\n")
   io.stderr:write(result .. "\n")
   return nil

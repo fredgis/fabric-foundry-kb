@@ -39,7 +39,7 @@ all: $(OUT)
 
 $(OUT): $(SRC) $(FILTER) $(HEADER)
 	pandoc $(SRC) -o $(OUT) $(PANDOC_FLAGS)
-	@echo "✅ $(OUT) généré avec succès"
+	@echo "[OK] $(OUT) generated successfully"
 
 clean:
 	rm -f $(OUT)
