@@ -148,7 +148,7 @@ class LoggedModel(mlflow.pyfunc.PythonModel):
 
         # Partitionnement par date pour faciliter les requêtes
         ts = log_entry["timestamp"][:10]  # YYYY-MM-DD
-        blob_name = f"inference/{{ts}}/{{log_entry['request_id']}}.json"
+        blob_name = f"inference/{ts}/{log_entry['request_id']}.json"
 
         blob = client.get_blob_client("logs", blob_name)
         blob.upload_blob(json.dumps(log_entry, default=str), overwrite=True)
