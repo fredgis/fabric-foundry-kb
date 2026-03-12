@@ -311,15 +311,20 @@ class FullPipelineModel(mlflow.pyfunc.PythonModel):
     """
 
     def load_context(self, context):
-        import joblib, pyodbc
+        import joblib, pyodbc, os
+        from pyspark.sql import SparkSession
         # Chargement du modèle sérialisé
         self.model = joblib.load(context.artifacts["model"])
-        # Connexion à la base de données (initialisée une seule fois)
+        # Connexion DB – utiliser des variables d'environnement ou Azure Key Vault
         self.conn = pyodbc.connect(
-            "DRIVER={ODBC Driver 18 for SQL Server};"
-            "SERVER=myserver.database.windows.net;"
-            "DATABASE=mydb;UID=user;PWD=pass"
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={os.environ['DB_SERVER']};"
+            f"DATABASE={os.environ['DB_NAME']};"
+            f"UID={os.environ['DB_USER']};"
+            f"PWD={os.environ['DB_PASSWORD']}"
         )
+        # Session Spark cachée pour le logging Delta
+        self.spark = SparkSession.builder.getOrCreate()
 
     def predict(self, context, model_input: pd.DataFrame):
         # 1. Enrichissement DB
@@ -334,13 +339,15 @@ class FullPipelineModel(mlflow.pyfunc.PythonModel):
         return predictions
 
     def _enrich_from_db(self, df: pd.DataFrame) -> pd.DataFrame:
-        ids = tuple(df["customer_id"].tolist())
-        query = f"SELECT customer_id, segment, credit_score FROM customers WHERE customer_id IN {ids}"
-        extra = pd.read_sql(query, self.conn)
+        ids = df["customer_id"].tolist()
+        placeholders = ",".join(["?"] * len(ids))
+        query = f"SELECT customer_id, segment, credit_score FROM customers WHERE customer_id IN ({placeholders})"
+        extra = pd.read_sql(query, self.conn, params=ids)
         return df.merge(extra, on="customer_id", how="left")
 
     def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.fillna(0)
+        # +1 pour éviter la division par zéro
         df["ratio"] = df["col_a"] / (df["col_b"] + 1)
         return df
 
@@ -350,10 +357,7 @@ class FullPipelineModel(mlflow.pyfunc.PythonModel):
             "input": json.dumps(model_input.to_dict(orient="records")),
             "output": json.dumps(predictions.tolist()),
         }])
-        from delta.tables import DeltaTable
-        from pyspark.sql import SparkSession
-        spark = SparkSession.builder.getOrCreate()
-        spark.createDataFrame(log_df).write.format("delta").mode("append").save(
+        self.spark.createDataFrame(log_df).write.format("delta").mode("append").save(
             "Tables/inference_logs"
         )
 ```
