@@ -1,9 +1,14 @@
 # Divers
 
+Collection de documents techniques et guides de troubleshooting.
+
 ## Contenu
 
-- **MLinFabric.md** — Document de bonnes pratiques pour les ML Model Endpoints dans Microsoft Fabric
-- **MLinFabric.pdf** — Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique
+| Document | Description |
+|----------|-------------|
+| **[Fabric_PrivateLink_MFA_Loop_Resolution.md](Fabric_PrivateLink_MFA_Loop_Resolution.md)** | Troubleshooting guide: MFA authentication loop when accessing Microsoft Fabric via Azure Private Link. Root cause analysis, Mermaid diagrams, and reusable validation scripts. |
+| **[MLinFabric.md](MLinFabric.md)** | Bonnes pratiques pour les ML Model Endpoints dans Microsoft Fabric |
+| **[MLinFabric.pdf](MLinFabric.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
 
 ## Générer le PDF
 
