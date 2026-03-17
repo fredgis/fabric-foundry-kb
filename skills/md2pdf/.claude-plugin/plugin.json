@@ -1,0 +1,16 @@
+{
+  "name": "md2pdf",
+  "description": "Generate professional PDFs from Markdown files with Mermaid diagram support using pandoc + xelatex",
+  "version": "1.0.0",
+  "author": {
+    "name": "frgisber"
+  },
+  "keywords": [
+    "markdown",
+    "pdf",
+    "mermaid",
+    "pandoc",
+    "xelatex",
+    "document"
+  ]
+}
