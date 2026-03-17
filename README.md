@@ -11,6 +11,7 @@ Collection de documents techniques et guides de troubleshooting.
 | **[MLinFabric.md](MLinFabric.md)** | Bonnes pratiques pour les ML Model Endpoints dans Microsoft Fabric |
 | **[MLinFabric.pdf](MLinFabric.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
 | **[Foundry_Agents_MCP_Tools.md](Foundry_Agents_MCP_Tools.md)** | Azure AI Foundry Agents & MCP Tools — Prompt Agent vs Hosted Agent comparison with MongoDB MCP examples, architecture diagrams, and deployment guide |
+| **[Foundry_Agents_MCP_Tools.pdf](Foundry_Agents_MCP_Tools.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
 
 ## Générer les PDFs
 
