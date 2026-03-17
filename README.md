@@ -35,3 +35,76 @@ npm install -g @mermaid-js/mermaid-cli
 make          # Génère MLinFabric.pdf
 make clean    # Supprime le PDF généré
 ```
+
+## Installer la skill md2pdf dans GitHub Copilot CLI
+
+La skill `md2pdf` permet à Copilot CLI de générer automatiquement des PDFs depuis n'importe quel fichier Markdown avec support Mermaid. Une fois installée, il suffit de demander "génère un PDF de ce markdown" et Copilot invoque la skill.
+
+### Prérequis système
+
+| Outil | Installation |
+|-------|-------------|
+| pandoc | `winget install JohnMacFarlane.Pandoc` (Windows) ou `apt install pandoc` (Linux) |
+| XeLaTeX | [MiKTeX](https://miktex.org/download) (Windows) ou `apt install texlive-xetex` (Linux) |
+| mmdc | `npm install -g @mermaid-js/mermaid-cli` |
+
+### Installation
+
+**1. Copier le plugin dans le répertoire Copilot CLI :**
+
+```bash
+# Cloner ce repo (ou copier le dossier skills/md2pdf)
+git clone https://github.com/fredgis/Divers.git
+cp -r Divers/skills/md2pdf ~/.copilot/installed-plugins/local/md2pdf
+```
+
+Sur Windows (PowerShell) :
+
+```powershell
+git clone https://github.com/fredgis/Divers.git
+Copy-Item -Recurse "Divers\skills\md2pdf" "$env:USERPROFILE\.copilot\installed-plugins\local\md2pdf"
+```
+
+**2. Enregistrer le plugin dans `~/.copilot/config.json` :**
+
+Ajouter cette entrée dans le tableau `installed_plugins` :
+
+```json
+{
+  "name": "md2pdf",
+  "marketplace": "local",
+  "version": "1.0.0",
+  "installed_at": "2026-03-17T00:00:00.000Z",
+  "enabled": true,
+  "cache_path": "~/.copilot/installed-plugins/local/md2pdf"
+}
+```
+
+> ⚠️ Remplacer `~` par le chemin complet (`/home/user` ou `C:\\Users\\user`) dans `cache_path`.
+
+**3. Redémarrer Copilot CLI :**
+
+```
+/restart
+```
+
+**4. Vérifier :**
+
+```
+/skills
+```
+
+La skill `md2pdf` devrait apparaître dans la liste.
+
+### Utilisation
+
+Une fois installée, demandez simplement :
+
+```
+Génère un PDF de mon_fichier.md
+```
+
+Copilot CLI invoquera automatiquement la skill qui :
+1. Détecte et rend les diagrammes Mermaid en PNG via `mmdc`
+2. Génère le PDF via `pandoc + xelatex` avec table des matières, numérotation et coloration syntaxique
+3. Nettoie les fichiers temporaires
