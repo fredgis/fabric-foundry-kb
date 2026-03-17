@@ -10,6 +10,7 @@ Collection de documents techniques et guides de troubleshooting.
 | **[Fabric_PrivateLink_MFA_Loop_Resolution.pdf](Fabric_PrivateLink_MFA_Loop_Resolution.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
 | **[MLinFabric.md](MLinFabric.md)** | Bonnes pratiques pour les ML Model Endpoints dans Microsoft Fabric |
 | **[MLinFabric.pdf](MLinFabric.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
+| **[Foundry_Agents_MCP_Tools.md](Foundry_Agents_MCP_Tools.md)** | Azure AI Foundry Agents & MCP Tools — Prompt Agent vs Hosted Agent comparison with MongoDB MCP examples, architecture diagrams, and deployment guide |
 
 ## Générer les PDFs
 
