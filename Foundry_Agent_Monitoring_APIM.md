@@ -500,11 +500,50 @@ Export telemetry to Power BI for executive reporting:
 
 ## Prompt Agent vs Hosted Agent — Compatibility
 
-The APIM outbound policy approach described above works differently depending on the agent type. This section explains why and provides the recommended architecture for each.
+The APIM outbound policy approach works with **both** agent types, but with important nuances. This section explains the differences and edge cases.
 
-### Prompt Agent — Full Compatibility ✅
+### What Are Hosted Agents in Foundry?
 
-**Prompt Agents** are fully orchestrated by Foundry. When a caller sends a request via the Responses API, Foundry manages the entire LLM interaction (system prompt, tool calls, model invocation) and returns a response that **always includes** the `usage` object:
+Hosted Agents are **not** raw containers you manage yourself. They are containerized agents that run on **Foundry Agent Service** with a managed hosting adapter (`azure-ai-agentserver-*`). The hosting adapter provides:
+
+- **Automatic protocol translation** — wraps your agent code to expose the standard **Responses API** (same as Prompt Agents)
+- **Built-in OpenTelemetry** — traces, metrics, and logs are exported automatically
+- **Conversation orchestration** — message serialization, streaming, state management
+- **Identity management** — runs with the project managed identity (or a dedicated agent identity when published)
+
+The hosting adapter supports three frameworks:
+
+| Framework | Python | C# |
+|-----------|--------|-----|
+| Microsoft Agent Framework | Yes | Yes |
+| LangGraph | Yes | No |
+| Custom code | Yes | Yes |
+
+### How Hosted Agents Make LLM Calls
+
+In the standard pattern, hosted agents call models through the **Foundry project endpoint** — not directly to Azure OpenAI:
+
+```python
+# Standard hosted agent code — uses Foundry project endpoint
+from agent_framework import ChatAgent
+from agent_framework.azure import AzureAIAgentClient
+
+agent = ChatAgent(
+    chat_client=AzureAIAgentClient(
+        project_endpoint=PROJECT_ENDPOINT,         # Foundry project endpoint
+        model_deployment_name="gpt-4.1",
+        credential=DefaultAzureCredential(),
+    ),
+    instructions="You are a helpful assistant...",
+    tools=[my_tool],
+)
+```
+
+Since the LLM calls go through **Foundry's infrastructure** (not direct Azure OpenAI), and the hosting adapter returns responses in the standard **Responses API format**, the response includes the `usage` object — just like Prompt Agents.
+
+### Prompt Agent — Full Compatibility
+
+**Prompt Agents** are fully orchestrated by Foundry. The Responses API always returns `usage`:
 
 ```json
 {
@@ -521,41 +560,61 @@ The APIM outbound policy approach described above works differently depending on
 
 The APIM outbound policy parses this response and emits metrics — **no changes needed**.
 
-### Hosted Agent — Requires Architectural Adjustment ⚠️
+### Hosted Agent (Standard Pattern) — Full Compatibility
 
-**Hosted Agents** run your code inside a container. The critical difference: **your code makes the LLM calls**, not Foundry. This means:
-
-1. The response returned to the caller is whatever **your code** sends back
-2. The `usage` object is **not guaranteed** in the response
-3. APIM's outbound policy may find nothing to parse
+When using the hosting adapter with `AzureAIAgentClient` (or any adapter-supported framework), the response is also returned in the **Responses API format**. Since the hosting adapter handles protocol translation, the `usage` object is included in the response.
 
 ```mermaid
 graph LR
-    subgraph "Prompt Agent (Foundry orchestrated)"
-        PA_REQ[Request] --> PA_FOUNDRY[Foundry Orchestrator]
-        PA_FOUNDRY --> PA_LLM[LLM Call]
-        PA_LLM --> PA_RESP["Response + usage{tokens}"]
+    subgraph "Both agent types return the Responses API format"
+        direction TB
+        subgraph "Prompt Agent"
+            PA_IN[Request] --> PA_FOUNDRY[Foundry Orchestrator<br/>manages LLM calls]
+            PA_FOUNDRY --> PA_OUT["Response + usage"]
+        end
+        subgraph "Hosted Agent (standard)"
+            HA_IN[Request] --> HA_ADAPTER[Hosting Adapter<br/>azure-ai-agentserver]
+            HA_ADAPTER --> HA_CODE[Your Agent Code]
+            HA_CODE --> HA_LLM[AzureAIAgentClient<br/>calls Foundry project endpoint]
+            HA_LLM --> HA_OUT["Response + usage"]
+        end
     end
 
-    subgraph "Hosted Agent (Your code)"
-        HA_REQ[Request] --> HA_CODE[Your Container Code]
-        HA_CODE --> HA_LLM[LLM Call — your SDK]
-        HA_LLM --> HA_RESP["Response — usage maybe missing"]
-    end
-
-    style PA_RESP fill:#107C10,color:#fff
-    style HA_RESP fill:#D83B01,color:#fff
+    style PA_OUT fill:#107C10,color:#fff
+    style HA_OUT fill:#107C10,color:#fff
+    style PA_FOUNDRY fill:#0078D4,color:#fff
+    style HA_ADAPTER fill:#0078D4,color:#fff
 ```
 
-### Solution: Double-Hop APIM Pattern
+**Result**: The same APIM outbound policy works for both Prompt and Hosted agents.
 
-The recommended pattern for Hosted Agents: route the container's own Azure OpenAI calls **back through APIM**. This way, APIM captures token usage at the LLM level, even though the agent response itself doesn't include it.
+### Edge Case: Hosted Agent with External LLM Calls
+
+The only scenario where token tracking breaks is when a hosted agent **bypasses** the Foundry project endpoint and calls LLMs directly (e.g., direct Azure OpenAI, Anthropic API, or a self-hosted model):
+
+```python
+# ⚠️ Edge case — hosted agent bypasses Foundry
+from openai import AzureOpenAI
+client = AzureOpenAI(
+    azure_endpoint="https://my-aoai.openai.azure.com",  # Direct call, bypasses Foundry
+    api_key=os.environ["AOAI_KEY"],
+)
+```
+
+In this case:
+1. The hosting adapter cannot report `usage` for calls it doesn't manage
+2. The Responses API response may have **partial or missing** `usage` data
+3. APIM outbound policy has incomplete information
+
+### Solution for Edge Cases: Double-Hop APIM Pattern
+
+If your hosted agent must call LLMs directly (not through the Foundry project endpoint), route those calls through APIM:
 
 ```mermaid
 sequenceDiagram
     participant User
     participant APIM as APIM (AI Gateway)
-    participant HA as Hosted Agent Container
+    participant HA as Hosted Agent<br/>(Agent Service)
     participant AOAI as Azure OpenAI
 
     User->>APIM: POST /agents/my-hosted-agent<br/>(sub key = finance-team)
@@ -563,12 +622,12 @@ sequenceDiagram
     rect rgb(230, 245, 255)
         Note over APIM: Hop 1 — Caller tracking
         APIM->>APIM: Inbound: stamp caller-id
-        APIM->>HA: Forward to container
+        APIM->>HA: Forward to Agent Service
     end
 
     rect rgb(255, 245, 230)
         Note over HA: Agent logic executes
-        HA->>APIM: POST /openai/deployments/gpt-4.1/chat/completions<br/>(internal sub key = hosted-agent-pool)
+        HA->>APIM: Direct LLM call via APIM<br/>(internal sub key)
 
         rect rgb(255, 240, 240)
             Note over APIM: Hop 2 — Token tracking
@@ -580,30 +639,25 @@ sequenceDiagram
         APIM-->>HA: Response + tokens
     end
 
-    HA-->>APIM: Agent response (text)
+    HA-->>APIM: Agent response (Responses API)
     APIM-->>User: Agent response
 
     Note over APIM: Both hops logged to<br/>Application Insights
 ```
 
-### Hop 2 — APIM Policy for Azure OpenAI
-
-On the second hop (Hosted Agent → APIM → Azure OpenAI), use the **built-in** `azure-openai-emit-token-metric` policy instead of a custom outbound policy. This policy is optimized for the ChatCompletions response format:
+**Hop 2 APIM Policy** — use the built-in `azure-openai-emit-token-metric`:
 
 ```xml
-<!-- API: Azure OpenAI (internal, called by hosted agents) -->
+<!-- API: Azure OpenAI (internal, called by hosted agents with direct LLM calls) -->
 <inbound>
     <base />
-    <!-- Identify which hosted agent is calling -->
     <set-variable name="caller-agent"
         value="@(context.Request.Headers.GetValueOrDefault("X-Agent-Name", "unknown-agent"))" />
-
     <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
 </inbound>
 
 <outbound>
     <base />
-    <!-- Built-in policy: extracts prompt_tokens, completion_tokens from AOAI response -->
     <azure-openai-emit-token-metric namespace="FoundryAgents.LLM">
         <dimension name="AgentName"
                    value="@(context.Request.Headers.GetValueOrDefault("X-Agent-Name", "unknown"))" />
@@ -615,42 +669,45 @@ On the second hop (Hosted Agent → APIM → Azure OpenAI), use the **built-in**
 </outbound>
 ```
 
-### Hosted Agent Container Configuration
-
-In your hosted agent code, point Azure OpenAI calls to APIM instead of the direct endpoint:
+**Container configuration** — point direct LLM calls to APIM:
 
 ```python
-# ❌ Before — calls Azure OpenAI directly (invisible to APIM)
+# In your hosted agent code — redirect direct LLM calls through APIM
 from openai import AzureOpenAI
 client = AzureOpenAI(
-    azure_endpoint="https://my-aoai.openai.azure.com",
-    api_key=os.environ["AOAI_KEY"],
-)
-
-# ✅ After — calls Azure OpenAI through APIM (tokens tracked)
-client = AzureOpenAI(
-    azure_endpoint=os.environ["APIM_BASE"],       # e.g. https://my-apim.azure-api.net
-    api_key=os.environ["APIM_INTERNAL_SUB_KEY"],   # APIM subscription key for internal agents
+    azure_endpoint=os.environ["APIM_BASE"],           # APIM, not direct AOAI
+    api_key=os.environ["APIM_INTERNAL_SUB_KEY"],       # APIM subscription key
     default_headers={
         "X-Agent-Name": os.environ.get("AGENT_NAME", "my-hosted-agent"),
     },
 )
 ```
 
-> **Environment variables** to set in your container / Kubernetes deployment:
->
-> | Variable | Value |
-> |----------|-------|
-> | `APIM_BASE` | `https://<your-apim>.azure-api.net` |
-> | `APIM_INTERNAL_SUB_KEY` | Subscription key for the "Internal Agents" APIM product |
-> | `AGENT_NAME` | Name of this agent (for attribution in metrics) |
+Set these **environment variables** in your hosted agent definition:
 
-### KQL: Correlating Both Hops
+```python
+agent = client.agents.create_version(
+    agent_name="my-agent",
+    definition=HostedAgentDefinition(
+        # ... image, cpu, memory ...
+        environment_variables={
+            "AZURE_AI_PROJECT_ENDPOINT": PROJECT_ENDPOINT,
+            "APIM_BASE": "https://my-apim.azure-api.net",
+            "APIM_INTERNAL_SUB_KEY": "<subscription-key>",    # Use Key Vault connection instead
+            "AGENT_NAME": "my-agent",
+        }
+    )
+)
+```
 
-To see the **full picture** (who called which agent, and how many tokens each agent consumed at the LLM level), join the two trace sources:
+> **Security note**: Don't put the APIM subscription key directly in environment variables. Use a [Key Vault connection](https://learn.microsoft.com/en-us/azure/foundry/how-to/set-up-key-vault-connection) as recommended by the Foundry documentation.
+
+### KQL: Correlating Both Hops (Edge Case Only)
+
+When a hosted agent uses the double-hop pattern, correlate caller identity (Hop 1) with token usage (Hop 2):
 
 ```kql
-// Hop 1: Caller → Agent (from custom outbound trace)
+// Hop 1: Caller -> Agent (from custom outbound trace)
 let hop1 = traces
 | where message has "foundry.agent.usage"
 | extend p = parse_json(message)
@@ -658,7 +715,7 @@ let hop1 = traces
           agent_name = tostring(p["agent_name"]),
           operation_id;
 
-// Hop 2: Agent → Azure OpenAI (from azure-openai-emit-token-metric)
+// Hop 2: Agent -> Azure OpenAI (from azure-openai-emit-token-metric)
 let hop2 = customMetrics
 | where name == "FoundryAgents.LLM.TokenUsage"
 | extend agent = tostring(customDimensions["AgentName"]),
@@ -677,12 +734,13 @@ hop2
 
 ### Summary: Compatibility Matrix
 
-| Agent Type | APIM Outbound Parses Response? | Token Tracking Method | Client Changes |
-|-----------|-------------------------------|----------------------|----------------|
-| **Prompt Agent** | ✅ Yes — `usage` always present | Custom `emit-metric` + `trace` on Hop 1 | None |
-| **Hosted Agent** (AOAI via APIM) | ⚠️ `usage` may be missing | `azure-openai-emit-token-metric` on Hop 2 | Point AOAI SDK to APIM |
-| **Hosted Agent** (AOAI direct) | ❌ Invisible | ❌ No tracking possible | Must refactor to route through APIM |
-| **Hosted Agent** (custom `usage` in response) | ✅ If developer includes it | Custom `emit-metric` on Hop 1 | Developer must add `usage` to response |
+| Scenario | Responses API `usage`? | APIM Outbound Works? | Action Required |
+|----------|----------------------|---------------------|-----------------|
+| **Prompt Agent** | Always present | Yes | None |
+| **Hosted Agent** (standard — AzureAIAgentClient) | Present (hosting adapter) | Yes | None |
+| **Hosted Agent** (LangGraph via adapter) | Present (hosting adapter) | Yes | None |
+| **Hosted Agent** (direct Azure OpenAI calls) | May be missing | Partial | Route LLM calls through APIM (double-hop) |
+| **Hosted Agent** (external LLM — Anthropic, etc.) | Missing | No | Route through APIM or implement custom logging |
 
 ---
 
