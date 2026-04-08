@@ -1,6 +1,6 @@
 # Monitoring Foundry Agents — Per-User Token Tracking via APIM AI Gateway
 
-> Track **who** uses **which agent**, how many **tokens** are consumed, and the **estimated cost** — all with granular, queryable telemetry in Application Insights.
+> Track **who** uses **which agent**, how many **tokens** are consumed, and the **estimated cost** — all with per-caller attribution that Foundry's built-in tracing does not natively provide.
 
 ---
 
@@ -16,21 +16,53 @@
 - [Step 5 — Dashboards and Alerts](#step-5--dashboards-and-alerts)
 - [Prompt Agent vs Hosted Agent — Compatibility](#prompt-agent-vs-hosted-agent--compatibility)
 - [Full Python Solution](#full-python-solution)
+- [Enterprise Considerations](#enterprise-considerations)
 - [References](#references)
 
 ---
 
 ## Overview
 
-Azure AI Foundry provides built-in tracing per agent, but does **not** natively attribute usage to individual callers. By routing all agent traffic through **Azure API Management (APIM)** acting as an **AI Gateway**, every request is enriched with caller metadata and — critically — **token usage is extracted server-side from the Foundry response by APIM outbound policies**, not by client code.
+### What Foundry Already Provides (Built-In)
+
+Microsoft Foundry has **built-in observability** for agents. Once you connect an Application Insights resource to your Foundry project, server-side traces are captured automatically for:
+
+- **Prompt Agents** — tracing is **generally available (GA)**
+- **Hosted Agents, Workflow Agents, Custom Agents** — tracing is in **public preview**
+
+Built-in tracing captures per-agent:
+- User inputs and agent outputs
+- Tool usage (tool calls, arguments, results)
+- **Token consumption** (input tokens, output tokens, total tokens)
+- Latency and duration per span
+- Error tracking and retries
+
+This data is stored in Application Insights and viewable in the Foundry portal under **Agents → Traces** (last 90 days). For client-side visibility, you can instrument your code with the `azure-ai-projects` SDK and `AIProjectInstrumentor`.
+
+> **Reference**: [Trace agent concepts](https://learn.microsoft.com/en-us/azure/foundry/observability/concepts/trace-agent-concept) · [Setup tracing](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-setup) · [Client-side tracing](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-client-side)
+
+### What Foundry Does NOT Provide
+
+Foundry's native tracing operates **per-agent** — it knows which agent ran, which model was called, and how many tokens were consumed. But it does **not** natively:
+
+- Attribute usage to **individual callers** (which user, team, or application triggered the call)
+- Enforce **per-user quotas** or rate limits (Agent Service has no API rate limits — only model deployment limits)
+- Provide **cost allocation** per caller/team
+- Add **RBAC-based access control** to specific agents (any authenticated user can call any agent in the project)
+
+### What APIM Adds
+
+By routing all agent traffic through **Azure API Management (APIM)** acting as an **AI Gateway**, every request is enriched with caller metadata and — critically — **token usage is extracted server-side from the Foundry response by APIM outbound policies**, then correlated with the caller identity.
 
 This means:
 
+- **Per-caller attribution** — who consumed how many tokens on which agent
 - **Zero client instrumentation** — callers just call APIM, no tracking SDK needed
 - **Tamper-proof** — metrics are emitted by the gateway, not by the consumer
 - **Universal** — any client (Python, C#, curl, Power Automate) is automatically tracked
-- Per-user, per-agent token consumption with cost estimation
-- Real-time dashboards, budget alerts, and full audit trail
+- **Per-user quotas and rate limits** — enforced at the gateway level
+- **Agent-level RBAC** — via APIM Products and Subscriptions
+- **Cost estimation** per request, per user, per model
 
 ---
 
@@ -116,8 +148,8 @@ sequenceDiagram
 | Component | Required |
 |-----------|----------|
 | Azure AI Foundry project | With agents deployed (Prompt or Hosted) |
+| Application Insights | Connected to the Foundry project ([setup guide](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-setup)) |
 | Azure API Management | Standard v2 or Premium (for `emit-metric` policy support) |
-| Application Insights | Connected to both Foundry project **and** APIM diagnostic settings |
 | APIM Diagnostic Settings | Enabled → sends `ApiManagementGatewayLogs` to App Insights |
 | Python packages (optional, for querying) | `azure-identity`, `azure-monitor-query`, `httpx` |
 | Azure CLI | Authenticated (`az login`) |
@@ -127,18 +159,54 @@ sequenceDiagram
 pip install httpx azure-identity azure-monitor-query python-dotenv
 ```
 
-> **Key difference from client-side approaches**: The client does NOT need `opentelemetry`, `azure-monitor-opentelemetry`, or any tracking SDK. Token extraction and metric emission happen entirely in APIM outbound policies.
+> **Important**: Foundry Agent Service does **not** impose rate limits on API calls. Rate limiting is applied only at the model deployment level ([see limits](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/limits-quotas-regions)). APIM adds the per-caller rate limiting layer described in Step 3.
+
+> **Key difference from client-side approaches**: The client does NOT need `opentelemetry`, `azure-monitor-opentelemetry`, or any tracking SDK for per-caller attribution. Token extraction and metric emission happen entirely in APIM outbound policies. Client-side SDK tracing (Step 1) is for Foundry's built-in per-agent tracing — a complementary layer.
 
 ---
 
 ## Step 1 — Connect Application Insights to Foundry
 
-1. **Azure Portal** → Microsoft Foundry → your project
-2. **Management Center** → **Observability**
-3. Click **Connect** → select or create an Application Insights resource
+This step enables **Foundry's built-in tracing** (per-agent). APIM's per-caller tracking builds on top of this.
+
+1. **Foundry portal** → your project → **Agents** → **Traces** tab
+2. Click **Connect** → select or create an Application Insights resource
+3. Alternatively: **Project details** → **Connected resources** → **Add connection** → **Application Insights**
 4. Assign **Log Analytics Reader** role to users who need to query traces
 
-> This enables Foundry's native agent tracing (agent name, model, latency, errors). APIM adds the caller dimension.
+> Once connected, Foundry automatically logs server-side traces for Prompt agents (GA), Hosted agents (preview), and Workflows (preview). Traces appear in the Foundry portal within 2–5 minutes and are retained for 90 days.
+
+### Optional: Client-Side Tracing (SDK)
+
+For deeper visibility into your client application code, install the SDK tracing packages:
+
+```bash
+pip install azure-ai-projects azure-identity opentelemetry-sdk azure-core-tracing-opentelemetry azure-monitor-opentelemetry
+```
+
+Then instrument your code:
+
+```python
+import os
+os.environ["AZURE_EXPERIMENTAL_ENABLE_GENAI_TRACING"] = "true"
+
+from azure.ai.projects import AIProjectClient
+from azure.ai.projects.telemetry import AIProjectInstrumentor
+from azure.identity import DefaultAzureCredential
+from azure.monitor.opentelemetry import configure_azure_monitor
+
+# Get App Insights connection string from the project
+client = AIProjectClient(endpoint=PROJECT_ENDPOINT, credential=DefaultAzureCredential())
+conn_str = client.telemetry.get_application_insights_connection_string()
+configure_azure_monitor(connection_string=conn_str)
+
+# Enable GenAI tracing instrumentation
+AIProjectInstrumentor().instrument()
+```
+
+> Client-side tracing captures spans for model calls, tool invocations, and custom logic. It supports trace context propagation (W3C) for distributed tracing across services.
+>
+> **Reference**: [Client-side tracing](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-client-side) · [Framework integrations](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-framework)
 
 ---
 
@@ -504,6 +572,8 @@ The APIM outbound policy approach works with **both** agent types, but with impo
 
 ### What Are Hosted Agents in Foundry?
 
+> **Important**: Hosted Agents are currently in **public preview**. Tracing for hosted agents is also in preview. Some features may change or have constraints. See [limits and regions](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/limits-quotas-regions).
+
 Hosted Agents are **not** raw containers you manage yourself. They are containerized agents that run on **Foundry Agent Service** with a managed hosting adapter (`azure-ai-agentserver-*`). The hosting adapter provides:
 
 - **Automatic protocol translation** — wraps your agent code to expose the standard **Responses API** (same as Prompt Agents)
@@ -541,9 +611,9 @@ agent = ChatAgent(
 
 Since the LLM calls go through **Foundry's infrastructure** (not direct Azure OpenAI), and the hosting adapter returns responses in the standard **Responses API format**, the response includes the `usage` object — just like Prompt Agents.
 
-### Prompt Agent — Full Compatibility
+### Prompt Agent — Full Compatibility (GA)
 
-**Prompt Agents** are fully orchestrated by Foundry. The Responses API always returns `usage`:
+**Prompt Agents** are fully orchestrated by Foundry. Tracing is **generally available (GA)**. The Responses API always returns `usage`:
 
 ```json
 {
@@ -560,7 +630,9 @@ Since the LLM calls go through **Foundry's infrastructure** (not direct Azure Op
 
 The APIM outbound policy parses this response and emits metrics — **no changes needed**.
 
-### Hosted Agent (Standard Pattern) — Full Compatibility
+### Hosted Agent (Standard Pattern) — Full Compatibility (Preview)
+
+> **Note**: Tracing for hosted agents is in **public preview**. The Responses API format and `usage` object behavior may change.
 
 When using the hosting adapter with `AzureAIAgentClient` (or any adapter-supported framework), the response is also returned in the **Responses API format**. Since the hosting adapter handles protocol translation, the `usage` object is included in the response.
 
@@ -734,13 +806,13 @@ hop2
 
 ### Summary: Compatibility Matrix
 
-| Scenario | Responses API `usage`? | APIM Outbound Works? | Action Required |
-|----------|----------------------|---------------------|-----------------|
-| **Prompt Agent** | Always present | Yes | None |
-| **Hosted Agent** (standard — AzureAIAgentClient) | Present (hosting adapter) | Yes | None |
-| **Hosted Agent** (LangGraph via adapter) | Present (hosting adapter) | Yes | None |
-| **Hosted Agent** (direct Azure OpenAI calls) | May be missing | Partial | Route LLM calls through APIM (double-hop) |
-| **Hosted Agent** (external LLM — Anthropic, etc.) | Missing | No | Route through APIM or implement custom logging |
+| Scenario | Tracing Status | Responses API `usage`? | APIM Outbound Works? | Action Required |
+|----------|:-------------:|:---------------------:|:-------------------:|-----------------|
+| **Prompt Agent** | GA | Always present | Yes | None |
+| **Hosted Agent** (standard — AzureAIAgentClient) | Preview | Present (hosting adapter) | Yes | None |
+| **Hosted Agent** (LangGraph via adapter) | Preview | Present (hosting adapter) | Yes | None |
+| **Hosted Agent** (direct Azure OpenAI calls) | Preview | May be missing | Partial | Route LLM calls through APIM (double-hop) |
+| **Hosted Agent** (external LLM — Anthropic, etc.) | Preview | Missing | No | Route through APIM or implement custom logging |
 
 ---
 
@@ -933,16 +1005,71 @@ if __name__ == "__main__":
 
 ---
 
+## Enterprise Considerations
+
+### Capability Hosts
+
+For production deployments with compliance or data sovereignty requirements, configure **capability hosts** to control where agent data is stored:
+
+| Resource | Purpose | Azure Service |
+|----------|---------|---------------|
+| Thread storage | Conversation history, agent definitions | Azure Cosmos DB |
+| File storage | Uploaded documents, blob storage | Azure Storage Account |
+| Vector store | Embeddings and retrieval | Azure AI Search |
+
+Capability hosts are configured at account and project levels via REST API. Without them, Agent Service uses Microsoft-managed resources.
+
+> **Reference**: [Capability hosts](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/capability-hosts)
+
+### Framework-Specific Tracing
+
+If your agents use specific frameworks, Foundry provides native tracing integrations that complement APIM's per-caller tracking:
+
+| Framework | Tracing Support | Additional Setup |
+|-----------|----------------|-----------------|
+| Microsoft Agent Framework | Automatic — no code changes | None |
+| LangChain / LangGraph | Via `langchain-azure-ai` package | `AzureAIOpenTelemetryTracer` callback |
+| OpenAI Agents SDK | Via `AIProjectInstrumentor` | Set `AZURE_EXPERIMENTAL_ENABLE_GENAI_TRACING=true` |
+| Custom code | Manual with `@trace_function` decorator | Add decorator to key functions |
+
+These integrations emit OpenTelemetry-compliant spans (using [GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/)) that appear in the Foundry portal **Traces** view alongside APIM's caller-attributed metrics.
+
+> **Reference**: [Tracing integrations](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-framework)
+
+### Security and Privacy
+
+Tracing can capture sensitive information. Follow these practices:
+
+- **Don't store secrets** in prompts, tool arguments, or span attributes
+- **Redact PII** before it enters telemetry — enable content recording (`OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`) only in development
+- **Configure retention policies** on Application Insights to comply with GDPR / data retention requirements
+- **Treat trace data as production telemetry** — apply the same access controls you use for logs and metrics
+
+### Observability Layers Summary
+
+| Layer | What It Tracks | Per-Agent | Per-Caller | Setup |
+|-------|---------------|:---------:|:----------:|-------|
+| **Foundry built-in tracing** | Inputs, outputs, tools, tokens, latency | Yes | No | Connect App Insights to project |
+| **Client-side SDK tracing** | Model calls, tool invocations, custom spans | Yes | No | `AIProjectInstrumentor().instrument()` |
+| **APIM outbound policy** (this guide) | Tokens + cost correlated with caller identity | Yes | **Yes** | APIM as AI Gateway + outbound policies |
+| **APIM diagnostics** | Request/response logs, HTTP status, latency | Yes | **Yes** | APIM → App Insights diagnostic settings |
+
+---
+
 ## References
 
 | Resource | Link |
 |----------|------|
-| Tracking Every Token — Microsoft Tech Community | [techcommunity.microsoft.com](https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/tracking-every-token-granular-cost-and-usage-metrics-for-microsoft-foundry-agent/4503143) |
+| Trace Agent Concepts | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/foundry/observability/concepts/trace-agent-concept) |
 | Set Up Tracing for Agents | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-setup) |
+| Client-Side Tracing (Python/C#) | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-client-side) |
+| Framework Tracing Integrations | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/trace-agent-framework) |
+| Agent Limits, Quotas, and Regions | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/limits-quotas-regions) |
+| Capability Hosts | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/capability-hosts) |
+| Hosted Agents | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents) |
 | Agent Monitoring Dashboard | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/foundry/observability/how-to/how-to-monitor-agents-dashboard) |
-| Monitor AI Agents with App Insights | [learn.microsoft.com](https://learn.microsoft.com/en-us/azure/azure-monitor/app/agents-view) |
+| Tracking Every Token — Tech Community | [techcommunity.microsoft.com](https://techcommunity.microsoft.com/blog/azure-ai-foundry-blog/tracking-every-token-granular-cost-and-usage-metrics-for-microsoft-foundry-agent/4503143) |
 | Full sample repo (APIM + App Insights) | [github.com/ccoellomsft](https://github.com/ccoellomsft/foundry-agents-apim-appinsights) |
-| OpenTelemetry Tracing in Foundry | [willvelida.com](https://www.willvelida.com/posts/azure-ai-agents-tracing/) |
 
 ---
 
