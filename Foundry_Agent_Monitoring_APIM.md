@@ -11,7 +11,7 @@
 - [Prerequisites](#prerequisites)
 - [Step 1 — Connect Application Insights to Foundry](#step-1--connect-application-insights-to-foundry)
 - [Step 2 — Configure APIM as AI Gateway](#step-2--configure-apim-as-ai-gateway)
-- [Step 3 — Instrument Token Tracking](#step-3--instrument-token-tracking)
+- [Step 3 — Enable APIM Diagnostic Settings](#step-3--enable-apim-diagnostic-settings)
 - [Step 4 — KQL Queries for Monitoring](#step-4--kql-queries-for-monitoring)
 - [Step 5 — Dashboards and Alerts](#step-5--dashboards-and-alerts)
 - [Full Python Solution](#full-python-solution)
@@ -21,14 +21,15 @@
 
 ## Overview
 
-Azure AI Foundry provides built-in tracing per agent, but does **not** natively attribute usage to individual callers. By routing all agent traffic through **Azure API Management (APIM)** acting as an **AI Gateway**, every request is enriched with caller metadata (user, subscription, product) before reaching the agent.
+Azure AI Foundry provides built-in tracing per agent, but does **not** natively attribute usage to individual callers. By routing all agent traffic through **Azure API Management (APIM)** acting as an **AI Gateway**, every request is enriched with caller metadata and — critically — **token usage is extracted server-side from the Foundry response by APIM outbound policies**, not by client code.
 
-Combined with **OpenTelemetry** and **Application Insights**, this enables:
+This means:
 
-- Per-user, per-agent token consumption tracking
-- Cost estimation per request, per user, per model
-- Real-time dashboards and budget alerts
-- Audit trail of every agent invocation
+- **Zero client instrumentation** — callers just call APIM, no tracking SDK needed
+- **Tamper-proof** — metrics are emitted by the gateway, not by the consumer
+- **Universal** — any client (Python, C#, curl, Power Automate) is automatically tracked
+- Per-user, per-agent token consumption with cost estimation
+- Real-time dashboards, budget alerts, and full audit trail
 
 ---
 
@@ -87,19 +88,24 @@ sequenceDiagram
     participant User
     participant APIM as APIM (AI Gateway)
     participant Agent as Foundry Agent
-    participant OTel as OpenTelemetry
     participant AppIns as Application Insights
 
     User->>APIM: POST /agents/FinanceBot<br/>(Bearer token + sub key)
-    APIM->>APIM: Authenticate, rate-limit,<br/>stamp caller metadata
+    APIM->>APIM: Inbound: authenticate,<br/>rate-limit, stamp caller metadata
     APIM->>Agent: Forward request
     Agent-->>APIM: Response + usage{input_tokens, output_tokens}
-    APIM-->>User: Response text
 
-    APIM->>OTel: track_llm_usage()<br/>(agent, model, user, tokens, cost)
-    OTel->>AppIns: customMetrics + traces
+    rect rgb(255, 240, 240)
+        Note over APIM: Outbound Policy
+        APIM->>APIM: Parse response body<br/>Extract usage object
+        APIM->>APIM: Calculate cost from<br/>model pricing table
+        APIM->>AppIns: emit-metric + trace<br/>(caller, agent, model, tokens, cost)
+    end
+
+    APIM-->>User: Response text (unchanged)
 
     Note over AppIns: Queryable via KQL<br/>within 2-5 minutes
+    Note over User: Client has ZERO<br/>tracking responsibility
 ```
 
 ---
@@ -109,14 +115,18 @@ sequenceDiagram
 | Component | Required |
 |-----------|----------|
 | Azure AI Foundry project | With agents deployed (Prompt or Hosted) |
-| Azure API Management | Any tier (Consumption, Standard v2, etc.) |
-| Application Insights | Connected to the Foundry project |
-| Python packages | `httpx`, `azure-identity`, `azure-monitor-opentelemetry`, `opentelemetry-api`, `azure-monitor-query` |
+| Azure API Management | Standard v2 or Premium (for `emit-metric` policy support) |
+| Application Insights | Connected to both Foundry project **and** APIM diagnostic settings |
+| APIM Diagnostic Settings | Enabled → sends `ApiManagementGatewayLogs` to App Insights |
+| Python packages (optional, for querying) | `azure-identity`, `azure-monitor-query`, `httpx` |
 | Azure CLI | Authenticated (`az login`) |
 
 ```bash
-pip install httpx azure-identity azure-monitor-opentelemetry opentelemetry-api azure-monitor-query
+# Client-side — only needed if you want to query usage programmatically
+pip install httpx azure-identity azure-monitor-query python-dotenv
 ```
+
+> **Key difference from client-side approaches**: The client does NOT need `opentelemetry`, `azure-monitor-opentelemetry`, or any tracking SDK. Token extraction and metric emission happen entirely in APIM outbound policies.
 
 ---
 
@@ -145,9 +155,9 @@ Backend URL: https://<resource>.services.ai.azure.com/api/projects/<project>
 
 APIM authenticates users via **subscription keys** or **OAuth 2.0**. Each subscription key maps to a user or team — this is the identity dimension in your telemetry.
 
-### 2.3 — APIM Policy for metadata enrichment
+### 2.3 — APIM Inbound Policy — Caller Metadata
 
-Add this inbound policy to stamp every request with caller metadata:
+Add this **inbound** policy to stamp every request with caller metadata:
 
 ```xml
 <inbound>
@@ -171,7 +181,104 @@ Add this inbound policy to stamp every request with caller metadata:
 </inbound>
 ```
 
-### 2.4 — APIM Subscription per user/team
+### 2.4 — APIM Outbound Policy — Server-Side Token Extraction
+
+This is the critical part. The **outbound** policy intercepts the Foundry response, parses the `usage` object, calculates cost, and emits metrics + traces to Application Insights — **without any client involvement**.
+
+```xml
+<outbound>
+    <base />
+
+    <!-- ═══ 1. Read and preserve the response body ═══ -->
+    <set-variable name="responseBody"
+        value="@(context.Response.Body.As<JObject>(preserveContent: true))" />
+
+    <!-- ═══ 2. Extract token usage from Foundry response ═══ -->
+    <set-variable name="input-tokens" value="@{
+        var body = (JObject)context.Variables["responseBody"];
+        return body["usage"]?["input_tokens"]?.ToString() ?? "0";
+    }" />
+    <set-variable name="output-tokens" value="@{
+        var body = (JObject)context.Variables["responseBody"];
+        return body["usage"]?["output_tokens"]?.ToString() ?? "0";
+    }" />
+    <set-variable name="total-tokens" value="@{
+        var body = (JObject)context.Variables["responseBody"];
+        return body["usage"]?["total_tokens"]?.ToString() ?? "0";
+    }" />
+    <set-variable name="model-name" value="@{
+        var body = (JObject)context.Variables["responseBody"];
+        return body["model"]?.ToString() ?? "unknown";
+    }" />
+
+    <!-- ═══ 3. Calculate estimated cost (USD) ═══ -->
+    <set-variable name="cost-usd" value="@{
+        var inTok  = int.Parse((string)context.Variables["input-tokens"]);
+        var outTok = int.Parse((string)context.Variables["output-tokens"]);
+        var model  = (string)context.Variables["model-name"];
+
+        // Per-token pricing (USD) — update as pricing changes
+        var inputPrice  = 0.002  / 1000.0;  // default
+        var outputPrice = 0.008  / 1000.0;
+        if (model.Contains("4o-mini"))  { inputPrice = 0.00015 / 1000.0; outputPrice = 0.0006 / 1000.0; }
+        else if (model.Contains("4o")) { inputPrice = 0.0025  / 1000.0; outputPrice = 0.010  / 1000.0; }
+        else if (model.Contains("5-mini")) { inputPrice = 0.0003 / 1000.0; outputPrice = 0.0012 / 1000.0; }
+
+        var cost = (inTok * inputPrice) + (outTok * outputPrice);
+        return cost.ToString("F6");
+    }" />
+
+    <!-- ═══ 4. Emit custom metrics to Azure Monitor ═══ -->
+    <emit-metric name="FoundryAgent.TokenUsage"
+                 value="@(int.Parse((string)context.Variables["total-tokens"]))"
+                 namespace="FoundryAgents">
+        <dimension name="CallerID"
+                   value="@(context.Subscription?.DisplayName ?? context.User?.Id ?? "anonymous")" />
+        <dimension name="AgentName" value="@(context.Api.Name)" />
+        <dimension name="Model" value="@((string)context.Variables["model-name"])" />
+    </emit-metric>
+
+    <emit-metric name="FoundryAgent.CostUSD"
+                 value="@(double.Parse((string)context.Variables["cost-usd"]))"
+                 namespace="FoundryAgents">
+        <dimension name="CallerID"
+                   value="@(context.Subscription?.DisplayName ?? context.User?.Id ?? "anonymous")" />
+        <dimension name="AgentName" value="@(context.Api.Name)" />
+        <dimension name="Model" value="@((string)context.Variables["model-name"])" />
+    </emit-metric>
+
+    <!-- ═══ 5. Emit structured trace for per-request audit trail ═══ -->
+    <trace source="foundry.agent.usage" severity="information">
+        <message>@{
+            return new JObject(
+                new JProperty("caller_id",         context.Subscription?.DisplayName ?? "anonymous"),
+                new JProperty("agent_name",        context.Api.Name),
+                new JProperty("model",             (string)context.Variables["model-name"]),
+                new JProperty("input_tokens",      (string)context.Variables["input-tokens"]),
+                new JProperty("output_tokens",     (string)context.Variables["output-tokens"]),
+                new JProperty("total_tokens",      (string)context.Variables["total-tokens"]),
+                new JProperty("cost_usd",          (string)context.Variables["cost-usd"]),
+                new JProperty("operation_id",      context.RequestId.ToString()),
+                new JProperty("subscription_name", context.Subscription?.Name ?? "none"),
+                new JProperty("product_name",      context.Product?.DisplayName ?? "none"),
+                new JProperty("client_ip",         context.Request.IpAddress)
+            ).ToString();
+        }</message>
+    </trace>
+</outbound>
+```
+
+> **Why this is better than client-side tracking:**
+>
+> | Aspect | Client-side (old) | APIM Outbound (new) |
+> |--------|-------------------|---------------------|
+> | **Bypass risk** | Any client that skips the SDK → no tracking | Every request through APIM is tracked |
+> | **Client complexity** | Must install OTel SDK + configure | Just call the API — zero instrumentation |
+> | **Trust model** | Client reports its own usage (honor system) | Gateway extracts from actual response |
+> | **Language support** | Python only (or rewrite per language) | Any HTTP client (curl, C#, JS, Power Automate) |
+> | **Tamper-proof** | Client can lie about token counts | APIM reads the real Foundry response |
+
+### 2.5 — APIM Subscription per user/team
 
 Create subscriptions in APIM for each caller:
 
@@ -185,168 +292,97 @@ Each subscription key becomes the `caller-id` in your telemetry.
 
 ---
 
-## Step 3 — Instrument Token Tracking
+## Step 3 — Enable APIM Diagnostic Settings
 
-The client calling APIM extracts the `usage` object from the Foundry response and pushes metrics to Application Insights via OpenTelemetry.
+For APIM to emit the `trace` and `emit-metric` data to Application Insights, you must configure diagnostic settings.
 
-### Core tracking function
+### 3.1 — Connect App Insights to APIM
 
-```python
-import logging
-from azure.monitor.opentelemetry import configure_azure_monitor
-from opentelemetry import metrics
+1. **Azure Portal** → API Management → your APIM instance
+2. **Application Insights** blade → **+ Add**
+3. Select the same App Insights resource connected to Foundry
+4. Set **Sampling** to `100%` for full audit trail (reduce in high-volume production)
 
-# ── Initialize once at startup ─────────────────────────────────────────
-configure_azure_monitor(connection_string=APP_INSIGHTS_CONN)
+### 3.2 — Enable API-level diagnostics
 
-logger = logging.getLogger("agent.token.metrics")
-logger.setLevel(logging.INFO)
-logger.propagate = True  # Required for OTel handler
+For each API (agent), enable Application Insights logging:
 
-meter = metrics.get_meter("agent.token.metrics")
-prompt_counter     = meter.create_counter("llm.prompt_tokens",     unit="tokens")
-completion_counter = meter.create_counter("llm.completion_tokens", unit="tokens")
-total_counter      = meter.create_counter("llm.total_tokens",      unit="tokens")
-cost_counter       = meter.create_counter("llm.request_cost_usd",  unit="USD")
+1. **APIs** → select your Foundry agent API
+2. **Settings** → **Diagnostics** → select the App Insights logger
+3. Enable **Request body** and **Response body** logging (optional, for debugging)
 
-# Per-model pricing (USD per token)
-MODEL_PRICING = {
-    "gpt-4.1":     {"input": 0.002 / 1000,   "output": 0.008 / 1000},
-    "gpt-4o":      {"input": 0.0025 / 1000,  "output": 0.010 / 1000},
-    "gpt-4o-mini": {"input": 0.00015 / 1000, "output": 0.0006 / 1000},
-    "gpt-5-mini":  {"input": 0.0003 / 1000,  "output": 0.0012 / 1000},
-}
+### 3.3 — Rate Limiting and Quotas (recommended)
 
+Add rate limiting per subscription to prevent abuse:
 
-def track_llm_usage(
-    prompt_tokens: int,
-    completion_tokens: int,
-    model: str,
-    agent_name: str,
-    caller_id: str = "unknown",
-    operation_id: str = "unknown",
-):
-    """Record token metrics + log to App Insights with caller attribution."""
-    total = prompt_tokens + completion_tokens
-    pricing = MODEL_PRICING.get(model, {"input": 0.0, "output": 0.0})
-    cost = (prompt_tokens * pricing["input"]) + (completion_tokens * pricing["output"])
+```xml
+<inbound>
+    <!-- ... existing inbound policies ... -->
 
-    dims = {
-        "agent_name": agent_name,
-        "model": model,
-        "caller_id": caller_id,
-        "operation_id": operation_id,
-    }
+    <!-- Rate limit: max 100 calls per minute per subscription -->
+    <rate-limit-by-key calls="100" renewal-period="60"
+        counter-key="@(context.Subscription.Id)" />
 
-    # Counters → customMetrics table
-    prompt_counter.add(prompt_tokens, dims)
-    completion_counter.add(completion_tokens, dims)
-    total_counter.add(total, dims)
-    cost_counter.add(cost, dims)
-
-    # Logger → traces table (queryable via KQL)
-    logger.info(
-        "llm.usage",
-        extra={
-            "custom_dimensions": {
-                "agent_name": agent_name,
-                "model": model,
-                "caller_id": caller_id,
-                "operation_id": operation_id,
-                "prompt_tokens": str(prompt_tokens),
-                "completion_tokens": str(completion_tokens),
-                "total_tokens": str(total),
-                "cost_usd": str(round(cost, 6)),
-            }
-        },
-    )
+    <!-- Quota: max 5000 calls and 50MB per day per subscription -->
+    <quota-by-key calls="5000" bandwidth="50000" renewal-period="86400"
+        counter-key="@(context.Subscription.Id)" />
+</inbound>
 ```
 
-### Agent call function with caller tracking
+### 3.4 — OAuth 2.0 Authentication (production)
 
-```python
-import httpx
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+For production deployments, replace subscription keys with **Entra ID OAuth 2.0**:
 
-credential = DefaultAzureCredential()
-_token_fn = get_bearer_token_provider(credential, "https://ai.azure.com/.default")
+```xml
+<inbound>
+    <base />
+    <!-- Validate JWT from Entra ID -->
+    <validate-azure-ad-token tenant-id="{{tenant-id}}"
+                             output-token-variable-name="jwt-token">
+        <client-application-ids>
+            <application-id>{{allowed-client-app-id}}</application-id>
+        </client-application-ids>
+    </validate-azure-ad-token>
 
+    <!-- Extract caller from JWT claims -->
+    <set-variable name="caller-id"
+        value="@(((Jwt)context.Variables["jwt-token"]).Claims.GetValueOrDefault("preferred_username", "anonymous"))" />
+    <set-variable name="caller-oid"
+        value="@(((Jwt)context.Variables["jwt-token"]).Claims.GetValueOrDefault("oid", ""))" />
 
-def call_agent(
-    agent_name: str,
-    user_message: str,
-    caller_id: str = "unknown",
-) -> str:
-    """Call a Foundry agent via APIM, track tokens per caller."""
-    token = _token_fn()
-
-    r = httpx.post(
-        f"{APIM_BASE}/foundry/models/{agent_name}",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Ocp-Apim-Subscription-Key": APIM_SUB_KEY,
-            "Ocp-Apim-Trace": "true",
-            "Content-Type": "application/json",
-        },
-        json={"model": "gpt-4.1", "input": user_message},
-        params={"api-version": API_VERSION},
-        timeout=60,
-    )
-    r.raise_for_status()
-    data = r.json()
-
-    # Track token usage with caller attribution
-    usage = data.get("usage", {})
-    if usage:
-        track_llm_usage(
-            prompt_tokens=usage.get("input_tokens", 0),
-            completion_tokens=usage.get("output_tokens", 0),
-            model=data.get("model", "gpt-4.1"),
-            agent_name=agent_name,
-            caller_id=caller_id,
-        )
-
-    # Extract response text
-    for item in data.get("output", []):
-        for part in item.get("content", []):
-            if part.get("type") == "output_text":
-                return part["text"]
-
-    return str(data)
+    <!-- Continue with managed identity to Foundry -->
+    <authentication-managed-identity resource="https://ai.azure.com" />
+</inbound>
 ```
 
-### Usage
-
-```python
-# Each call is attributed to a specific caller
-answer = call_agent("FinanceBot", "Summarize Q4 earnings", caller_id="finance-team")
-answer = call_agent("HRAssistant", "What is the PTO policy?", caller_id="hr-portal")
-answer = call_agent("FinanceBot", "Project revenue for Q1", caller_id="cfo-dashboard")
-```
+> With OAuth, the `caller-id` dimension in your metrics is the actual Entra ID user principal name — no ambiguity.
 
 ---
 
 ## Step 4 — KQL Queries for Monitoring
 
-Run these in **Application Insights → Logs**.
+Run these in **Application Insights → Logs**. The data comes from APIM outbound `trace` policy — no client instrumentation needed.
 
 ### Per-request audit trail
 
 ```kql
 traces
-| where message == "llm.usage"
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\""))
+| where message has "foundry.agent.usage"
+| extend payload = parse_json(message)
 | extend
-    agent_name        = tostring(cd["agent_name"]),
-    model             = tostring(cd["model"]),
-    caller_id         = tostring(cd["caller_id"]),
-    prompt_tokens     = toint(cd["prompt_tokens"]),
-    completion_tokens = toint(cd["completion_tokens"]),
-    total_tokens      = toint(cd["total_tokens"]),
-    cost_usd          = todouble(cd["cost_usd"])
+    agent_name        = tostring(payload["agent_name"]),
+    model             = tostring(payload["model"]),
+    caller_id         = tostring(payload["caller_id"]),
+    input_tokens      = toint(payload["input_tokens"]),
+    output_tokens     = toint(payload["output_tokens"]),
+    total_tokens      = toint(payload["total_tokens"]),
+    cost_usd          = todouble(payload["cost_usd"]),
+    client_ip         = tostring(payload["client_ip"]),
+    subscription_name = tostring(payload["subscription_name"]),
+    product_name      = tostring(payload["product_name"])
 | project timestamp, caller_id, agent_name, model,
-          prompt_tokens, completion_tokens, total_tokens, cost_usd
+          input_tokens, output_tokens, total_tokens, cost_usd,
+          client_ip, subscription_name, product_name
 | order by timestamp desc
 ```
 
@@ -354,14 +390,13 @@ traces
 
 ```kql
 traces
-| where message == "llm.usage" and timestamp > ago(30d)
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\""))
+| where message has "foundry.agent.usage" and timestamp > ago(30d)
+| extend payload = parse_json(message)
 | summarize
     total_calls  = count(),
-    total_tokens = sum(toint(cd["total_tokens"])),
-    total_cost   = sum(todouble(cd["cost_usd"]))
-  by caller_id = tostring(cd["caller_id"])
+    total_tokens = sum(toint(payload["total_tokens"])),
+    total_cost   = sum(todouble(payload["cost_usd"]))
+  by caller_id = tostring(payload["caller_id"])
 | order by total_cost desc
 ```
 
@@ -369,16 +404,15 @@ traces
 
 ```kql
 traces
-| where message == "llm.usage" and timestamp > ago(30d)
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\""))
+| where message has "foundry.agent.usage" and timestamp > ago(30d)
+| extend payload = parse_json(message)
 | summarize
     calls        = count(),
-    total_tokens = sum(toint(cd["total_tokens"])),
-    total_cost   = sum(todouble(cd["cost_usd"]))
-  by caller_id   = tostring(cd["caller_id"]),
-     agent_name  = tostring(cd["agent_name"]),
-     model       = tostring(cd["model"])
+    total_tokens = sum(toint(payload["total_tokens"])),
+    total_cost   = sum(todouble(payload["cost_usd"]))
+  by caller_id   = tostring(payload["caller_id"]),
+     agent_name  = tostring(payload["agent_name"]),
+     model       = tostring(payload["model"])
 | order by total_cost desc
 ```
 
@@ -386,14 +420,13 @@ traces
 
 ```kql
 traces
-| where message == "llm.usage" and timestamp > ago(7d)
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\""))
+| where message has "foundry.agent.usage" and timestamp > ago(7d)
+| extend payload = parse_json(message)
 | summarize
     total_calls  = count(),
-    avg_tokens   = avg(toint(cd["total_tokens"])),
-    total_cost   = sum(todouble(cd["cost_usd"]))
-  by agent_name = tostring(cd["agent_name"])
+    avg_tokens   = avg(toint(payload["total_tokens"])),
+    total_cost   = sum(todouble(payload["cost_usd"]))
+  by agent_name = tostring(payload["agent_name"])
 | top 10 by total_cost desc
 ```
 
@@ -401,13 +434,12 @@ traces
 
 ```kql
 traces
-| where message == "llm.usage" and timestamp > ago(30d)
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\""))
+| where message has "foundry.agent.usage" and timestamp > ago(30d)
+| extend payload = parse_json(message)
 | summarize
-    daily_cost = sum(todouble(cd["cost_usd"]))
+    daily_cost = sum(todouble(payload["cost_usd"]))
   by bin(timestamp, 1d),
-     agent_name = tostring(cd["agent_name"])
+     agent_name = tostring(payload["agent_name"])
 | render timechart
 ```
 
@@ -415,14 +447,13 @@ traces
 
 ```kql
 traces
-| where message == "llm.usage" and timestamp > ago(7d)
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\""))
+| where message has "foundry.agent.usage" and timestamp > ago(7d)
+| extend payload = parse_json(message)
 | summarize
-    avg_prompt     = avg(toint(cd["prompt_tokens"])),
-    avg_completion = avg(toint(cd["completion_tokens"])),
-    ratio          = avg(todouble(cd["prompt_tokens"])) / avg(todouble(cd["completion_tokens"]))
-  by agent_name = tostring(cd["agent_name"])
+    avg_input      = avg(toint(payload["input_tokens"])),
+    avg_output     = avg(toint(payload["output_tokens"])),
+    ratio          = avg(todouble(payload["input_tokens"])) / avg(todouble(payload["output_tokens"]))
+  by agent_name = tostring(payload["agent_name"])
 | order by ratio desc
 ```
 
@@ -448,11 +479,10 @@ Create an alert rule when a caller exceeds a token budget:
 
 ```kql
 traces
-| where message == "llm.usage" and timestamp > ago(1d)
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\""))
-| summarize daily_cost = sum(todouble(cd["cost_usd"]))
-  by caller_id = tostring(cd["caller_id"])
+| where message has "foundry.agent.usage" and timestamp > ago(1d)
+| extend payload = parse_json(message)
+| summarize daily_cost = sum(todouble(payload["cost_usd"]))
+  by caller_id = tostring(payload["caller_id"])
 | where daily_cost > 5.00
 ```
 
@@ -469,14 +499,15 @@ Export telemetry to Power BI for executive reporting:
 
 ## Full Python Solution
 
+Since token tracking is handled entirely by APIM outbound policies, the client code is a **thin wrapper** — no OTel SDK, no tracking logic, just call the API.
+
 ### Configuration (`.env`)
 
 ```env
-APP_INSIGHTS_CONN=InstrumentationKey=<key>;IngestionEndpoint=<endpoint>;LiveEndpoint=<live>;ApplicationId=<id>
-APP_INSIGHTS_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Insights/components/<name>
 APIM_BASE=https://<your-apim>.azure-api.net
 APIM_SUB_KEY=<your-subscription-key>
 API_VERSION=2025-11-15-preview
+APP_INSIGHTS_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Insights/components/<name>
 ```
 
 ### `requirements.txt`
@@ -484,119 +515,50 @@ API_VERSION=2025-11-15-preview
 ```
 httpx
 azure-identity
-azure-monitor-opentelemetry
-opentelemetry-api
-opentelemetry-sdk
 azure-monitor-query
 python-dotenv
 ```
 
-### `agent_monitor.py`
+### `agent_client.py` — Thin client (no tracking SDK)
 
 ```python
 """
-Foundry Agent Monitor — Call agents via APIM with per-caller token tracking.
+Foundry Agent Client — Call agents via APIM.
+Token tracking is handled server-side by APIM outbound policies.
 
 Usage:
-    from agent_monitor import call_agent
-    answer = call_agent("MyAgent", "Hello", caller_id="user@contoso.com")
+    from agent_client import call_agent
+    answer = call_agent("MyAgent", "Hello")
 """
 
 import os
-import logging
-import atexit
-
 import httpx
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-from azure.monitor.opentelemetry import configure_azure_monitor
-from opentelemetry import metrics
 
 load_dotenv(override=True)
 
 # ── Configuration ────────────────────────────────────────────────────────────
-APP_INSIGHTS_CONN = os.environ["APP_INSIGHTS_CONN"]
-APIM_BASE         = os.environ["APIM_BASE"]
-APIM_SUB_KEY      = os.environ["APIM_SUB_KEY"]
-API_VERSION       = os.getenv("API_VERSION", "2025-11-15-preview")
-
-# ── OpenTelemetry + App Insights ─────────────────────────────────────────────
-configure_azure_monitor(connection_string=APP_INSIGHTS_CONN)
-
-logger = logging.getLogger("agent.token.metrics")
-logger.setLevel(logging.INFO)
-logger.propagate = True
-
-meter = metrics.get_meter("agent.token.metrics")
-_counters = {
-    name: meter.create_counter(f"llm.{name}", unit=unit)
-    for name, unit in [
-        ("prompt_tokens", "tokens"),
-        ("completion_tokens", "tokens"),
-        ("total_tokens", "tokens"),
-        ("request_cost_usd", "USD"),
-    ]
-}
-
-MODEL_PRICING = {
-    "gpt-4.1":     {"input": 0.002 / 1000,   "output": 0.008 / 1000},
-    "gpt-4o":      {"input": 0.0025 / 1000,  "output": 0.010 / 1000},
-    "gpt-4o-mini": {"input": 0.00015 / 1000, "output": 0.0006 / 1000},
-    "gpt-5-mini":  {"input": 0.0003 / 1000,  "output": 0.0012 / 1000},
-}
+APIM_BASE    = os.environ["APIM_BASE"]
+APIM_SUB_KEY = os.environ["APIM_SUB_KEY"]
+API_VERSION  = os.getenv("API_VERSION", "2025-11-15-preview")
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 credential = DefaultAzureCredential()
 _token_fn = get_bearer_token_provider(credential, "https://ai.azure.com/.default")
 
 
-def track_llm_usage(
-    prompt_tokens: int,
-    completion_tokens: int,
-    model: str,
-    agent_name: str,
-    caller_id: str = "unknown",
-    operation_id: str = "request",
-):
-    total = prompt_tokens + completion_tokens
-    pricing = MODEL_PRICING.get(model, {"input": 0.0, "output": 0.0})
-    cost = (prompt_tokens * pricing["input"]) + (completion_tokens * pricing["output"])
-
-    dims = {
-        "agent_name": agent_name,
-        "model": model,
-        "caller_id": caller_id,
-        "operation_id": operation_id,
-    }
-
-    _counters["prompt_tokens"].add(prompt_tokens, dims)
-    _counters["completion_tokens"].add(completion_tokens, dims)
-    _counters["total_tokens"].add(total, dims)
-    _counters["request_cost_usd"].add(cost, dims)
-
-    logger.info(
-        "llm.usage",
-        extra={
-            "custom_dimensions": {
-                "agent_name": agent_name,
-                "model": model,
-                "caller_id": caller_id,
-                "operation_id": operation_id,
-                "prompt_tokens": str(prompt_tokens),
-                "completion_tokens": str(completion_tokens),
-                "total_tokens": str(total),
-                "cost_usd": str(round(cost, 6)),
-            }
-        },
-    )
-
-
 def call_agent(
     agent_name: str,
     user_message: str,
-    caller_id: str = "unknown",
     model: str = "gpt-4.1",
 ) -> str:
+    """
+    Call a Foundry agent via APIM.
+
+    Token usage is automatically extracted and tracked by the APIM
+    outbound policy — no client-side instrumentation needed.
+    """
     token = _token_fn()
 
     r = httpx.post(
@@ -604,7 +566,6 @@ def call_agent(
         headers={
             "Authorization": f"Bearer {token}",
             "Ocp-Apim-Subscription-Key": APIM_SUB_KEY,
-            "Ocp-Apim-Trace": "true",
             "Content-Type": "application/json",
         },
         json={"model": model, "input": user_message},
@@ -614,36 +575,32 @@ def call_agent(
     r.raise_for_status()
     data = r.json()
 
-    usage = data.get("usage", {})
-    if usage:
-        track_llm_usage(
-            prompt_tokens=usage.get("input_tokens", 0),
-            completion_tokens=usage.get("output_tokens", 0),
-            model=data.get("model", model),
-            agent_name=agent_name,
-            caller_id=caller_id,
-        )
-
+    # Extract response text
     for item in data.get("output", []):
         for part in item.get("content", []):
             if part.get("type") == "output_text":
                 return part["text"]
 
     return str(data)
-
-
-def _shutdown():
-    provider = metrics.get_meter_provider()
-    if hasattr(provider, "shutdown"):
-        provider.shutdown()
-
-atexit.register(_shutdown)
 ```
 
-### `query_usage.py`
+### Usage
 
 ```python
-"""Query token usage from Application Insights."""
+# Just call the agent — APIM handles all tracking
+answer = call_agent("FinanceBot", "Summarize Q4 earnings")
+answer = call_agent("HRAssistant", "What is the PTO policy?")
+answer = call_agent("FinanceBot", "Project revenue for Q1")
+
+# The APIM subscription key identifies who you are.
+# Token metrics are automatically emitted by the gateway.
+# No OpenTelemetry. No tracking SDK. No client-side logic.
+```
+
+### `query_usage.py` — Query token metrics from App Insights
+
+```python
+"""Query token usage from Application Insights (emitted by APIM policies)."""
 
 import os
 from azure.identity import DefaultAzureCredential
@@ -657,44 +614,42 @@ APP_INSIGHTS_RESOURCE_ID = os.environ["APP_INSIGHTS_RESOURCE_ID"]
 QUERIES = {
     "per_request": """
 traces
-| where message == "llm.usage"
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\\""))
+| where message has "foundry.agent.usage"
+| extend payload = parse_json(message)
 | project
     timestamp,
-    caller_id         = tostring(cd["caller_id"]),
-    agent_name        = tostring(cd["agent_name"]),
-    model             = tostring(cd["model"]),
-    prompt_tokens     = toint(cd["prompt_tokens"]),
-    completion_tokens = toint(cd["completion_tokens"]),
-    total_tokens      = toint(cd["total_tokens"]),
-    cost_usd          = todouble(cd["cost_usd"])
+    caller_id         = tostring(payload["caller_id"]),
+    agent_name        = tostring(payload["agent_name"]),
+    model             = tostring(payload["model"]),
+    input_tokens      = toint(payload["input_tokens"]),
+    output_tokens     = toint(payload["output_tokens"]),
+    total_tokens      = toint(payload["total_tokens"]),
+    cost_usd          = todouble(payload["cost_usd"]),
+    client_ip         = tostring(payload["client_ip"])
 | order by timestamp desc
 """,
     "by_caller": """
 traces
-| where message == "llm.usage" and timestamp > ago(30d)
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\\""))
+| where message has "foundry.agent.usage" and timestamp > ago(30d)
+| extend payload = parse_json(message)
 | summarize
     total_calls  = count(),
-    total_tokens = sum(toint(cd["total_tokens"])),
-    total_cost   = sum(todouble(cd["cost_usd"]))
-  by caller_id = tostring(cd["caller_id"])
+    total_tokens = sum(toint(payload["total_tokens"])),
+    total_cost   = sum(todouble(payload["cost_usd"]))
+  by caller_id = tostring(payload["caller_id"])
 | order by total_cost desc
 """,
     "by_caller_agent": """
 traces
-| where message == "llm.usage" and timestamp > ago(30d)
-| extend cd = parse_json(replace_string(
-    tostring(customDimensions["custom_dimensions"]), "'", "\\""))
+| where message has "foundry.agent.usage" and timestamp > ago(30d)
+| extend payload = parse_json(message)
 | summarize
     calls        = count(),
-    total_tokens = sum(toint(cd["total_tokens"])),
-    total_cost   = sum(todouble(cd["cost_usd"]))
-  by caller_id  = tostring(cd["caller_id"]),
-     agent_name = tostring(cd["agent_name"]),
-     model      = tostring(cd["model"])
+    total_tokens = sum(toint(payload["total_tokens"])),
+    total_cost   = sum(todouble(payload["cost_usd"]))
+  by caller_id  = tostring(payload["caller_id"]),
+     agent_name = tostring(payload["agent_name"]),
+     model      = tostring(payload["model"])
 | order by total_cost desc
 """,
 }
