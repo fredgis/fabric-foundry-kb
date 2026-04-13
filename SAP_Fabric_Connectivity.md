@@ -1,9 +1,11 @@
 # SAP Connectivity in Microsoft Fabric
 
-**Last updated:** April 2026  
-**Sources:** Microsoft Fabric Documentation, Ignite 2025, FabCon 2026
+\begin{center}
+{\large April 2026 -- Complete Reference Guide}\\[4pt]
+{\small Based on: Microsoft Fabric Documentation, Ignite 2025, FabCon 2026}
+\end{center}
 
----
+\vspace{8pt}
 
 ## Overview
 
@@ -76,6 +78,10 @@ graph TD
     class F1,F2 fabricCore
     class F3,F4 fabricEnd
 ```
+
+\newpage
+\tableofcontents
+\newpage
 
 ---
 
