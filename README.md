@@ -15,6 +15,8 @@ Collection de documents techniques et guides de troubleshooting.
 | **[skills/md2pdf](skills/md2pdf)** | Copilot CLI skill — Génération de PDF depuis Markdown avec support Mermaid (pandoc + xelatex). Installable dans `~/.copilot/installed-plugins/` |
 | **[Foundry_Agent_Monitoring_APIM.md](Foundry_Agent_Monitoring_APIM.md)** | Monitoring des agents Foundry via APIM AI Gateway — tracking per-user/per-agent des tokens et coûts avec Application Insights, KQL queries, dashboards et alertes |
 | **[Foundry_Agent_Monitoring_APIM.pdf](Foundry_Agent_Monitoring_APIM.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
+| **[SAP_Fabric_Connectivity.md](SAP_Fabric_Connectivity.md)** | SAP Connectivity in Microsoft Fabric -- toutes les méthodes de connexion SAP vers Fabric (8 connecteurs, Mirroring GA, Copy Job CDC, decision guide). Annonces Ignite 2025 et FabCon 2026 |
+| **[SAP_Fabric_Connectivity.pdf](SAP_Fabric_Connectivity.pdf)** | Version PDF avec 5 diagrammes Mermaid couleur, page de titre, table des matières, callouts stylés |
 
 ## Générer les PDFs
 
@@ -110,9 +112,5 @@ Copilot CLI invoquera automatiquement la skill qui :
 1. Détecte et rend les diagrammes Mermaid en PNG via `mmdc`
 2. Génère le PDF via `pandoc + xelatex` avec table des matières, numérotation et coloration syntaxique
 3. Nettoie les fichiers temporaires
+
 
-## SAP Connectivity in Microsoft Fabric
-
-**File:** [SAP_Fabric_Connectivity.md](SAP_Fabric_Connectivity.md) | [SAP_Fabric_Connectivity.pdf](SAP_Fabric_Connectivity.pdf)
-
-Complete guide covering all SAP-to-Fabric connection methods: 7 Data Factory connectors (SAP BW, HANA, Tables), Mirroring for SAP GA (via SAP Datasphere), Copy Job CDC. Includes Ignite 2025 and FabCon 2026 announcements.

@@ -1,22 +1,7 @@
 # SAP Connectivity in Microsoft Fabric
 
 **Last updated:** April 2026  
-**Sources:** Official Microsoft Fabric documentation, Fabric November 2025 Feature Summary (Ignite 2025), Fabric March 2026 Feature Summary (FabCon 2026)
-
----
-
-## Glossary
-
-| Acronym | Definition |
-|---------|-----------|
-| **CDC** | Change Data Capture — mechanism to track inserts, updates, and deletes |
-| **CDS** | Core Data Services — SAP data modeling framework exposing ABAP entities as views |
-| **ODP** | Operational Data Provisioning — SAP's standard delta extraction framework |
-| **SLT** | SAP Landscape Transformation — trigger-based real-time replication within SAP |
-| **OPDG** | On-Premises Data Gateway — Microsoft gateway for secure on-prem data access |
-| **NCo** | SAP .NET Connector — library required to communicate with SAP via RFC |
-| **RFC** | Remote Function Call — SAP's native protocol for inter-system communication |
-| **Direct Lake** | Power BI mode reading Delta Lake files directly from OneLake (no import) |
+**Sources:** Microsoft Fabric Documentation, Ignite 2025, FabCon 2026
 
 ---
 
@@ -24,16 +9,16 @@
 
 Microsoft Fabric offers multiple ways to connect to SAP systems, ranging from traditional batch/ETL connectors in Data Factory to near real-time replication via Mirroring. The right approach depends on freshness requirements, SAP source system, availability of SAP Datasphere, and the desired analytics pattern.
 
-> **Power BI Direct Lake (GA March 2026):** Data ingested into OneLake — whether via connectors, Copy Job, or Mirroring — can be consumed by Power BI using Direct Lake mode. This eliminates the need for data import or intermediate semantic models, ensuring dashboards reflect the latest data with near-in-memory performance.
+> **Power BI Direct Lake (GA March 2026):** Data ingested into OneLake -- whether via connectors, Copy Job, or Mirroring -- can be consumed by Power BI using Direct Lake mode. This eliminates the need for data import or intermediate semantic models, ensuring dashboards reflect the latest data with near-in-memory performance.
 
 ```mermaid
 graph TD
     subgraph SAP["SAP Systems"]
-        S1[SAP S/4HANA<br/>on-prem & cloud]
+        S1[SAP S/4HANA<br/>on-prem and cloud]
         S2[SAP ECC]
         S3[SAP BW / BW4HANA]
         S4[SAP HANA DB]
-        S5[SAP SuccessFactors<br/>Ariba · Concur]
+        S5[SAP SuccessFactors<br/>Ariba - Concur]
     end
 
     subgraph Methods["Connection Methods"]
@@ -45,8 +30,8 @@ graph TD
     subgraph Fabric["Microsoft Fabric"]
         F1[OneLake<br/>Delta Lake]
         F2[Lakehouse<br/>SQL Endpoint]
-        F3[Power BI<br/>Semantic Models]
-        F4[Notebooks<br/>& Pipelines]
+        F3[Power BI<br/>Direct Lake]
+        F4[Notebooks<br/>and Pipelines]
     end
 
     S1 & S2 & S3 & S4 & S5 --> M1
@@ -83,180 +68,254 @@ graph TD
 
 Seven dedicated SAP connectors are available in Microsoft Fabric Data Factory for scheduled or on-demand data extraction. An **OData connector** is also available for SAP SaaS applications (SuccessFactors, S/4HANA Cloud, C4C) that expose OData APIs.
 
+```mermaid
+graph LR
+    subgraph SAP["SAP System"]
+        A[SAP BW / HANA<br/>ECC / S4 / Tables]
+    end
+    subgraph GW["On-Premises Gateway"]
+        B[OPDG + NCo<br/>SAP .NET Connector]
+    end
+    subgraph DF["Fabric Data Factory"]
+        C[Pipeline<br/>Copy Activity]
+        D[Dataflow Gen2<br/>Power Query]
+        E[Copy Job<br/>Scheduled]
+    end
+    subgraph Dest["Fabric Destination"]
+        F[Lakehouse<br/>Delta Tables]
+    end
+
+    A -->|RFC / SQL / OData| B
+    B --> C
+    B --> D
+    B --> E
+    C --> F
+    D --> F
+    E --> F
+
+    classDef sapStyle fill:#005B97,stroke:#003D66,color:#ffffff,font-weight:bold
+    classDef gwStyle fill:#E8A838,stroke:#C07C10,color:#1a1a1a,font-weight:bold
+    classDef dfStyle fill:#0078D4,stroke:#005A9E,color:#ffffff,font-weight:bold
+    classDef destStyle fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
+
+    class A sapStyle
+    class B gwStyle
+    class C,D,E dfStyle
+    class F destStyle
+```
+
 ### Connector Reference Table
 
-| Connector | Dataflow Gen2 | Pipeline (Copy) | Copy Job | Gateway Required |
-|-----------|:-------------:|:---------------:|:--------:|-----------------|
-| **SAP BW Application Server** | **✓** (Import + DirectQuery) | **--** | **--** | On-premises *(NCo 3.0/3.1 required)* |
-| **SAP BW Message Server** | **✓** (Import + DirectQuery) | **--** | **--** | On-premises *(NCo 3.0/3.1 required)* |
-| **SAP BW Open Hub -- App. Server** | **✓** | **✓** | **--** | On-premises *(gateway hosts SAP drivers)* |
-| **SAP BW Open Hub -- Msg. Server** | **✓** | **✓** | **--** | On-premises |
-| **SAP HANA Database** | **✓** (incl. DirectQuery) | **✓** (Lookup + Copy) | **✓** | On-premises (Basic / Windows auth) |
-| **SAP Table -- App. Server** | **--** | **✓** | **✓** | On-premises *(NCo required)* |
-| **SAP Table -- Message Server** | **--** | **✓** | **--** | On-premises |
-| **OData (generic)** | **✓** | **✓** | **--** | None / On-premises |
+| Connector | Dataflow Gen2 | Pipeline (Copy) | Copy Job | Gateway |
+|-----------|:---:|:---:|:---:|---------|
+| **SAP BW Application Server** | &#9679; Import + DQ | &#9675; | &#9675; | OPDG + NCo 3.x |
+| **SAP BW Message Server** | &#9679; Import + DQ | &#9675; | &#9675; | OPDG + NCo 3.x |
+| **SAP BW Open Hub -- App Server** | &#9679; | &#9679; | &#9675; | OPDG |
+| **SAP BW Open Hub -- Msg Server** | &#9679; | &#9679; | &#9675; | OPDG |
+| **SAP HANA Database** | &#9679; incl. DQ | &#9679; Lookup + Copy | &#9679; | OPDG |
+| **SAP Table -- App Server** | &#9675; | &#9679; | &#9679; | OPDG + NCo |
+| **SAP Table -- Msg Server** | &#9675; | &#9679; | &#9675; | OPDG |
+| **OData (generic)** | &#9679; | &#9679; | &#9675; | None / OPDG |
+
+> **Legend:** &#9679; = Supported | &#9675; = Not supported | DQ = DirectQuery
 
 ### When to Use
 
-- **SAP BW connectors** -- best for extracting data from BW InfoProviders, BEx queries, and Open Hub destinations. Supports BW 7.3, 7.5, BW/4HANA 2.0. Ideal for aggregated datasets rather than full transactional tables.
-- **SAP HANA** -- direct read from HANA views, tables, and stored procedures. Also supports DirectQuery for calculation views via Dataflow Gen2. Supports Copy job for scalable ingestion of large datasets.
-- **SAP Table** -- generic ABAP table/view extraction via RFC. Ideal for standard SAP tables (e.g., `VBAK`, `MARA`, `KNA1`). Suitable for medium-volume extractions.
-- **OData** -- generic REST connector for SAP applications exposing OData APIs. Alternative for SAP SuccessFactors, S/4HANA Cloud, or C4C when SAP Datasphere is not available. Best for small-to-medium volumes (master data, config tables).
+- **SAP BW connectors** -- BW InfoProviders, BEx queries, Open Hub destinations. BW 7.3, 7.5, BW/4HANA 2.0. Best for aggregated datasets.
+- **SAP HANA** -- HANA views, tables, stored procedures. Also supports DirectQuery via Dataflow Gen2.
+- **SAP Table** -- ABAP table/view extraction via RFC (`VBAK`, `MARA`, `KNA1`). Medium-volume extractions.
+- **OData** -- SAP apps exposing OData APIs (SuccessFactors, S/4HANA Cloud, C4C). Small-to-medium volumes.
 
 ### Infrastructure Prerequisites
 
-All SAP connectors (except OData) require the following infrastructure, **even when SAP runs in the cloud (Azure, BTP)**:
+All SAP connectors (except OData) require this infrastructure, **even when SAP runs in the cloud**:
 
-1. **On-Premises Data Gateway (OPDG)** deployed on a server near the SAP system
+1. **On-Premises Data Gateway (OPDG)** deployed near the SAP system
 2. **SAP .NET Connector (NCo) 3.0 or 3.1** installed on the gateway server
-3. **Network access** to SAP: RFC ports (33XX), HANA port (30015), secured via VPN/VNet or ExpressRoute
-4. **SAP technical account** with appropriate authorizations (e.g., `S_RFC` for RFC, `S_TABU_DIS` for table reads)
+3. **Network access** to SAP: RFC ports (33XX), HANA port (30015), via VPN/VNet or ExpressRoute
+4. **SAP technical account** with appropriate authorizations (`S_RFC`, `S_TABU_DIS`)
 
 > **Important limitations:**
 >
-> - **No native CDC** -- these connectors perform full or watermark-based incremental copies only. Deletions in SAP are not tracked; you must manage incremental logic manually (via date columns, change pointers, or full reloads).
-> - **No dedicated connector for SAP SaaS apps** -- SuccessFactors, Ariba, and Concur do not have SAP-specific Fabric connectors. Use the OData connector or the Mirroring/Copy Job CDC approach via SAP Datasphere.
-> - **Performance impact on SAP** -- extracting large volumes via RFC or BW queries consumes SAP resources. BW connectors are best for aggregated data; for massive transactional tables, consider SAP HANA direct or Mirroring.
+> - **No native CDC** -- full or watermark-based incremental only. SAP deletions are not tracked.
+> - **No dedicated connector for SAP SaaS** -- SuccessFactors, Ariba, Concur require OData or Mirroring/CDC.
+> - **Performance impact on SAP** -- large RFC/BW extractions consume SAP resources. For massive tables, prefer HANA direct or Mirroring.
 
 ---
 
 ## Method 2 -- Mirroring for SAP (Near Real-Time)
 
-Mirroring for SAP provides **continuous, near real-time replication** of SAP data into Microsoft Fabric's OneLake, without any custom ETL pipeline to maintain. It operates as a Fabric item ("mirrored database"), fully managed by the platform.
+Mirroring for SAP provides **continuous, near real-time replication** of SAP data into OneLake, without any custom ETL. It operates as a Fabric item ("mirrored database"), fully managed by the platform.
 
 ```mermaid
-sequenceDiagram
-    participant SAP as SAP Application<br/>(S/4HANA, ECC, BW...)
-    participant DS as SAP Datasphere<br/>Premium Outbound Integration
-    participant MF as Fabric Mirroring Engine
-    participant OL as OneLake<br/>(Delta Lake)
-    participant SQL as Fabric SQL<br/>Analytics Endpoint
+graph LR
+    subgraph SAP["SAP Source"]
+        A1[S/4HANA / ECC<br/>BW / BW4HANA]
+        A2[SuccessFactors<br/>Ariba / Concur]
+    end
+    subgraph DS["SAP Datasphere"]
+        B[Premium Outbound<br/>Integration]
+        B2[Replication Flows<br/>ODP / SLT / CDS]
+    end
+    subgraph Fabric["Microsoft Fabric"]
+        C[Mirroring Engine<br/>Continuous Sync]
+        D[OneLake<br/>Delta Lake]
+        E[SQL Endpoint<br/>Auto-created]
+        F[Power BI<br/>Direct Lake]
+    end
 
-    rect rgb(0, 91, 151)
-        note over SAP,DS: SAP Layer — extraction via SLT / ODP / CDS Views
-        SAP->>DS: Native SAP extraction<br/>(change detection)
-    end
-    rect rgb(46, 125, 50)
-        note over DS,MF: Replication Layer — SAP Datasphere Premium Outbound
-        DS->>MF: Replication flows<br/>(inserts / updates / deletes)
-    end
-    rect rgb(106, 13, 173)
-        note over MF,SQL: Microsoft Fabric Layer
-        MF->>OL: Write Delta tables<br/>(near real-time)
-        OL->>SQL: Auto-sync<br/>queryable immediately
-    end
-    SQL-->>SAP: No impact on<br/>production systems
+    A1 -->|ODP / SLT| B
+    A2 -->|OData| B
+    B --> B2
+    B2 -->|Continuous stream| C
+    C --> D
+    D --> E
+    E --> F
+
+    classDef sapStyle fill:#005B97,stroke:#003D66,color:#ffffff,font-weight:bold
+    classDef dsStyle fill:#2E7D32,stroke:#1B5E20,color:#ffffff,font-weight:bold
+    classDef fabricStyle fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
+    classDef biStyle fill:#9C27B0,stroke:#6A0DAD,color:#ffffff,font-weight:bold
+
+    class A1,A2 sapStyle
+    class B,B2 dsStyle
+    class C,D,E fabricStyle
+    class F biStyle
 ```
-
-### Architecture
-
-**Technology stack:**
-- **SAP Datasphere Premium Outbound Integration** — acts as the bridge between SAP source systems and Fabric, leveraging SAP's native data extraction technologies (SLT, ODP, CDS Views).
-- **Fabric Mirroring Engine** — continuously replicates change data into OneLake in Delta Lake format.
-- **SQL Analytics Endpoint** — automatically created, allowing immediate SQL queries over mirrored tables.
 
 ### Supported SAP Sources
 
-| SAP System | Deployment | Support |
-|-----------|-----------|---------|
-| SAP S/4HANA | On-premises | **✓** |
-| SAP S/4HANA Cloud | Cloud (public + private) | **✓** |
-| SAP ECC | On-premises | **✓** |
-| SAP BW | On-premises | **✓** |
-| SAP BW/4HANA | On-premises & cloud | **✓** |
-| SAP SuccessFactors | SaaS | **✓** |
-| SAP Ariba | SaaS | **✓** |
-| SAP Concur | SaaS | **✓** |
+| SAP System | Deployment | Supported |
+|-----------|-----------|:---:|
+| SAP S/4HANA | On-premises | &#9679; |
+| SAP S/4HANA Cloud | Cloud (public + private) | &#9679; |
+| SAP ECC | On-premises | &#9679; |
+| SAP BW | On-premises | &#9679; |
+| SAP BW/4HANA | On-premises and cloud | &#9679; |
+| SAP SuccessFactors | SaaS | &#9679; |
+| SAP Ariba | SaaS | &#9679; |
+| SAP Concur | SaaS | &#9679; |
 
-> **Other SAP systems** (SAP CRM, SRM, SCM, etc.) are typically based on the NetWeaver ABAP stack and are therefore covered through the same ODP/SLT mechanisms as SAP ECC. Any SAP system supporting ODP extraction is eligible for Mirroring via Datasphere.
+> **Other SAP systems** (CRM, SRM, SCM) based on NetWeaver ABAP are covered via ODP/SLT, same as ECC. Any SAP system supporting ODP extraction is eligible.
 
 ### Key Benefits
 
-- **No ETL code to maintain** -- schema evolution is handled automatically; data is replicated as-is (no in-flight transformation -- any transforms must be applied downstream in Fabric)
-- **Near real-time freshness** -- changes flow continuously into OneLake (latency typically seconds to a few minutes depending on SAP/Datasphere throughput)
-- **End-to-end lineage** -- full data governance and audit trail
-- **Native Fabric integration** -- SQL endpoint, Power BI (including Direct Lake mode), Notebooks, and Lakehouses all consume mirrored data directly
-- **Minimal impact on SAP production** -- extraction runs through SAP Datasphere using standard SAP mechanisms (ODP/SLT), not custom queries. Impact is controlled and optimized, though not zero (change journal reads and network transfers do occur)
-- **Up to 1,000 tables** per mirrored database (increased from ~100 during preview at FabCon 2026)
+- **Zero ETL** -- schema evolution handled automatically; raw replication (transforms applied downstream)
+- **Near real-time** -- latency typically seconds to a few minutes
+- **End-to-end lineage** -- full governance and audit trail
+- **Native Fabric integration** -- SQL endpoint, Power BI Direct Lake, Notebooks, Lakehouses
+- **Minimal impact on SAP** -- uses standard ODP/SLT mechanisms via Datasphere (not custom queries)
+- **Up to 1,000 tables** per mirrored database (increased from ~100 at FabCon 2026)
 
 ### Prerequisites
 
-1. **SAP Datasphere** license with **Premium Outbound Integration** add-on (mandatory -- without this, Mirroring is not available)
-2. SAP Datasphere configured with Replication Flows pointing to the SAP source systems
-3. **For on-premises SAP sources:** SAP Data Provisioning Agent (or SAP Cloud Connector) installed on-site to connect SAP ECC/BW/S4 to Datasphere
-4. **For SAP Cloud sources:** OData connections activated in S/4HANA Cloud, SuccessFactors, etc., and registered in Datasphere
-5. Fabric capacity (F2 or higher recommended for production)
-6. Network connectivity: SAP Datasphere to Fabric (outbound HTTPS)
+1. **SAP Datasphere** with **Premium Outbound Integration** (mandatory)
+2. Replication Flows configured in Datasphere
+3. **On-premises SAP:** Data Provisioning Agent or SAP Cloud Connector on-site
+4. **SAP Cloud sources:** OData connections activated and registered in Datasphere
+5. Fabric capacity (F2+ recommended)
+6. Network: SAP Datasphere to Fabric (outbound HTTPS)
 
-> **Note on SAP licensing:** SAP increasingly requires the use of official extraction products (Datasphere, Data Intelligence) rather than third-party tools for ODP-based extraction. This reinforces the Mirroring approach as the strategic, SAP-endorsed path.
+> **SAP licensing note:** SAP requires official extraction products (Datasphere, Data Intelligence) for ODP-based extraction. This reinforces Mirroring as the strategic SAP-endorsed path.
 
 ---
 
 ## Method 3 -- Copy Job CDC for SAP
 
-Introduced at **Ignite 2025**, Copy Job now supports **Change Data Capture (CDC)** for SAP via Datasphere. Unlike Mirroring (which is autonomous), Copy Job CDC provides **explicit orchestration control** within a Data Factory pipeline.
+Introduced at **Ignite 2025**, Copy Job supports **Change Data Capture (CDC)** for SAP via Datasphere. Unlike Mirroring (autonomous), Copy Job CDC provides **explicit orchestration control** within a Data Factory pipeline.
+
+```mermaid
+graph LR
+    subgraph SAP["SAP Source"]
+        A[S/4HANA / ECC<br/>BW / SaaS]
+    end
+    subgraph DS["SAP Datasphere"]
+        B[Replication Flows<br/>ODP / SLT]
+    end
+    subgraph Stage["Staging"]
+        C[ADLS Gen2<br/>Parquet files]
+    end
+    subgraph DF["Fabric Data Factory"]
+        D[Copy Job<br/>Scheduled CDC]
+    end
+    subgraph Dest["Fabric"]
+        E[Lakehouse<br/>Delta merge]
+        F[Power BI<br/>Direct Lake]
+    end
+
+    A -->|Extract deltas| B
+    B -->|Deposit files| C
+    C -->|Read deltas| D
+    D -->|Merge I/U/D| E
+    E --> F
+
+    classDef sapStyle fill:#005B97,stroke:#003D66,color:#ffffff,font-weight:bold
+    classDef dsStyle fill:#2E7D32,stroke:#1B5E20,color:#ffffff,font-weight:bold
+    classDef stageStyle fill:#E8A838,stroke:#C07C10,color:#1a1a1a,font-weight:bold
+    classDef dfStyle fill:#558B2F,stroke:#33691E,color:#ffffff,font-weight:bold
+    classDef destStyle fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
+
+    class A sapStyle
+    class B dsStyle
+    class C stageStyle
+    class D dfStyle
+    class E,F destStyle
+```
 
 ### How It Works
 
-The mechanism operates in two stages:
+Two-stage mechanism:
 
-1. **SAP Datasphere** extracts initial data then delta changes from the SAP source (via ODP/SLT replication flows) and deposits them as files (e.g., Parquet) on an intermediate cloud storage (typically **Azure Data Lake Storage Gen2**).
-2. **Fabric Copy Job** reads those files from ADLS Gen2 and merges inserts/updates/deletes into the target Fabric Lakehouse (Delta tables).
-
-SAP Datasphere acts as the "CDC staging layer" -- the same Replication Flows used for Mirroring can serve Copy Job CDC as well.
+1. **SAP Datasphere** extracts initial data then delta changes (ODP/SLT) and deposits Parquet files on **Azure Data Lake Storage Gen2**.
+2. **Fabric Copy Job** reads those files and merges inserts/updates/deletes into the Fabric Lakehouse (Delta).
 
 ### Feature Summary
 
-| Feature | Details |
-|---------|---------|
+| Feature | Value |
+|---------|:---:|
 | Change types captured | Inserts, Updates, Deletes |
-| Watermark column needed | **--** |
-| Manual refresh needed | **--** (scheduled trigger) |
-| Merge destination | Fabric Lakehouse |
-| Monitoring | Run-level stats: load type, row counts per insert/update/delete |
-| Intermediate storage | ADLS Gen2 (or S3/GCS) configured in Datasphere |
+| Watermark column needed | &#9675; Not required |
+| Manual refresh needed | &#9675; Scheduled trigger |
+| Merge destination | Lakehouse (Delta) |
+| Intermediate storage | ADLS Gen2 / S3 / GCS |
 
 ### Prerequisites
 
-1. **SAP Datasphere** license with **Premium Outbound Integration** (same as Mirroring)
-2. SAP Data Provisioning Agent for on-premises sources (same as Mirroring)
-3. Replication Flows configured in Datasphere targeting a cloud storage container (ADLS Gen2)
-4. Fabric Copy Job configured to read from that storage container
-5. Fabric capacity for the Copy Job execution
+1. **SAP Datasphere** with **Premium Outbound Integration** (same as Mirroring)
+2. Data Provisioning Agent for on-premises sources
+3. Replication Flows targeting a cloud storage container (ADLS Gen2)
+4. Fabric Copy Job configured to read from that container
 
-### When to Prefer Copy Job CDC over Mirroring
+### When to Prefer over Mirroring
 
-- You need to **control the synchronization schedule** (e.g., every 15 min during business hours, pause at night)
-- You want to **integrate SAP CDC into a larger pipeline** with additional steps (transformations, validations, multi-source joins)
-- You need to **limit continuous load** on infrastructure -- scheduled bursts instead of 24/7 streaming
-- **Monitoring** is split across two systems: SAP Datasphere (replication health) and Fabric (Copy Job runs) -- plan accordingly
+- **Control the schedule** (e.g., every 15 min during business hours, pause at night)
+- **Multi-source pipeline** with additional transforms, validations, or joins
+- **Limit continuous load** -- scheduled bursts vs. 24/7 streaming
+- **Monitoring** is split: Datasphere (replication health) + Fabric (Copy Job runs)
 
-> **Latency:** Depends entirely on the scheduled frequency. A 5-minute interval means data can be up to 5 minutes stale. This is near-real-time but not streaming. For continuous freshness, use Mirroring.
+> **Latency** depends on scheduled frequency. A 5-minute interval = up to 5 minutes stale. For continuous freshness, use Mirroring.
 
 ### Copy Job Optimizations (FabCon 2026)
 
-Since March 2026, Copy Job includes enhancements that benefit SAP CDC workflows:
-- **Auto-partitioning** of large copies for better performance
-- **Automatic audit columns** for tracking load history
-- **Zero CU cost when no data changes** -- if no new deltas exist, no compute is consumed
+- **Auto-partitioning** for better performance on large copies
+- **Automatic audit columns** for load tracking
+- **Zero CU cost** when no data changes exist
 
 ---
 
 ## Alternative Approaches
 
-Beyond the three primary methods, additional options exist for specific scenarios:
-
 ### OneLake Shortcuts
 
-If your organization has already extracted SAP data into an external storage (e.g., Azure Data Lake via a legacy ETL or via SAP Datasphere itself), you can create a **OneLake Shortcut** pointing to that data. This avoids re-copying and makes existing SAP data immediately available across Fabric workloads without ingestion.
+If SAP data already exists in external storage (ADLS, S3), create a **OneLake Shortcut** to make it available in Fabric without re-copying.
 
 ### Third-Party ETL Tools
 
-Partners such as Informatica, Boomi, Theobald, and others offer SAP connectors that can write to OneLake. These are not covered here, but they exist as alternatives -- Microsoft's strategic direction favors native connectors and SAP Datasphere.
+Informatica, Boomi, Theobald, and others offer SAP connectors writing to OneLake. Microsoft's strategic direction favors native connectors and SAP Datasphere.
 
 ### Logic Apps / Power Automate
 
-For event-driven micro-integrations (e.g., triggering a Fabric action when an SAP sales order is created), Azure Logic Apps or Power Automate with SAP connectors can push small payloads into Fabric. This is not suitable for bulk data movement but can complement the main methods for real-time event scenarios.
+For event-driven micro-integrations (e.g., SAP order creation triggers a Fabric action). Not suitable for bulk data.
 
 ---
 
@@ -279,7 +338,7 @@ flowchart TD
     E & F & G --> J[(Fabric OneLake<br/>Delta Lake)]
     H --> J
     I --> J
-    J --> K([SQL Endpoint · Power BI<br/>Notebooks · Lakehouse])
+    J --> K([SQL Endpoint - Power BI<br/>Notebooks - Lakehouse])
 
     classDef start fill:#1565C0,stroke:#0D47A1,color:#ffffff,font-weight:bold
     classDef decision fill:#E65100,stroke:#BF360C,color:#ffffff,font-weight:bold
@@ -290,8 +349,7 @@ flowchart TD
     classDef endNode fill:#9C27B0,stroke:#6A0DAD,color:#ffffff,font-weight:bold
 
     class A start
-    class B,D decision
-    class C decision
+    class B,C,D decision
     class E,F,G batchNode
     class H mirrorNode
     class I cdcNode
@@ -306,25 +364,19 @@ flowchart TD
 ### Ignite 2025 -- November 2025
 
 | Feature | Status | Coverage |
-|---------|--------|---------|
-| **Mirroring for SAP** | **Preview** | S/4HANA, BW, BW/4HANA, SuccessFactors, Ariba |
-| **Copy Job CDC for SAP** via Datasphere | **GA** | SAP via Datasphere to Lakehouse |
-
-**What it meant:** For the first time, Fabric offered a near real-time, no-ETL path for SAP data. The preview validated the architecture with early adopters across the SAP customer base.
-
----
+|---------|:---:|---------|
+| **Mirroring for SAP** | &#9673; Preview | S/4HANA, BW, BW/4HANA, SuccessFactors, Ariba |
+| **Copy Job CDC for SAP** | &#9679; GA | SAP via Datasphere to Lakehouse |
 
 ### FabCon 2026 -- March 2026
 
 | Feature | Status | What's New |
-|---------|--------|-----------|
-| **Mirroring for SAP** | **Generally Available** | Added SAP ECC + SAP Concur. Up to 1,000 tables. Production-ready. |
-| **Copy Job enhancements** | **GA** | Auto-partitioning, audit columns, zero-cost when no changes |
-| **Direct Lake for Power BI** | **GA** | Dashboards read Delta Lake directly from OneLake |
+|---------|:---:|-----------|
+| **Mirroring for SAP** | &#9679; GA | + SAP ECC, + Concur. Up to 1,000 tables. |
+| **Copy Job enhancements** | &#9679; GA | Auto-partitioning, audit columns, zero-cost |
+| **Direct Lake for Power BI** | &#9679; GA | Dashboards read Delta directly from OneLake |
 
-**What it means:** Mirroring for SAP is now a fully supported, enterprise-grade capability. Combined with Direct Lake, data flows from SAP to Power BI dashboards with minimal latency and zero intermediate copies.
-
-> Official documentation: [Microsoft Fabric Mirrored Databases From SAP](https://learn.microsoft.com/fabric/mirroring/sap)
+> **Docs:** [Microsoft Fabric Mirrored Databases From SAP](https://learn.microsoft.com/fabric/mirroring/sap)
 
 ---
 
@@ -333,108 +385,115 @@ flowchart TD
 | Criteria | Batch Connectors | Copy Job CDC | Mirroring for SAP |
 |----------|:---:|:---:|:---:|
 | **Freshness** | Hourly to daily | Minutes (scheduled) | Near real-time (continuous) |
-| **Custom ETL needed** | Required (watermark logic) | Minimal (schedule only) | None (zero-ETL) |
-| **SAP Datasphere needed** | **--** Not required | **✓** Required | **✓** Required |
-| **Intermediate storage** | **--** | **✓** ADLS Gen2 | **--** Direct to OneLake |
-| **Supported SAP sources** | BW, HANA, ABAP Tables | Full SAP via Datasphere | Full SAP via Datasphere |
-| **Power BI access** | DirectQuery (BW + HANA), Import | Direct Lake on Lakehouse | SQL Endpoint + Direct Lake |
-| **Native CDC** | **--** Not supported | **✓** Scheduled | **✓** Continuous |
+| **Custom ETL needed** | Required | Minimal | None (zero-ETL) |
+| **SAP Datasphere** | &#9675; Not required | &#9679; Required | &#9679; Required |
+| **Intermediate storage** | &#9675; | &#9679; ADLS Gen2 | &#9675; Direct to OneLake |
+| **SAP sources** | BW, HANA, Tables | Full landscape | Full landscape |
+| **Power BI access** | DQ (BW/HANA) + Import | Direct Lake | SQL Endpoint + Direct Lake |
+| **Native CDC** | &#9675; Not supported | &#9679; Scheduled | &#9679; Continuous |
 | **Max tables** | Per pipeline | Per job | 1,000 per mirrored DB |
-| **In-flight transformation** | Via Dataflow Gen2 | Post-copy only | **--** Raw replication |
+| **In-flight transform** | Via Dataflow Gen2 | Post-copy | &#9675; Raw replication |
 | **GA status** | All GA (2023) | GA (Nov 2025) | GA (March 2026) |
+
+> **Legend:** &#9679; = Yes / Supported | &#9675; = No / Not supported | &#9673; = Preview
 
 ---
 
 ## Recommendations by Scenario
 
-**Historical bulk load** (e.g., migrating years of financial data):
-Use **batch connectors** -- SAP HANA or SAP Table via Pipeline Copy job with partitioning. For very large volumes, consider a staged approach via ADLS Gen2.
+**Historical bulk load** (migrating years of data):
+Use **batch connectors** -- SAP HANA or SAP Table via Pipeline Copy job with partitioning.
 
 **Regular analytics refresh** (daily/hourly dashboards):
-Use **batch connectors** for simple cases, or **Copy Job CDC** if you need incremental deltas without full reloads. Copy Job CDC is ideal when you already have SAP Datasphere.
+Use **batch connectors** for simple cases, or **Copy Job CDC** for incremental deltas.
 
-**Real-time operational analytics** (live sales, inventory, supply chain):
-Use **Mirroring for SAP** -- the most integrated approach, providing continuous data freshness with zero ETL maintenance. Combine with Power BI Direct Lake for instant dashboard updates.
+**Real-time operational analytics** (live sales, inventory):
+Use **Mirroring for SAP** + Power BI Direct Lake for continuous dashboard freshness.
 
-**SAP SaaS applications without Datasphere** (SuccessFactors, Ariba):
-Use the **OData connector** in Data Factory for moderate volumes. For larger needs, invest in SAP Datasphere to unlock Mirroring/CDC.
+**SAP SaaS without Datasphere** (SuccessFactors, Ariba):
+Use the **OData connector** for moderate volumes; invest in Datasphere for scale.
 
-**Multi-source orchestrated pipeline** (SAP + other sources in a controlled flow):
-Use **Copy Job CDC** within a Data Factory pipeline that also handles other sources, transformations, and validations in a unified orchestration.
+**Multi-source orchestrated pipeline** (SAP + other sources):
+Use **Copy Job CDC** in a Data Factory pipeline with transforms and validations.
 
 **No SAP Datasphere available:**
-Use **batch connectors** (BW, HANA, Table) with On-Premises Gateway. Consider **OneLake Shortcuts** if data already exists in an external Data Lake. Plan for SAP Datasphere adoption to unlock CDC and Mirroring capabilities.
+Use **batch connectors** + OPDG. Consider **OneLake Shortcuts** for existing data lakes.
 
 ---
 
-## Appendix -- References
+## Appendix A -- References
 
 ### Mirroring for SAP
 
 | Resource | Link |
 |----------|------|
-| Mirrored Databases from SAP -- Official Docs | <https://learn.microsoft.com/fabric/mirroring/sap> |
-| Mirroring Overview in Microsoft Fabric | <https://learn.microsoft.com/fabric/mirroring/overview> |
-| Extended Capabilities in Mirroring (CDF, Views) | <https://learn.microsoft.com/fabric/mirroring/extended-capabilities> |
-| Mirroring Troubleshooting Guide | <https://learn.microsoft.com/fabric/mirroring/troubleshooting> |
+| Mirrored Databases from SAP | <https://learn.microsoft.com/fabric/mirroring/sap> |
+| Mirroring Overview | <https://learn.microsoft.com/fabric/mirroring/overview> |
+| Extended Capabilities (CDF, Views) | <https://learn.microsoft.com/fabric/mirroring/extended-capabilities> |
+| Troubleshooting Guide | <https://learn.microsoft.com/fabric/mirroring/troubleshooting> |
 
 ### Data Factory SAP Connectors
 
 | Resource | Link |
 |----------|------|
-| Fabric Connector Overview (all connectors) | <https://learn.microsoft.com/fabric/data-factory/connector-overview> |
-| SAP BW Open Hub Connector | <https://learn.microsoft.com/fabric/data-factory/connector-sap-bw-open-hub-overview> |
-| SAP HANA Connector | <https://learn.microsoft.com/fabric/data-factory/connector-sap-hana-database-overview> |
-| SAP Table Connector | <https://learn.microsoft.com/fabric/data-factory/connector-sap-table-overview> |
-| SAP BW Application Server (Power Query) | <https://learn.microsoft.com/power-query/connectors/sap-bw/application-setup-and-connect> |
-| OData Connector (usable for SAP SaaS) | <https://learn.microsoft.com/fabric/data-factory/connector-odata-overview> |
+| Connector Overview (all) | <https://learn.microsoft.com/fabric/data-factory/connector-overview> |
+| SAP BW Open Hub | <https://learn.microsoft.com/fabric/data-factory/connector-sap-bw-open-hub-overview> |
+| SAP HANA | <https://learn.microsoft.com/fabric/data-factory/connector-sap-hana-database-overview> |
+| SAP Table | <https://learn.microsoft.com/fabric/data-factory/connector-sap-table-overview> |
+| SAP BW Application Server | <https://learn.microsoft.com/power-query/connectors/sap-bw/application-setup-and-connect> |
+| OData Connector | <https://learn.microsoft.com/fabric/data-factory/connector-odata-overview> |
 
 ### Copy Job and CDC
 
 | Resource | Link |
 |----------|------|
-| What is Copy Job in Data Factory | <https://learn.microsoft.com/fabric/data-factory/what-is-copy-job> |
-| Change Data Capture (CDC) in Copy Job | <https://learn.microsoft.com/fabric/data-factory/copy-job-change-data-capture> |
-| Copy Job Workspace Monitoring | <https://learn.microsoft.com/fabric/data-factory/copy-job-workspace-monitoring> |
+| What is Copy Job | <https://learn.microsoft.com/fabric/data-factory/what-is-copy-job> |
+| CDC in Copy Job | <https://learn.microsoft.com/fabric/data-factory/copy-job-change-data-capture> |
+| Copy Job Monitoring | <https://learn.microsoft.com/fabric/data-factory/copy-job-workspace-monitoring> |
 
 ### Power BI and OneLake
 
 | Resource | Link |
 |----------|------|
-| Direct Lake Mode in Power BI | <https://learn.microsoft.com/fabric/fundamentals/direct-lake-overview> |
+| Direct Lake Mode | <https://learn.microsoft.com/fabric/fundamentals/direct-lake-overview> |
 | OneLake Shortcuts | <https://learn.microsoft.com/fabric/onelake/onelake-shortcuts> |
 
-### Announcements and Blogs
+### Announcements
 
 | Resource | Link |
 |----------|------|
-| Fabric November 2025 Feature Summary (Ignite 2025) | <https://blog.fabric.microsoft.com/en-us/blog/fabric-november-2025-feature-summary> |
-| Fabric March 2026 Feature Summary (FabCon 2026) | <https://blog.fabric.microsoft.com/en-us/blog/fabric-march-2026-feature-summary> |
-| FabCon and SQLCon 2026 Hero Blog (Arun Ulag) | <https://aka.ms/FabCon-SQLCon-2026-news> |
-| SAP Data Integration in Fabric -- Blog (Sept 2024) | <https://blog.fabric.microsoft.com/en-us/blog/connecting-to-sap-data-in-microsoft-fabric> |
+| Ignite 2025 Feature Summary | <https://blog.fabric.microsoft.com/en-us/blog/fabric-november-2025-feature-summary> |
+| FabCon 2026 Feature Summary | <https://blog.fabric.microsoft.com/en-us/blog/fabric-march-2026-feature-summary> |
+| FabCon 2026 Hero Blog | <https://aka.ms/FabCon-SQLCon-2026-news> |
+| SAP in Fabric Blog (Sept 2024) | <https://blog.fabric.microsoft.com/en-us/blog/connecting-to-sap-data-in-microsoft-fabric> |
 
 ### SAP Datasphere
 
 | Resource | Link |
 |----------|------|
-| SAP Datasphere Documentation | <https://help.sap.com/docs/SAP_DATASPHERE> |
-| SAP Datasphere Premium Outbound Integration | <https://help.sap.com/docs/SAP_DATASPHERE/be5967d099974c69b77f4549425ca4c0/eb7ff31> |
-| SAP Data Provisioning Agent (for on-premises) | <https://help.sap.com/docs/SAP_DATASPHERE/935116dd7c324355803d4b85809cec97> |
+| SAP Datasphere Docs | <https://help.sap.com/docs/SAP_DATASPHERE> |
+| Premium Outbound Integration | <https://help.sap.com/docs/SAP_DATASPHERE/be5967d099974c69b77f4549425ca4c0/eb7ff31> |
+| Data Provisioning Agent | <https://help.sap.com/docs/SAP_DATASPHERE/935116dd7c324355803d4b85809cec97> |
 
 ### Infrastructure
 
 | Resource | Link |
 |----------|------|
 | On-Premises Data Gateway | <https://learn.microsoft.com/data-integration/gateway/service-gateway-onprem> |
-| SAP .NET Connector (NCo) Download | <https://support.sap.com/en/product/connectors/msnet.html> |
+| SAP .NET Connector (NCo) | <https://support.sap.com/en/product/connectors/msnet.html> |
 
-### SAP Datasphere
+---
 
-| Resource | Link |
-|----------|------|
-| SAP Datasphere Documentation | <https://help.sap.com/docs/SAP_DATASPHERE> |
-| SAP Datasphere Premium Outbound Integration | <https://help.sap.com/docs/SAP_DATASPHERE/be5967d099974c69b77f4549425ca4c0/eb7ff31> |
-| SAP Data Provisioning Agent (for on-premises) | <https://help.sap.com/docs/SAP_DATASPHERE/935116dd7c324355803d4b85809cec97> |
+## Appendix B -- Glossary
 
-
-
+| Acronym | Definition |
+|---------|-----------|
+| **CDC** | Change Data Capture -- track inserts, updates, and deletes |
+| **CDS** | Core Data Services -- SAP data modeling framework |
+| **ODP** | Operational Data Provisioning -- SAP delta extraction framework |
+| **SLT** | SAP Landscape Transformation -- trigger-based real-time replication |
+| **OPDG** | On-Premises Data Gateway -- Microsoft gateway for on-prem data |
+| **NCo** | SAP .NET Connector -- library for SAP RFC communication |
+| **RFC** | Remote Function Call -- SAP native inter-system protocol |
+| **Direct Lake** | Power BI mode reading Delta files directly from OneLake |
+| **DQ** | DirectQuery -- live query mode in Power BI |
