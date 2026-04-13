@@ -7,7 +7,7 @@
 
 ## Overview
 
-Microsoft Fabric offers multiple ways to connect to SAP systems, ranging from traditional batch/ETL connectors in Data Factory to near real-time replication via Mirroring. The right approach depends on freshness requirements, SAP source system, availability of SAP Datasphere, and the desired analytics pattern.
+Microsoft Fabric offers multiple ways to connect to SAP systems. These range from data-movement patterns (batch ETL, CDC, Mirroring) to federation patterns where SAP data remains in place and is queried live, as well as event-driven patterns for operational analytics. The right approach depends on freshness requirements, data governance ownership, SAP source system, availability of SAP Datasphere, and whether data movement into OneLake is acceptable or required.
 
 > **Power BI Direct Lake (GA March 2026):** Data ingested into OneLake -- whether via connectors, Copy Job, or Mirroring -- can be consumed by Power BI using Direct Lake mode. This eliminates the need for data import or intermediate semantic models, ensuring dashboards reflect the latest data with near-in-memory performance.
 
@@ -21,36 +21,48 @@ graph TD
         S5[SAP SuccessFactors<br/>Ariba - Concur]
     end
 
-    subgraph Methods["Connection Methods"]
-        M1[Data Factory Connectors<br/>Batch / ETL]
-        M2[Mirroring for SAP<br/>Near Real-Time<br/>via SAP Datasphere]
-        M3[Copy Job CDC<br/>Change Data Capture<br/>via SAP Datasphere]
+    subgraph DataMov["Data Movement Patterns"]
+        M1[Method 1: Data Factory<br/>Batch / ETL]
+        M2[Method 2: Mirroring<br/>Near Real-Time]
+        M3[Method 3: Copy Job CDC<br/>Scheduled Deltas]
+    end
+
+    subgraph NoMov["No Data Movement Patterns"]
+        M4[Method 4: Semantic<br/>Federation - Live Query]
+        M5[Method 5: Datasphere<br/>Data Product Exposure]
+        M6[Method 6: Event-Driven<br/>SAP Event Mesh]
     end
 
     subgraph Fabric["Microsoft Fabric"]
         F1[OneLake<br/>Delta Lake]
-        F2[Lakehouse<br/>SQL Endpoint]
-        F3[Power BI<br/>Direct Lake]
-        F4[Notebooks<br/>and Pipelines]
+        F2[Lakehouse / SQL Endpoint]
+        F3[Power BI<br/>Direct Lake / DQ]
+        F4[Eventstream<br/>Real-Time Intelligence]
     end
 
     S1 & S2 & S3 & S4 & S5 --> M1
     S1 & S2 & S3 & S5 --> M2
     S1 & S2 & S3 & S5 --> M3
-    S5 -.->|OData API| M1
+    S3 & S4 --> M4
+    S1 & S2 & S3 & S5 --> M5
+    S1 & S2 --> M6
 
     M1 --> F1
     M2 --> F1
     M3 --> F1
+    M4 -.->|Live query| F3
+    M5 --> F1
+    M6 --> F4
     F1 --> F2
     F2 --> F3
-    F2 --> F4
-    F1 -.->|Direct Lake| F3
 
     classDef sapStyle fill:#005B97,stroke:#003D66,color:#ffffff,font-weight:bold
     classDef methodBatch fill:#E8A838,stroke:#C07C10,color:#1a1a1a,font-weight:bold
     classDef methodMirror fill:#2E7D32,stroke:#1B5E20,color:#ffffff,font-weight:bold
     classDef methodCDC fill:#558B2F,stroke:#33691E,color:#ffffff,font-weight:bold
+    classDef methodFed fill:#0D47A1,stroke:#002171,color:#ffffff,font-weight:bold
+    classDef methodDP fill:#00695C,stroke:#004D40,color:#ffffff,font-weight:bold
+    classDef methodEvt fill:#BF360C,stroke:#8C2300,color:#ffffff,font-weight:bold
     classDef fabricCore fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
     classDef fabricEnd fill:#9C27B0,stroke:#6A0DAD,color:#ffffff
 
@@ -58,8 +70,11 @@ graph TD
     class M1 methodBatch
     class M2 methodMirror
     class M3 methodCDC
-    class F1 fabricCore
-    class F2,F3,F4 fabricEnd
+    class M4 methodFed
+    class M5 methodDP
+    class M6 methodEvt
+    class F1,F2 fabricCore
+    class F3,F4 fabricEnd
 ```
 
 ---
@@ -137,7 +152,7 @@ All SAP connectors (except OData) require this infrastructure, **even when SAP r
 
 > **Important limitations:**
 >
-> - **No native CDC** -- full or watermark-based incremental only. SAP deletions are not tracked.
+> - **No Fabric-managed CDC** -- relies on SAP-native delta mechanisms such as ODP extractors or BW Open Hub delta queues. Fabric itself does not track SAP-side changes; you must manage incremental logic through SAP-provided capabilities.
 > - **No dedicated connector for SAP SaaS** -- SuccessFactors, Ariba, Concur require OData or Mirroring/CDC.
 > - **Performance impact on SAP** -- large RFC/BW extractions consume SAP resources. For massive tables, prefer HANA direct or Mirroring.
 
@@ -204,7 +219,7 @@ graph LR
 - **Near real-time** -- latency typically seconds to a few minutes
 - **End-to-end lineage** -- full governance and audit trail
 - **Native Fabric integration** -- SQL endpoint, Power BI Direct Lake, Notebooks, Lakehouses
-- **Minimal impact on SAP** -- uses standard ODP/SLT mechanisms via Datasphere (not custom queries)
+- **Limited impact on SAP when SLT-based ODP extraction is already operational** -- if SLT triggers and ODP queues are pre-configured, Mirroring adds marginal load. However, initial SLT configuration introduces logging overhead on source tables (trigger installation, change-log table creation). Plan the initial setup during low-activity windows.
 - **Up to 1,000 tables** per mirrored database (increased from ~100 at FabCon 2026)
 
 ### Prerequisites
@@ -303,6 +318,210 @@ Two-stage mechanism:
 
 ---
 
+## Method 4 -- Semantic Federation (No Data Movement)
+
+Power BI within Microsoft Fabric can connect **live** to SAP semantic layers without replicating any data into OneLake. This is **federation, not ingestion** -- SAP remains the system of record and the query engine.
+
+```mermaid
+graph LR
+    subgraph SAP["SAP Semantic Layer"]
+        A1[SAP BW / BW4HANA<br/>InfoProviders / Queries]
+        A2[SAP HANA<br/>Calculation Views]
+        A3[SAP Datasphere<br/>Analytical Models]
+    end
+    subgraph PBI["Power BI"]
+        B[Semantic Model<br/>Live Connection / DQ]
+    end
+    subgraph Fabric["Fabric Downstream"]
+        C[Dashboards<br/>and Reports]
+        D[Semantic Link<br/>optional]
+    end
+
+    A1 -->|BW Live Connection| B
+    A2 -->|HANA DirectQuery| B
+    A3 -->|Datasphere DQ| B
+    B --> C
+    B -.->|Semantic Link| D
+
+    classDef sapStyle fill:#0D47A1,stroke:#002171,color:#ffffff,font-weight:bold
+    classDef pbiStyle fill:#E8A838,stroke:#C07C10,color:#1a1a1a,font-weight:bold
+    classDef fabricStyle fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
+
+    class A1,A2,A3 sapStyle
+    class B pbiStyle
+    class C,D fabricStyle
+```
+
+### Connection Types
+
+| Connection | SAP Source | Protocol | Data Movement |
+|------------|-----------|----------|:---:|
+| **BW Live Connection** | SAP BW / BW4HANA | MDX via OPDG | ✘ None |
+| **HANA DirectQuery** | SAP HANA Calculation Views | SQL via OPDG | ✘ None |
+| **Datasphere DirectQuery** | Datasphere Analytical Models | OData / SQL | ✘ None |
+
+### Key Benefits
+
+- **Zero data replication** -- no SAP data enters OneLake; all queries are executed on SAP infrastructure
+- **SAP-governed security enforcement** -- row-level security, authorizations, and data classifications defined in SAP are enforced at query time
+- **SAP business logic reuse** -- CDS views, BW hierarchies, currency conversions, and calculated key figures are executed on the SAP engine, not re-implemented in Fabric
+- **Regulatory compliance** -- suitable for regulated industries (banking, pharma, public sector) where data residency or extraction restrictions apply
+- **Hybrid virtualization** -- Power BI semantic models can combine live SAP connections with imported data from other sources in a single report
+
+### Limitations
+
+- **Query performance depends on SAP infrastructure** -- response time is bounded by SAP system capacity and network latency
+- **No offline access** -- if SAP is unavailable, dashboards are unavailable
+- **Requires On-Premises Data Gateway** for BW and HANA connections
+- **Not suitable for large-scale data science / notebook workloads** -- federation is optimized for BI consumption, not for Spark-based analytics
+
+### When to Use
+
+- Data must remain in SAP for regulatory or contractual reasons
+- SAP business logic (hierarchies, currencies, authorizations) must be enforced at the source
+- Dashboard consumption only -- no downstream Spark/notebook processing needed
+- SAP infrastructure has sufficient capacity to handle concurrent BI queries
+
+---
+
+## Method 5 -- Datasphere-Mediated Data Product Exposure
+
+In this architecture, **SAP Datasphere acts as a governed data product layer**. Rather than Fabric extracting data directly from SAP operational systems, Datasphere curates, governs, and exposes analytical data products that Fabric consumes.
+
+```mermaid
+graph LR
+    subgraph SAP["SAP Operational Systems"]
+        A[S/4HANA / ECC<br/>BW / SaaS]
+    end
+    subgraph DS["SAP Datasphere"]
+        B[Replication and<br/>Transformation]
+        C[Curated Data Products<br/>Analytical Models]
+        D[Export to<br/>Cloud Storage]
+    end
+    subgraph Storage["Cloud Storage"]
+        E[ADLS Gen2<br/>Delta / Parquet]
+    end
+    subgraph Fabric["Microsoft Fabric"]
+        F[OneLake Shortcut]
+        G[Direct Lake<br/>Consumption]
+    end
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E -->|Shortcut| F
+    F --> G
+
+    classDef sapStyle fill:#005B97,stroke:#003D66,color:#ffffff,font-weight:bold
+    classDef dsStyle fill:#00695C,stroke:#004D40,color:#ffffff,font-weight:bold
+    classDef storageStyle fill:#E8A838,stroke:#C07C10,color:#1a1a1a,font-weight:bold
+    classDef fabricStyle fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
+
+    class A sapStyle
+    class B,C,D dsStyle
+    class E storageStyle
+    class F,G fabricStyle
+```
+
+### How It Works
+
+1. SAP operational systems replicate data into **SAP Datasphere** using standard mechanisms (ODP, SLT, CDS)
+2. Datasphere applies **transformations, business rules, and governance** to produce curated analytical models (data products)
+3. Datasphere exports these data products to a cloud storage layer (ADLS Gen2, S3) as Delta or Parquet
+4. Fabric accesses this storage via **OneLake Shortcuts** -- no additional copy into OneLake
+5. Power BI consumes the data through **Direct Lake** mode
+
+### Impact on Architecture
+
+| Aspect | Implication |
+|--------|------------|
+| **Data ownership** | SAP team owns the data product definition and quality; Fabric team consumes |
+| **Extraction licensing** | Compliant with SAP licensing -- extraction is performed by SAP Datasphere (an SAP product), not by a third-party tool |
+| **Governance boundary** | Data governance and business rules are enforced in Datasphere before data leaves SAP's perimeter |
+| **SAP strategic direction** | Aligns with SAP's recommended architecture where Datasphere is the authorized data sharing layer |
+
+### When to Use
+
+- Organization has invested in SAP Datasphere as a strategic data platform
+- SAP data team produces governed data products consumed by multiple downstream platforms (not just Fabric)
+- Strict data governance requires that business logic and quality rules are applied before data leaves SAP
+- SAP extraction licensing mandates that only SAP-approved tools perform outbound data replication
+
+---
+
+## Method 6 -- Event-Driven Integration (Operational Analytics)
+
+SAP business events can flow into Microsoft Fabric for **real-time operational analytics** without bulk data extraction. This pattern targets individual business transactions, not full tables.
+
+```mermaid
+graph LR
+    subgraph SAP["SAP System"]
+        A[Business Event<br/>Order / Invoice /<br/>Shipment / Exception]
+    end
+    subgraph Mesh["SAP Event Mesh"]
+        B[Event Broker<br/>CloudEvents Format]
+    end
+    subgraph Azure["Azure"]
+        C[Event Grid]
+    end
+    subgraph Fabric["Fabric Real-Time Intelligence"]
+        D[Eventstream]
+        E[KQL Database<br/>Eventhouse]
+        F[Real-Time<br/>Dashboard]
+    end
+
+    A -->|Publish event| B
+    B -->|Forward| C
+    C -->|Ingest| D
+    D --> E
+    E --> F
+
+    classDef sapStyle fill:#005B97,stroke:#003D66,color:#ffffff,font-weight:bold
+    classDef meshStyle fill:#BF360C,stroke:#8C2300,color:#ffffff,font-weight:bold
+    classDef azureStyle fill:#0078D4,stroke:#005A9E,color:#ffffff,font-weight:bold
+    classDef fabricStyle fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
+
+    class A sapStyle
+    class B meshStyle
+    class C azureStyle
+    class D,E,F fabricStyle
+```
+
+### Supported Event Patterns
+
+| SAP Event Source | Event Examples | Latency |
+|-----------------|----------------|---------|
+| S/4HANA Business Events | Order created, Invoice posted, Delivery shipped | Sub-second |
+| SAP ECC (via BTP) | Goods receipt, Production order exception | Seconds |
+| SAP Integration Suite | Composite events from multiple SAP systems | Seconds |
+
+### Architecture Components
+
+- **SAP Event Mesh** (part of SAP BTP) -- publishes business events in CloudEvents format
+- **Azure Event Grid** -- receives events from SAP Event Mesh and routes to Fabric
+- **Fabric Eventstream** -- ingests, transforms, and routes events within Fabric
+- **KQL Database / Eventhouse** -- stores event data for time-series analysis and anomaly detection
+- **Real-Time Dashboards** -- visualize operational KPIs with sub-minute refresh
+
+### When to Use
+
+- Operational monitoring: detect exceptions, SLA breaches, or anomalies in SAP business processes
+- Event-triggered automation: SAP order → Fabric enrichment → downstream action
+- Real-time KPIs: live order-to-cash metrics, production throughput, logistics tracking
+- Complement to bulk integration -- events for freshness, Mirroring/CDC for completeness
+
+> **This pattern supports operational analytics, not bulk historical ingestion.** For complete datasets (all orders, all materials), use Methods 1-3 or 5. Event-driven integration captures individual business transactions as they occur.
+
+### Prerequisites
+
+1. **SAP BTP** subscription with **SAP Event Mesh** enabled
+2. SAP business events activated in S/4HANA or ECC (requires SAP Basis configuration)
+3. Azure Event Grid subscription configured to receive from SAP Event Mesh
+4. Fabric capacity with Real-Time Intelligence workload enabled
+
+---
+
 ## Alternative Approaches
 
 ### OneLake Shortcuts
@@ -323,38 +542,54 @@ For event-driven micro-integrations (e.g., SAP order creation triggers a Fabric 
 
 ```mermaid
 flowchart TD
-    A([SAP Data Need]) --> B{Freshness<br/>Requirement?}
+    A([SAP Integration Need]) --> B{Move SAP data<br/>into Fabric?}
 
-    B -->|Daily / Weekly batch| C{Source type?}
-    B -->|Near real-time| D{Autonomous<br/>or Orchestrated?}
+    B -->|Yes - Data Movement| C{Freshness<br/>Requirement?}
+    B -->|No - Query in Place| D{Pattern?}
+    B -->|Operational Events| M6[Method 6<br/>Event-Driven Integration<br/>SAP Event Mesh]
 
-    C -->|SAP BW InfoProvider<br/>or BEx Query| E[SAP BW Connectors<br/>Dataflow Gen2 / Pipeline]
-    C -->|HANA Views / Tables| F[SAP HANA Connector<br/>Pipeline + Copy Job]
-    C -->|ABAP Tables RFC| G[SAP Table Connector<br/>Pipeline + Copy Job]
+    C -->|Daily / Weekly batch| E{Source type?}
+    C -->|Near real-time| F{Autonomous<br/>or Orchestrated?}
 
-    D -->|Autonomous<br/>continuous replication| H[Mirroring for SAP GA<br/>via SAP Datasphere]
-    D -->|Orchestrated CDC<br/>with explicit control| I[Copy Job CDC for SAP<br/>via SAP Datasphere]
+    E -->|BW InfoProvider / BEx| G[Method 1: SAP BW<br/>Dataflow Gen2 / Pipeline]
+    E -->|HANA Views / Tables| H[Method 1: SAP HANA<br/>Pipeline + Copy Job]
+    E -->|ABAP Tables RFC| I[Method 1: SAP Table<br/>Pipeline + Copy Job]
 
-    E & F & G --> J[(Fabric OneLake<br/>Delta Lake)]
-    H --> J
-    I --> J
-    J --> K([SQL Endpoint - Power BI<br/>Notebooks - Lakehouse])
+    F -->|Autonomous| J[Method 2: Mirroring<br/>via SAP Datasphere]
+    F -->|Orchestrated| K[Method 3: Copy Job CDC<br/>via SAP Datasphere]
+
+    D -->|Live BI on SAP<br/>semantic layer| L[Method 4: Semantic<br/>Federation - BW / HANA DQ]
+    D -->|SAP-governed<br/>data products| M5[Method 5: Datasphere<br/>Data Product Exposure]
+
+    G & H & I --> N[(OneLake<br/>Delta Lake)]
+    J --> N
+    K --> N
+    M5 --> N
+    N --> O([Power BI - Notebooks<br/>Lakehouse - SQL])
+    L -.->|Live Query| O
+    M6 --> P([Eventstream - KQL DB<br/>Real-Time Intelligence])
 
     classDef start fill:#1565C0,stroke:#0D47A1,color:#ffffff,font-weight:bold
     classDef decision fill:#E65100,stroke:#BF360C,color:#ffffff,font-weight:bold
     classDef batchNode fill:#E8A838,stroke:#C07C10,color:#1a1a1a,font-weight:bold
     classDef mirrorNode fill:#2E7D32,stroke:#1B5E20,color:#ffffff,font-weight:bold
     classDef cdcNode fill:#558B2F,stroke:#33691E,color:#ffffff,font-weight:bold
+    classDef fedNode fill:#0D47A1,stroke:#002171,color:#ffffff,font-weight:bold
+    classDef dpNode fill:#00695C,stroke:#004D40,color:#ffffff,font-weight:bold
+    classDef evtNode fill:#BF360C,stroke:#8C2300,color:#ffffff,font-weight:bold
     classDef lakeNode fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
     classDef endNode fill:#9C27B0,stroke:#6A0DAD,color:#ffffff,font-weight:bold
 
     class A start
-    class B,C,D decision
-    class E,F,G batchNode
-    class H mirrorNode
-    class I cdcNode
-    class J lakeNode
-    class K endNode
+    class B,C,D,E,F decision
+    class G,H,I batchNode
+    class J mirrorNode
+    class K cdcNode
+    class L fedNode
+    class M5 dpNode
+    class M6 evtNode
+    class N lakeNode
+    class O,P endNode
 ```
 
 ---
@@ -382,42 +617,52 @@ flowchart TD
 
 ## Comparison Summary
 
-| Criteria | Batch Connectors | Copy Job CDC | Mirroring for SAP |
-|----------|:---:|:---:|:---:|
-| **Freshness** | Hourly to daily | Minutes (scheduled) | Near real-time (continuous) |
-| **Custom ETL needed** | Required | Minimal | None (zero-ETL) |
-| **SAP Datasphere** | ✘ Not required | ✔ Required | ✔ Required |
-| **Intermediate storage** | ✘ | ✔ ADLS Gen2 | ✘ Direct to OneLake |
-| **SAP sources** | BW, HANA, Tables | Full landscape | Full landscape |
-| **Power BI access** | DQ (BW/HANA) + Import | Direct Lake | SQL Endpoint + Direct Lake |
-| **Native CDC** | ✘ Not supported | ✔ Scheduled | ✔ Continuous |
-| **Max tables** | Per pipeline | Per job | 1,000 per mirrored DB |
-| **In-flight transform** | Via Dataflow Gen2 | Post-copy | ✘ Raw replication |
-| **GA status** | All GA (2023) | GA (Nov 2025) | GA (March 2026) |
+| Criteria | Batch Connectors | Copy Job CDC | Mirroring | Semantic Federation | Datasphere Products | Event-Driven |
+|----------|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Data movement** | ✔ To OneLake | ✔ To OneLake | ✔ To OneLake | ✘ None | ✔ To storage | ✘ Events only |
+| **Freshness** | Hourly to daily | Minutes | Near real-time | Live query | Export schedule | Sub-second |
+| **Custom ETL needed** | Required | Minimal | None | None | Datasphere-side | Event routing |
+| **SAP Datasphere** | ✘ Not required | ✔ Required | ✔ Required | ✘ Optional | ✔ Required | ✘ Not required |
+| **SAP BTP** | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ Required |
+| **Native CDC** | ✘ SAP-side only | ✔ Scheduled | ✔ Continuous | N/A | N/A | N/A (events) |
+| **SAP sources** | BW, HANA, Tables | Full landscape | Full landscape | BW, HANA, DSphere | Full landscape | S/4, ECC |
+| **Power BI access** | DQ + Import | Direct Lake | SQL EP + Direct Lake | Live Connection / DQ | Direct Lake | RT Dashboard |
+| **Governance owner** | Fabric team | Fabric team | Fabric team | SAP team | SAP team | Shared |
+| **Use case** | Analytical | Analytical | Analytical | Analytical (BI) | Analytical | Operational |
+| **GA status** | All GA (2023) | GA (Nov 2025) | GA (Mar 2026) | GA | GA | GA (components) |
 
-> **Legend:** ✔ = Yes / Supported | ✘ = No / Not supported | ◑ = Preview
+> **Legend:** ✔ Yes / Required | ✘ No / Not required | N/A = Not applicable
 
 ---
 
 ## Recommendations by Scenario
 
 **Historical bulk load** (migrating years of data):
-Use **batch connectors** -- SAP HANA or SAP Table via Pipeline Copy job with partitioning.
+Use **Method 1 -- batch connectors** (SAP HANA or SAP Table via Pipeline Copy job with partitioning).
 
 **Regular analytics refresh** (daily/hourly dashboards):
-Use **batch connectors** for simple cases, or **Copy Job CDC** for incremental deltas.
+Use **Method 1** for simple cases, or **Method 3 -- Copy Job CDC** for incremental deltas.
 
 **Real-time operational analytics** (live sales, inventory):
-Use **Mirroring for SAP** + Power BI Direct Lake for continuous dashboard freshness.
+Use **Method 2 -- Mirroring** + Power BI Direct Lake for continuous dashboard freshness.
 
 **SAP SaaS without Datasphere** (SuccessFactors, Ariba):
-Use the **OData connector** for moderate volumes; invest in Datasphere for scale.
+Use the **OData connector** (Method 1) for moderate volumes; invest in Datasphere for scale.
 
 **Multi-source orchestrated pipeline** (SAP + other sources):
-Use **Copy Job CDC** in a Data Factory pipeline with transforms and validations.
+Use **Method 3 -- Copy Job CDC** in a Data Factory pipeline with transforms and validations.
+
+**Data must stay in SAP** (regulatory, contractual, or governance constraints):
+Use **Method 4 -- Semantic Federation** for BI consumption via Power BI Live Connection / DirectQuery.
+
+**SAP team owns data products** (governed exposure model):
+Use **Method 5 -- Datasphere Data Products** exported to cloud storage, consumed via OneLake Shortcuts.
+
+**Real-time business event monitoring** (order tracking, SLA alerting):
+Use **Method 6 -- Event-Driven** via SAP Event Mesh + Azure Event Grid + Fabric Eventstream.
 
 **No SAP Datasphere available:**
-Use **batch connectors** + OPDG. Consider **OneLake Shortcuts** for existing data lakes.
+Use **Method 1 -- batch connectors** + OPDG. For BI without data movement, consider **Method 4 -- Semantic Federation** via BW Live Connection or HANA DirectQuery.
 
 ---
 
@@ -481,6 +726,23 @@ Use **batch connectors** + OPDG. Consider **OneLake Shortcuts** for existing dat
 |----------|------|
 | On-Premises Data Gateway | <https://learn.microsoft.com/data-integration/gateway/service-gateway-onprem> |
 | SAP .NET Connector (NCo) | <https://support.sap.com/en/product/connectors/msnet.html> |
+
+### Semantic Federation and Live Connections
+
+| Resource | Link |
+|----------|------|
+| SAP BW Connector (Power Query) | <https://learn.microsoft.com/power-query/connectors/sap-bw/application-setup-and-connect> |
+| SAP HANA DirectQuery in Power BI | <https://learn.microsoft.com/power-bi/connect-data/desktop-directquery-sap-hana> |
+| Power BI Live Connection Overview | <https://learn.microsoft.com/power-bi/connect-data/desktop-directquery-about> |
+
+### Event-Driven Integration
+
+| Resource | Link |
+|----------|------|
+| SAP Event Mesh | <https://help.sap.com/docs/SAP_EM> |
+| Azure Event Grid | <https://learn.microsoft.com/azure/event-grid/overview> |
+| Fabric Eventstream | <https://learn.microsoft.com/fabric/real-time-intelligence/event-streams/overview> |
+| Fabric Real-Time Intelligence | <https://learn.microsoft.com/fabric/real-time-intelligence/overview> |
 
 ---
 
