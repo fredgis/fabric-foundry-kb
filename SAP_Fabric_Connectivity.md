@@ -108,16 +108,16 @@ graph LR
 
 | Connector | Dataflow Gen2 | Pipeline (Copy) | Copy Job | Gateway |
 |-----------|:---:|:---:|:---:|---------|
-| **SAP BW Application Server** | &#9679; Import + DQ | &#9675; | &#9675; | OPDG + NCo 3.x |
-| **SAP BW Message Server** | &#9679; Import + DQ | &#9675; | &#9675; | OPDG + NCo 3.x |
-| **SAP BW Open Hub -- App Server** | &#9679; | &#9679; | &#9675; | OPDG |
-| **SAP BW Open Hub -- Msg Server** | &#9679; | &#9679; | &#9675; | OPDG |
-| **SAP HANA Database** | &#9679; incl. DQ | &#9679; Lookup + Copy | &#9679; | OPDG |
-| **SAP Table -- App Server** | &#9675; | &#9679; | &#9679; | OPDG + NCo |
-| **SAP Table -- Msg Server** | &#9675; | &#9679; | &#9675; | OPDG |
-| **OData (generic)** | &#9679; | &#9679; | &#9675; | None / OPDG |
+| **SAP BW Application Server** | ✔ Import + DQ | ✘ | ✘ | OPDG + NCo 3.x |
+| **SAP BW Message Server** | ✔ Import + DQ | ✘ | ✘ | OPDG + NCo 3.x |
+| **SAP BW Open Hub -- App Server** | ✔ | ✔ | ✘ | OPDG |
+| **SAP BW Open Hub -- Msg Server** | ✔ | ✔ | ✘ | OPDG |
+| **SAP HANA Database** | ✔ incl. DQ | ✔ Lookup + Copy | ✔ | OPDG |
+| **SAP Table -- App Server** | ✘ | ✔ | ✔ | OPDG + NCo |
+| **SAP Table -- Msg Server** | ✘ | ✔ | ✘ | OPDG |
+| **OData (generic)** | ✔ | ✔ | ✘ | None / OPDG |
 
-> **Legend:** &#9679; = Supported | &#9675; = Not supported | DQ = DirectQuery
+> **Legend:** ✔ = Supported | ✘ = Not supported | DQ = DirectQuery
 
 ### When to Use
 
@@ -187,14 +187,14 @@ graph LR
 
 | SAP System | Deployment | Supported |
 |-----------|-----------|:---:|
-| SAP S/4HANA | On-premises | &#9679; |
-| SAP S/4HANA Cloud | Cloud (public + private) | &#9679; |
-| SAP ECC | On-premises | &#9679; |
-| SAP BW | On-premises | &#9679; |
-| SAP BW/4HANA | On-premises and cloud | &#9679; |
-| SAP SuccessFactors | SaaS | &#9679; |
-| SAP Ariba | SaaS | &#9679; |
-| SAP Concur | SaaS | &#9679; |
+| SAP S/4HANA | On-premises | ✔ |
+| SAP S/4HANA Cloud | Cloud (public + private) | ✔ |
+| SAP ECC | On-premises | ✔ |
+| SAP BW | On-premises | ✔ |
+| SAP BW/4HANA | On-premises and cloud | ✔ |
+| SAP SuccessFactors | SaaS | ✔ |
+| SAP Ariba | SaaS | ✔ |
+| SAP Concur | SaaS | ✔ |
 
 > **Other SAP systems** (CRM, SRM, SCM) based on NetWeaver ABAP are covered via ODP/SLT, same as ECC. Any SAP system supporting ODP extraction is eligible.
 
@@ -274,8 +274,8 @@ Two-stage mechanism:
 | Feature | Value |
 |---------|:---:|
 | Change types captured | Inserts, Updates, Deletes |
-| Watermark column needed | &#9675; Not required |
-| Manual refresh needed | &#9675; Scheduled trigger |
+| Watermark column needed | ✘ Not required |
+| Manual refresh needed | ✘ Scheduled trigger |
 | Merge destination | Lakehouse (Delta) |
 | Intermediate storage | ADLS Gen2 / S3 / GCS |
 
@@ -365,16 +365,16 @@ flowchart TD
 
 | Feature | Status | Coverage |
 |---------|:---:|---------|
-| **Mirroring for SAP** | &#9673; Preview | S/4HANA, BW, BW/4HANA, SuccessFactors, Ariba |
-| **Copy Job CDC for SAP** | &#9679; GA | SAP via Datasphere to Lakehouse |
+| **Mirroring for SAP** | ◑ Preview | S/4HANA, BW, BW/4HANA, SuccessFactors, Ariba |
+| **Copy Job CDC for SAP** | ✔ GA | SAP via Datasphere to Lakehouse |
 
 ### FabCon 2026 -- March 2026
 
 | Feature | Status | What's New |
 |---------|:---:|-----------|
-| **Mirroring for SAP** | &#9679; GA | + SAP ECC, + Concur. Up to 1,000 tables. |
-| **Copy Job enhancements** | &#9679; GA | Auto-partitioning, audit columns, zero-cost |
-| **Direct Lake for Power BI** | &#9679; GA | Dashboards read Delta directly from OneLake |
+| **Mirroring for SAP** | ✔ GA | + SAP ECC, + Concur. Up to 1,000 tables. |
+| **Copy Job enhancements** | ✔ GA | Auto-partitioning, audit columns, zero-cost |
+| **Direct Lake for Power BI** | ✔ GA | Dashboards read Delta directly from OneLake |
 
 > **Docs:** [Microsoft Fabric Mirrored Databases From SAP](https://learn.microsoft.com/fabric/mirroring/sap)
 
@@ -386,16 +386,16 @@ flowchart TD
 |----------|:---:|:---:|:---:|
 | **Freshness** | Hourly to daily | Minutes (scheduled) | Near real-time (continuous) |
 | **Custom ETL needed** | Required | Minimal | None (zero-ETL) |
-| **SAP Datasphere** | &#9675; Not required | &#9679; Required | &#9679; Required |
-| **Intermediate storage** | &#9675; | &#9679; ADLS Gen2 | &#9675; Direct to OneLake |
+| **SAP Datasphere** | ✘ Not required | ✔ Required | ✔ Required |
+| **Intermediate storage** | ✘ | ✔ ADLS Gen2 | ✘ Direct to OneLake |
 | **SAP sources** | BW, HANA, Tables | Full landscape | Full landscape |
 | **Power BI access** | DQ (BW/HANA) + Import | Direct Lake | SQL Endpoint + Direct Lake |
-| **Native CDC** | &#9675; Not supported | &#9679; Scheduled | &#9679; Continuous |
+| **Native CDC** | ✘ Not supported | ✔ Scheduled | ✔ Continuous |
 | **Max tables** | Per pipeline | Per job | 1,000 per mirrored DB |
-| **In-flight transform** | Via Dataflow Gen2 | Post-copy | &#9675; Raw replication |
+| **In-flight transform** | Via Dataflow Gen2 | Post-copy | ✘ Raw replication |
 | **GA status** | All GA (2023) | GA (Nov 2025) | GA (March 2026) |
 
-> **Legend:** &#9679; = Yes / Supported | &#9675; = No / Not supported | &#9673; = Preview
+> **Legend:** ✔ = Yes / Supported | ✘ = No / Not supported | ◑ = Preview
 
 ---
 
@@ -497,3 +497,5 @@ Use **batch connectors** + OPDG. Consider **OneLake Shortcuts** for existing dat
 | **RFC** | Remote Function Call -- SAP native inter-system protocol |
 | **Direct Lake** | Power BI mode reading Delta files directly from OneLake |
 | **DQ** | DirectQuery -- live query mode in Power BI |
+
+
