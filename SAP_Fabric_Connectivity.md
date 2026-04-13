@@ -42,6 +42,20 @@ graph TD
     F1 --> F2
     F2 --> F3
     F2 --> F4
+
+    classDef sapStyle fill:#005B97,stroke:#003D66,color:#ffffff,font-weight:bold
+    classDef methodBatch fill:#E8A838,stroke:#C07C10,color:#1a1a1a,font-weight:bold
+    classDef methodMirror fill:#2E7D32,stroke:#1B5E20,color:#ffffff,font-weight:bold
+    classDef methodCDC fill:#558B2F,stroke:#33691E,color:#ffffff,font-weight:bold
+    classDef fabricCore fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
+    classDef fabricEnd fill:#9C27B0,stroke:#6A0DAD,color:#ffffff
+
+    class S1,S2,S3,S4,S5 sapStyle
+    class M1 methodBatch
+    class M2 methodMirror
+    class M3 methodCDC
+    class F1 fabricCore
+    class F2,F3,F4 fabricEnd
 ```
 
 ---
@@ -84,10 +98,19 @@ sequenceDiagram
     participant OL as OneLake<br/>(Delta Lake)
     participant SQL as Fabric SQL<br/>Analytics Endpoint
 
-    SAP->>DS: Native SAP extraction<br/>(change detection)
-    DS->>MF: Replication flows<br/>(inserts / updates / deletes)
-    MF->>OL: Write Delta tables<br/>(near real-time)
-    OL->>SQL: Auto-sync<br/>queryable immediately
+    rect rgb(0, 91, 151)
+        note over SAP,DS: SAP Layer — extraction via SLT / ODP / CDS Views
+        SAP->>DS: Native SAP extraction<br/>(change detection)
+    end
+    rect rgb(46, 125, 50)
+        note over DS,MF: Replication Layer — SAP Datasphere Premium Outbound
+        DS->>MF: Replication flows<br/>(inserts / updates / deletes)
+    end
+    rect rgb(106, 13, 173)
+        note over MF,SQL: Microsoft Fabric Layer
+        MF->>OL: Write Delta tables<br/>(near real-time)
+        OL->>SQL: Auto-sync<br/>queryable immediately
+    end
     SQL-->>SAP: No impact on<br/>production systems
 ```
 
@@ -148,7 +171,7 @@ Introduced at **Ignite 2025**, Copy Job now supports **Change Data Capture (CDC)
 
 ```mermaid
 flowchart TD
-    A[SAP Data Need] --> B{Freshness<br/>Requirement?}
+    A([SAP Data Need]) --> B{Freshness<br/>Requirement?}
 
     B -->|Daily / Weekly batch| C{Source type?}
     B -->|Near real-time| D{Autonomous<br/>or Orchestrated?}
@@ -160,10 +183,27 @@ flowchart TD
     D -->|Autonomous<br/>continuous replication| H[Mirroring for SAP GA<br/>via SAP Datasphere]
     D -->|Orchestrated CDC<br/>with explicit control| I[Copy Job CDC for SAP<br/>via SAP Datasphere]
 
-    E & F & G --> J[Fabric OneLake<br/>Delta Lake]
+    E & F & G --> J[(Fabric OneLake<br/>Delta Lake)]
     H --> J
     I --> J
-    J --> K[SQL Endpoint · Power BI<br/>Notebooks · Lakehouse]
+    J --> K([SQL Endpoint · Power BI<br/>Notebooks · Lakehouse])
+
+    classDef start fill:#1565C0,stroke:#0D47A1,color:#ffffff,font-weight:bold
+    classDef decision fill:#E65100,stroke:#BF360C,color:#ffffff,font-weight:bold
+    classDef batchNode fill:#E8A838,stroke:#C07C10,color:#1a1a1a,font-weight:bold
+    classDef mirrorNode fill:#2E7D32,stroke:#1B5E20,color:#ffffff,font-weight:bold
+    classDef cdcNode fill:#558B2F,stroke:#33691E,color:#ffffff,font-weight:bold
+    classDef lakeNode fill:#6A0DAD,stroke:#4A0080,color:#ffffff,font-weight:bold
+    classDef endNode fill:#9C27B0,stroke:#6A0DAD,color:#ffffff,font-weight:bold
+
+    class A start
+    class B,D decision
+    class C decision
+    class E,F,G batchNode
+    class H mirrorNode
+    class I cdcNode
+    class J lakeNode
+    class K endNode
 ```
 
 ---
@@ -207,13 +247,37 @@ flowchart TD
 
 ---
 
-## References
+## Appendix — References
 
-1. [Fabric Data Factory Connector Overview](https://learn.microsoft.com/fabric/data-factory/connector-overview)
-2. [Microsoft Fabric Mirrored Databases From SAP](https://learn.microsoft.com/fabric/mirroring/sap)
-3. [SAP HANA Connector — Fabric](https://learn.microsoft.com/fabric/data-factory/connector-sap-hana-database-overview)
-4. [SAP BW Open Hub Connector — Fabric](https://learn.microsoft.com/fabric/data-factory/connector-sap-bw-open-hub-overview)
-5. [SAP Table Connector — Fabric](https://learn.microsoft.com/fabric/data-factory/connector-sap-table-overview)
-6. [Fabric November 2025 Feature Summary (Ignite 2025)](https://blog.fabric.microsoft.com/en-us/blog/fabric-november-2025-feature-summary)
-7. [Fabric March 2026 Feature Summary (FabCon 2026)](https://blog.fabric.microsoft.com/en-us/blog/fabric-march-2026-feature-summary)
-8. [Mirroring Overview in Microsoft Fabric](https://learn.microsoft.com/fabric/mirroring/overview)
+### Mirroring for SAP
+
+| Resource | Link |
+|----------|------|
+| Mirrored Databases from SAP — Official Docs | <https://learn.microsoft.com/fabric/mirroring/sap> |
+| Mirroring Overview in Microsoft Fabric | <https://learn.microsoft.com/fabric/mirroring/overview> |
+| Extended Capabilities in Mirroring | <https://learn.microsoft.com/fabric/mirroring/extended-capabilities> |
+
+### Data Factory SAP Connectors
+
+| Resource | Link |
+|----------|------|
+| Fabric Connector Overview (all connectors) | <https://learn.microsoft.com/fabric/data-factory/connector-overview> |
+| SAP BW Open Hub Connector | <https://learn.microsoft.com/fabric/data-factory/connector-sap-bw-open-hub-overview> |
+| SAP HANA Connector | <https://learn.microsoft.com/fabric/data-factory/connector-sap-hana-database-overview> |
+| SAP Table Connector | <https://learn.microsoft.com/fabric/data-factory/connector-sap-table-overview> |
+| SAP BW Application Server (Power Query) | <https://learn.microsoft.com/power-query/connectors/sap-bw/application-setup-and-connect> |
+
+### Announcements & Blogs
+
+| Resource | Link |
+|----------|------|
+| Fabric November 2025 Feature Summary — Ignite 2025 | <https://blog.fabric.microsoft.com/en-us/blog/fabric-november-2025-feature-summary> |
+| Fabric March 2026 Feature Summary — FabCon 2026 | <https://blog.fabric.microsoft.com/en-us/blog/fabric-march-2026-feature-summary> |
+| FabCon & SQLCon 2026 Hero Blog (Arun Ulag) | <https://aka.ms/FabCon-SQLCon-2026-news> |
+
+### SAP Datasphere
+
+| Resource | Link |
+|----------|------|
+| SAP Datasphere Documentation | <https://help.sap.com/docs/SAP_DATASPHERE> |
+| SAP Datasphere Premium Outbound Integration | <https://help.sap.com/docs/SAP_DATASPHERE/be5967d099974c69b77f4549425ca4c/eb7ff31> |
