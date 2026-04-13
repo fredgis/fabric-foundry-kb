@@ -110,3 +110,9 @@ Copilot CLI invoquera automatiquement la skill qui :
 1. Détecte et rend les diagrammes Mermaid en PNG via `mmdc`
 2. Génère le PDF via `pandoc + xelatex` avec table des matières, numérotation et coloration syntaxique
 3. Nettoie les fichiers temporaires
+
+## SAP Connectivity in Microsoft Fabric
+
+**File:** [SAP_Fabric_Connectivity.md](SAP_Fabric_Connectivity.md) | [SAP_Fabric_Connectivity.pdf](SAP_Fabric_Connectivity.pdf)
+
+Complete guide covering all SAP-to-Fabric connection methods: 7 Data Factory connectors (SAP BW, HANA, Tables), Mirroring for SAP GA (via SAP Datasphere), Copy Job CDC. Includes Ignite 2025 and FabCon 2026 announcements.
