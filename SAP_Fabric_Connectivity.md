@@ -1,4 +1,4 @@
-# SAP Connectivity in Microsoft Fabric
+# Microsoft SAP to Fabric Connectivity Architecture Patterns (2026)
 
 \begin{center}
 {\large April 2026 -- Complete Reference Guide}\\[4pt]
@@ -10,6 +10,8 @@
 ## Overview
 
 Microsoft Fabric offers multiple ways to connect to SAP systems. These range from data-movement patterns (batch ETL, CDC, Mirroring) to federation patterns where SAP data remains in place and is queried live, as well as event-driven patterns for operational analytics. The right approach depends on freshness requirements, data governance ownership, SAP source system, availability of SAP Datasphere, and whether data movement into OneLake is acceptable or required.
+
+This document describes the primary architectural patterns available in 2026 for integrating SAP systems with Microsoft Fabric. These patterns range from full data ingestion into OneLake to semantic federation and event-driven operational analytics, enabling organizations to select the appropriate integration model based on governance, licensing, and performance constraints.
 
 > **Power BI Direct Lake (GA March 2026):** Data ingested into OneLake -- whether via connectors, Copy Job, or Mirroring -- can be consumed by Power BI using Direct Lake mode. This eliminates the need for data import or intermediate semantic models, ensuring dashboards reflect the latest data with near-in-memory performance.
 
@@ -326,7 +328,7 @@ Two-stage mechanism:
 
 ## Method 4 -- Semantic Federation (No Data Movement)
 
-Power BI within Microsoft Fabric can connect **live** to SAP semantic layers without replicating any data into OneLake. This is **federation, not ingestion** -- SAP remains the system of record and the query engine.
+Microsoft Fabric semantic models (via the Power BI engine) can connect **live** to SAP semantic layers without replicating any data into OneLake. This is **federation, not ingestion** -- SAP remains the system of record and the query engine.
 
 ```mermaid
 graph LR
@@ -434,7 +436,7 @@ graph LR
 
 1. SAP operational systems replicate data into **SAP Datasphere** using standard mechanisms (ODP, SLT, CDS)
 2. Datasphere applies **transformations, business rules, and governance** to produce curated analytical models (data products)
-3. Datasphere exports these data products to a cloud storage layer (ADLS Gen2, S3) as Delta or Parquet
+3. Datasphere exports these data products to a cloud storage layer (ADLS Gen2, S3), typically using columnar analytical formats such as Parquet
 4. Fabric accesses this storage via **OneLake Shortcuts** -- no additional copy into OneLake
 5. Power BI consumes the data through **Direct Lake** mode
 
@@ -633,7 +635,7 @@ flowchart TD
 | **Native CDC** | ✘ SAP-side only | ✔ Scheduled | ✔ Continuous | N/A | N/A | N/A (events) |
 | **SAP sources** | BW, HANA, Tables | Full landscape | Full landscape | BW, HANA, DSphere | Full landscape | S/4, ECC |
 | **Power BI access** | DQ + Import | Direct Lake | SQL EP + Direct Lake | Live Connection / DQ | Direct Lake | RT Dashboard |
-| **Governance owner** | Fabric team | Fabric team | Fabric team | SAP team | SAP team | Shared |
+| **Governance owner** | Fabric team | Fabric team | Fabric team | SAP team | SAP team | SAP (event ownership) / Fabric (analytics ownership) |
 | **Use case** | Analytical | Analytical | Analytical | Analytical (BI) | Analytical | Operational |
 | **GA status** | All GA (2023) | GA (Nov 2025) | GA (Mar 2026) | GA | GA | GA (components) |
 
