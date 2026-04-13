@@ -87,14 +87,14 @@ Seven dedicated SAP connectors are available in Microsoft Fabric Data Factory fo
 
 | Connector | Dataflow Gen2 | Pipeline (Copy) | Copy Job | Gateway Required |
 |-----------|:-------------:|:---------------:|:--------:|-----------------|
-| **SAP BW Application Server** | Yes (Import + DirectQuery) | No | No | On-premises *(NCo 3.0/3.1 required)* |
-| **SAP BW Message Server** | Yes (Import + DirectQuery) | No | No | On-premises *(NCo 3.0/3.1 required)* |
-| **SAP BW Open Hub -- App. Server** | Yes | Yes | No | On-premises *(gateway hosts SAP drivers)* |
-| **SAP BW Open Hub -- Msg. Server** | Yes | Yes | No | On-premises |
-| **SAP HANA Database** | Yes (incl. DirectQuery) | Yes (Lookup + Copy) | Yes | On-premises (Basic / Windows auth) |
-| **SAP Table -- App. Server** | No | Yes | Yes | On-premises *(NCo required)* |
-| **SAP Table -- Message Server** | No | Yes | No | On-premises |
-| **OData (generic)** | Yes | Yes | No | None / On-premises |
+| **SAP BW Application Server** | **✓** (Import + DirectQuery) | **--** | **--** | On-premises *(NCo 3.0/3.1 required)* |
+| **SAP BW Message Server** | **✓** (Import + DirectQuery) | **--** | **--** | On-premises *(NCo 3.0/3.1 required)* |
+| **SAP BW Open Hub -- App. Server** | **✓** | **✓** | **--** | On-premises *(gateway hosts SAP drivers)* |
+| **SAP BW Open Hub -- Msg. Server** | **✓** | **✓** | **--** | On-premises |
+| **SAP HANA Database** | **✓** (incl. DirectQuery) | **✓** (Lookup + Copy) | **✓** | On-premises (Basic / Windows auth) |
+| **SAP Table -- App. Server** | **--** | **✓** | **✓** | On-premises *(NCo required)* |
+| **SAP Table -- Message Server** | **--** | **✓** | **--** | On-premises |
+| **OData (generic)** | **✓** | **✓** | **--** | None / On-premises |
 
 ### When to Use
 
@@ -159,14 +159,14 @@ sequenceDiagram
 
 | SAP System | Deployment | Support |
 |-----------|-----------|---------|
-| SAP S/4HANA | On-premises | Yes |
-| SAP S/4HANA Cloud | Cloud (public + private) | Yes |
-| SAP ECC | On-premises | Yes |
-| SAP BW | On-premises | Yes |
-| SAP BW/4HANA | On-premises & cloud | Yes |
-| SAP SuccessFactors | SaaS | Yes |
-| SAP Ariba | SaaS | Yes |
-| SAP Concur | SaaS | Yes |
+| SAP S/4HANA | On-premises | **✓** |
+| SAP S/4HANA Cloud | Cloud (public + private) | **✓** |
+| SAP ECC | On-premises | **✓** |
+| SAP BW | On-premises | **✓** |
+| SAP BW/4HANA | On-premises & cloud | **✓** |
+| SAP SuccessFactors | SaaS | **✓** |
+| SAP Ariba | SaaS | **✓** |
+| SAP Concur | SaaS | **✓** |
 
 > **Other SAP systems** (SAP CRM, SRM, SCM, etc.) are typically based on the NetWeaver ABAP stack and are therefore covered through the same ODP/SLT mechanisms as SAP ECC. Any SAP system supporting ODP extraction is eligible for Mirroring via Datasphere.
 
@@ -210,8 +210,8 @@ SAP Datasphere acts as the "CDC staging layer" -- the same Replication Flows use
 | Feature | Details |
 |---------|---------|
 | Change types captured | Inserts, Updates, Deletes |
-| Watermark column needed | No |
-| Manual refresh needed | No (scheduled trigger) |
+| Watermark column needed | **--** |
+| Manual refresh needed | **--** (scheduled trigger) |
 | Merge destination | Fabric Lakehouse |
 | Monitoring | Run-level stats: load type, row counts per insert/update/delete |
 | Intermediate storage | ADLS Gen2 (or S3/GCS) configured in Datasphere |
@@ -333,15 +333,15 @@ flowchart TD
 | Criteria | Batch Connectors | Copy Job CDC | Mirroring for SAP |
 |----------|:---:|:---:|:---:|
 | **Freshness** | Hourly to daily | Minutes (scheduled) | Near real-time (continuous) |
-| **Custom ETL** | Yes (watermark logic) | Minimal (schedule only) | None (zero-ETL) |
-| **SAP Datasphere needed** | No | Yes | Yes |
-| **Intermediate storage** | No | Yes (ADLS Gen2) | No (direct to OneLake) |
-| **Supported SAP sources** | BW, HANA, ABAP Tables | Full SAP landscape via Datasphere | Full SAP landscape via Datasphere |
-| **Power BI access** | DirectQuery for BW + HANA; Import for others | Direct Lake on Lakehouse | DirectQuery via SQL Endpoint + Direct Lake |
-| **CDC (insert/update/delete)** | No | Yes (scheduled) | Yes (continuous) |
-| **Max tables** | N/A (per pipeline) | N/A (per job) | 1,000 per mirrored database |
-| **In-flight transformation** | Via Dataflow Gen2 | Post-copy only | No (raw replication) |
-| **GA status** | All GA (since 2023) | GA (Nov 2025) | GA (March 2026) |
+| **Custom ETL needed** | Required (watermark logic) | Minimal (schedule only) | None (zero-ETL) |
+| **SAP Datasphere needed** | **--** Not required | **✓** Required | **✓** Required |
+| **Intermediate storage** | **--** | **✓** ADLS Gen2 | **--** Direct to OneLake |
+| **Supported SAP sources** | BW, HANA, ABAP Tables | Full SAP via Datasphere | Full SAP via Datasphere |
+| **Power BI access** | DirectQuery (BW + HANA), Import | Direct Lake on Lakehouse | SQL Endpoint + Direct Lake |
+| **Native CDC** | **--** Not supported | **✓** Scheduled | **✓** Continuous |
+| **Max tables** | Per pipeline | Per job | 1,000 per mirrored DB |
+| **In-flight transformation** | Via Dataflow Gen2 | Post-copy only | **--** Raw replication |
+| **GA status** | All GA (2023) | GA (Nov 2025) | GA (March 2026) |
 
 ---
 
@@ -435,4 +435,6 @@ Use **batch connectors** (BW, HANA, Table) with On-Premises Gateway. Consider **
 | SAP Datasphere Documentation | <https://help.sap.com/docs/SAP_DATASPHERE> |
 | SAP Datasphere Premium Outbound Integration | <https://help.sap.com/docs/SAP_DATASPHERE/be5967d099974c69b77f4549425ca4c0/eb7ff31> |
 | SAP Data Provisioning Agent (for on-premises) | <https://help.sap.com/docs/SAP_DATASPHERE/935116dd7c324355803d4b85809cec97> |
+
+
 
