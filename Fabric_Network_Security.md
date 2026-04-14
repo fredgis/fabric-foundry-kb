@@ -161,6 +161,20 @@ Microsoft Entra ID Conditional Access is the **Zero Trust** approach for securin
 
 > **Note:** Conditional Access policies apply to Fabric and related Azure services (Power BI, Azure Data Explorer, Azure SQL Database, Azure Storage). This may be considered too broad for some scenarios.
 
+#### Zero Trust Identity Best Practices
+
+As a SaaS service, Microsoft Fabric relies on **identity as the primary security perimeter**. Network controls complement but do not replace a robust identity strategy. The following practices should form the foundation of any Fabric security posture:
+
+| Practice | Description |
+|----------|-------------|
+| **Phishing-resistant MFA** | Enforce multi-factor authentication using FIDO2 keys, Windows Hello for Business or certificate-based methods. Avoid SMS-based MFA where possible. |
+| **Device Compliance** | Require managed or compliant devices (via Microsoft Intune) in Conditional Access policies to prevent access from untrusted endpoints. |
+| **Privileged Identity Management (PIM)** | Use Entra PIM for just-in-time, time-limited elevation of Fabric admin and workspace admin roles. Avoid permanent high-privilege assignments. |
+| **Service Principal Governance** | Audit and restrict Service Principal and Managed Identity access to Fabric APIs. Apply Conditional Access workload identity policies (Entra Workload ID Premium) to limit tokens to known IP ranges. |
+| **Continuous Access Evaluation (CAE)** | Enable CAE so that revoked sessions, changed locations and risk events trigger near-real-time re-evaluation of Fabric access tokens. |
+
+> **Recommendation:** Start with identity controls (MFA, Conditional Access, PIM) before layering network controls. This ensures baseline protection regardless of the user's network path.
+
 ```mermaid
 flowchart LR
     User["User"] --> Signals["Signals\n- Identity\n- Location\n- Device\n- Application\n- Risk"]
@@ -203,6 +217,8 @@ Tenant-level Private Link provides **perimeter-based protection** for the entire
 - **Bandwidth** impact: static resources (CSS, images) also transit through the Private Endpoint
 - Some features have **limitations** (Publish to Web disabled, Copilot not supported, Power BI PDF/PowerPoint export disabled)
 - **Spark Starter Pools** are disabled (replaced by custom pools in the managed VNet)
+- **Cross-tenant access is not supported:** a Private Endpoint cannot be used to reach a Fabric tenant different from the one associated with the Private Link Service. This limitation is by design and applies to both tenant-level and workspace-level Private Link.
+- **Private DNS Zone required:** to resolve Fabric public FQDNs (e.g., `*.fabric.microsoft.com`, `*.pbidedicated.windows.net`, `*.analysis.windows.net`) to private IP addresses, an Azure Private DNS Zone must be created and linked to the VNet. Without proper DNS configuration, clients will continue resolving public IPs and bypass the Private Endpoint. Use Azure Private DNS Zones or configure conditional DNS forwarding from on-premises DNS servers.
 
 ```mermaid
 flowchart TB
@@ -258,6 +274,8 @@ Workspace-level Private Link offers **granular** control: specific workspaces ar
 Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflows, Eventstream, Mirrored DB. Access to workspace-level Private Link workspaces is available via both the Fabric portal and API.
 
 > **Limitation — Unsupported item types:** Power BI reports/dashboards, Fabric databases, Data Activator, deployment pipelines, and default semantic models are **not yet covered** by workspace-level Private Link. These items remain accessible via public endpoints unless the entire tenant is secured with tenant-level Private Link or Microsoft Entra Conditional Access is used. Support for these item types is on the roadmap.
+
+> **DNS configuration:** As with tenant-level Private Link, each workspace Private Endpoint requires a matching Azure Private DNS Zone record so that the workspace-specific FQDN resolves to the Private Endpoint's private IP. When connecting multiple VNets to multiple workspaces, plan the DNS zone topology carefully — a single centralized Private DNS Zone linked to all VNets is recommended over per-VNet zones to avoid resolution conflicts.
 
 ```mermaid
 flowchart TB
@@ -317,6 +335,8 @@ The workspace IP firewall is the simplest solution to restrict access to a works
 Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflows, Eventstream, Mirrored DB. Both API and UI configuration are supported.
 
 > **Limitation — Unsupported item types:** Power BI reports/dashboards, Fabric databases, Data Activator, deployment pipelines, and default semantic models are **not covered** by workspace IP Firewall rules. Traffic to these items bypasses the IP firewall and remains accessible from any network unless the entire tenant is locked down with tenant-level Private Link or Microsoft Entra Conditional Access. Support for these items is on the roadmap.
+
+> **Note — API access:** Even with strict IP firewall rules, the **Fabric REST API** remains accessible for rule management. Administrators can create, update and delete IP firewall rules via the API regardless of their client IP. This is by design to prevent accidental lockout, but it means API-level governance (Conditional Access, Service Principal restrictions) is essential to avoid unauthorized rule changes.
 
 ```mermaid
 flowchart LR
@@ -570,6 +590,28 @@ Azure Service Tags are automatically managed groups of IP addresses, usable in N
 
 > **Tip:** When using regional tags, add the tag for the tenant's home region **and** the capacity region (if different), as well as the corresponding paired regions.
 
+#### Using Service Tags with Network Security Groups (NSG)
+
+NSGs can leverage Fabric-related service tags to enforce fine-grained inbound and outbound rules on subnets hosting Private Endpoints, VNet Data Gateways, or on-premises gateway servers.
+
+**Example NSG rules:**
+
+| Priority | Direction | Source/Destination | Service Tag | Action | Purpose |
+|----------|-----------|-------------------|-------------|--------|---------|
+| 100 | Outbound | VNet | `PowerBI` | Allow | Allow traffic to Fabric/Power BI endpoints |
+| 110 | Outbound | VNet | `DataFactory` | Allow | Allow pipeline orchestration traffic |
+| 120 | Outbound | VNet | `SQL` | Allow | Allow Warehouse connectivity |
+| 200 | Outbound | VNet | `Internet` | Deny | Block all other internet-bound traffic |
+
+#### Centralizing Outbound Traffic with Azure Firewall
+
+For organizations that require centralized egress control, logging and static IP addresses:
+
+- Deploy an **Azure Firewall** (or third-party NVA) in a hub VNet and route traffic from spoke VNets (hosting Private Endpoints or VNet Data Gateways) through the firewall via User Defined Routes (UDR).
+- Use **application rules** with service tag-based FQDN filtering to allow only Fabric-related traffic.
+- A **NAT Gateway** attached to the firewall subnet provides a **static outbound IP** — useful when external partners or data sources require IP whitelisting.
+- All outbound connections are logged in Azure Firewall Diagnostics, enabling centralized auditing and threat detection.
+
 ### Secure Outbound Connectors Matrix
 
 | Connection Method | Supported Sources | Fabric Workloads |
@@ -646,6 +688,20 @@ Complete **DEP** is achieved by combining inbound AND outbound protection:
 | **Inbound** (Private Link / IP Firewall / Conditional Access) | Controls **who** can access data and **from where** |
 | **Outbound** (Outbound Access Policies) | Prevents authorized users from **exfiltrating** data to unapproved destinations |
 
+### Advanced Data Exfiltration Controls
+
+Network-level DEP should be complemented by **data-level** controls to achieve defense in depth:
+
+| Control | Mechanism | Scope |
+|---------|-----------|-------|
+| **Microsoft Purview Information Protection** | Classify and label sensitive data (sensitivity labels). Labels flow with data across Fabric items (Lakehouses, Warehouses, Semantic Models, Reports). | Tenant |
+| **Data Loss Prevention (DLP)** | Define policies in Microsoft Purview DLP to detect and block sharing or export of items containing sensitive information (e.g., prevent download of datasets labeled "Highly Confidential"). | Tenant |
+| **Power BI Export Restrictions** | Disable or restrict exports to Excel, CSV, PowerPoint, PDF and printing via tenant settings. When tenant-level Private Link is enabled, several export options are automatically disabled. | Tenant |
+| **Endpoint DLP** | Use Microsoft Purview Endpoint DLP on managed devices to prevent copy/paste of Fabric data to USB drives, unauthorized cloud apps or personal email. | Device |
+| **Conditional Access — Session Controls** | Leverage Defender for Cloud Apps session policies to monitor, block or limit downloads of sensitive content from the Fabric web portal in real time. | Session |
+
+> **Recommendation:** Combine **Outbound Access Policies** (network) with **Purview sensitivity labels + DLP policies** (data) for a layered approach. Network controls prevent unauthorized destinations; data controls prevent unauthorized actions even on authorized destinations.
+
 ```mermaid
 flowchart TB
     subgraph DEP["Data Exfiltration Protection"]
@@ -715,6 +771,109 @@ Microsoft Fabric supports **multi-geo** deployment with capacities spread across
 - The query execution layer, caches, and data remain in the Azure geography where they were created
 - Some metadata and processing is stored at rest in the tenant's home geography
 - **Data Residency compliant** by default
+
+## DNS Configuration for Private Link
+
+Proper DNS resolution is critical for Private Link deployments. Without correct DNS, clients resolve Fabric FQDNs to public IPs and bypass Private Endpoints entirely.
+
+### Required Private DNS Zones
+
+| DNS Zone | Used By |
+|----------|---------|
+| `privatelink.analysis.windows.net` | Power BI / Semantic Models |
+| `privatelink.pbidedicated.windows.net` | Dedicated capacity endpoints |
+| `privatelink.prod.powerapps.com` | Dataflows |
+| `privatelink.blob.core.windows.net` | OneLake (ADLS Gen2 storage) |
+| `privatelink.dfs.core.windows.net` | OneLake (DFS endpoint) |
+| `privatelink.servicebus.windows.net` | Event Hubs / Eventstream |
+| `privatelink.web.core.windows.net` | Fabric portal static content |
+
+### DNS Architecture Patterns
+
+| Pattern | Description | Best For |
+|---------|-------------|----------|
+| **Centralized Private DNS Zone** | Single zone linked to all VNets (hub-spoke topology). Managed in the hub subscription. | Multi-VNet environments with centralized IT |
+| **Azure DNS Private Resolver** | Enables on-premises DNS servers to resolve Azure Private DNS Zones via conditional forwarding (forwarders pointing to 168.63.129.16 through the resolver's inbound endpoint). | Hybrid environments with on-premises DNS |
+| **Conditional forwarders** | On-premises DNS forwards specific zones (e.g., `*.analysis.windows.net`) to Azure DNS. Requires VPN/ER connectivity. | Simple hybrid setups |
+
+### IP Address Planning
+
+When deploying multiple Private Endpoints (tenant-level + workspace-level), plan subnet sizing carefully:
+
+- Each Private Endpoint consumes **one private IP** from the subnet
+- Workspace-level Private Link requires **one PE per workspace** per VNet
+- Reserve at least a `/27` (32 IPs) subnet for Fabric Private Endpoints to allow growth
+- Use separate subnets for Fabric PEs and other Azure service PEs for clear NSG rule application
+
+> **Common pitfall:** Forgetting to create or link Private DNS Zones is the most frequent cause of Private Link connectivity failures. Always verify with `nslookup` or `Resolve-DnsName` that Fabric FQDNs resolve to `10.x.x.x` (private IPs) rather than public IPs from the client's network.
+
+## Monitoring, Logging and Auditing
+
+Network security controls are only effective if monitored. Fabric integrates with Azure's monitoring ecosystem to provide visibility into access patterns, threats and configuration drift.
+
+### Diagnostic Logging
+
+| Log Source | Destination | Key Signals |
+|------------|------------|-------------|
+| **Microsoft Entra ID Sign-in Logs** | Log Analytics | Failed/successful sign-ins, MFA challenges, Conditional Access policy hits, risky sign-ins |
+| **Fabric Admin Audit Logs** | Log Analytics / Event Hub | Workspace creation, sharing changes, data exports, gateway operations |
+| **Azure Private Link Metrics** | Azure Monitor | Bytes in/out through Private Endpoints, connection counts, NAT port utilization |
+| **NSG Flow Logs** | Storage Account / Traffic Analytics | Source/dest IPs, ports, protocols, allow/deny decisions on PE subnets |
+| **Azure Firewall Logs** | Log Analytics | Application/network rule hits, threat intelligence matches, DNS queries |
+
+### Azure Monitor Integration
+
+- Create **alerts** on Fabric capacity metrics (CU utilization, throttling events) and network metrics (PE connection failures, dropped packets)
+- Use **Workbooks** to visualize Private Endpoint traffic patterns, top source IPs and blocked connections
+- Set up **diagnostic settings** on Private Link Scopes and NSGs to stream logs to a central Log Analytics workspace
+
+### Microsoft Sentinel Integration
+
+For security-focused organizations, integrate Fabric signals with **Microsoft Sentinel**:
+
+- **Data connectors:** Ingest Entra ID sign-in/audit logs, Fabric admin audit logs, and NSG flow logs into Sentinel
+- **Analytics rules:** Detect anomalies such as logins from unexpected geolocations, sudden data export spikes, bulk permission changes, or sign-ins bypassing Conditional Access
+- **Automated response:** Use Sentinel playbooks (Logic Apps) to respond to alerts — e.g., disable a compromised service principal, notify the SOC, or quarantine a workspace
+- **Hunting queries:** Proactively search for lateral movement between workspaces, unusual API call patterns or data exfiltration indicators
+
+### Audit Best Practices
+
+- Review IP Firewall and Outbound Access Policy rules **quarterly** to remove stale entries
+- Monitor Entra Conditional Access policy evaluation logs for unexpected "Not Applied" results
+- Track Private Endpoint approval/rejection events on target Azure resources
+- Validate that DNS resolution returns private IPs periodically (regression detection)
+
+## Testing and Validation
+
+After deploying network security controls, validate that they work as intended and do not introduce unacceptable latency or block legitimate traffic.
+
+### Connectivity Validation
+
+| Test | Tool | Expected Result |
+|------|------|----------------|
+| DNS resolution for Private Endpoint | `nslookup <workspace>.fabric.microsoft.com` or `Resolve-DnsName` | Returns private IP (10.x.x.x) |
+| Fabric portal access via PE | Browser from within VNet or VPN-connected client | Portal loads; no public IP fallback |
+| IP Firewall block test | Access from an IP not in the allow list | HTTP 403 Forbidden |
+| Managed PE to Azure SQL | Run a notebook query from Fabric against a firewall-enabled SQL DB | Query succeeds; SQL audit log shows private IP source |
+| Outbound policy block test | Attempt to connect to a non-allowed destination from a notebook | Connection refused / timed out |
+
+### Performance Validation
+
+- **Baseline first:** Measure query and pipeline performance **before** enabling Private Link or Managed VNets to establish a reference point
+- **Spark startup time:** Custom pools in a Managed VNet take 3–5 minutes to start (vs. seconds for Starter Pools). Factor this into SLAs and user expectations
+- **Private Endpoint throughput:** Monitor PE metrics for saturation. A single PE supports up to 8 Gbps; for high-throughput scenarios, verify that bandwidth is not a bottleneck
+- **Cross-region latency:** When capacities and Private Endpoints are in different regions (multi-geo), measure added latency and consider co-locating PEs with capacities
+
+### Periodic Reviews
+
+| Review | Frequency | Responsible |
+|--------|-----------|-------------|
+| IP Firewall rules accuracy | Monthly | Workspace admin |
+| Outbound policy allowed destinations | Quarterly | Security team |
+| Private Endpoint approvals on target resources | Quarterly | Azure subscription owner |
+| Conditional Access policy effectiveness | Quarterly | Identity team |
+| DNS zone records and VNet links | Semi-annually | Network team |
+| Penetration testing (Fabric-adjacent infrastructure) | Annually | Security team |
 
 ## Compliance and Certifications
 
@@ -816,6 +975,11 @@ flowchart TD
 - [Trusted Workspace Access](https://learn.microsoft.com/en-us/fabric/security/security-trusted-workspace-access)
 - [Protect Inbound Traffic](https://learn.microsoft.com/en-us/fabric/security/protect-inbound-traffic)
 - [Conditional Access in Fabric](https://learn.microsoft.com/en-us/fabric/security/security-conditional-access)
+- [IP Firewall Rules in Fabric](https://learn.microsoft.com/en-us/fabric/security/security-ip-firewall-rules)
 - [Service Tags](https://learn.microsoft.com/en-us/fabric/security/security-service-tags)
+- [Information Protection in Fabric](https://learn.microsoft.com/en-us/fabric/governance/information-protection)
+- [Data Loss Prevention in Fabric](https://learn.microsoft.com/en-us/fabric/governance/data-loss-prevention-overview)
+- [Azure Private DNS Zones](https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns)
+- [Microsoft Sentinel — Entra ID connector](https://learn.microsoft.com/en-us/azure/sentinel/data-connectors/microsoft-entra-id)
 - [Fabric Security Whitepaper](https://aka.ms/FabricSecurityWhitepaper)
 - *End-to-end network security in Microsoft Fabric* -- Arthi Ramasubramanian Iyer & Rick Xu, FabCon 2025
