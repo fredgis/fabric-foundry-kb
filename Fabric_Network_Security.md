@@ -1,4 +1,8 @@
-# Network Configurations in Microsoft Fabric
+---
+title: "Network Configurations in Microsoft Fabric"
+subtitle: "Architecture, Security & Best Practices"
+date: "April 2026"
+---
 
 ## Overview
 
