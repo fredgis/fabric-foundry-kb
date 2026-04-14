@@ -73,6 +73,28 @@ flowchart TB
     Fabric --> OGW --> OnPrem
     Fabric --> OAP
     OAP -.->|Bloqué| Internet
+
+    style Internet fill:#fce4ec,stroke:#c62828,color:#000
+    style Inbound fill:#e8eaf6,stroke:#283593,color:#000
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style WS1 fill:#bbdefb,stroke:#1565c0,color:#000
+    style WS2 fill:#bbdefb,stroke:#1565c0,color:#000
+    style Outbound fill:#e8f5e9,stroke:#2e7d32,color:#000
+    style ExtData fill:#fff3e0,stroke:#e65100,color:#000
+    style OutProt fill:#ffebee,stroke:#b71c1c,color:#000
+    style OL fill:#b3e5fc,stroke:#0277bd,color:#000
+    style CA fill:#d1c4e9,stroke:#4527a0,color:#000
+    style TLPL fill:#d1c4e9,stroke:#4527a0,color:#000
+    style WSPL fill:#d1c4e9,stroke:#4527a0,color:#000
+    style IPFW fill:#d1c4e9,stroke:#4527a0,color:#000
+    style TWA fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style MPE fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style VGW fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style OGW fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style OAP fill:#ef9a9a,stroke:#b71c1c,color:#000
+    style ADLS fill:#ffe0b2,stroke:#e65100,color:#000
+    style ASQL fill:#ffe0b2,stroke:#e65100,color:#000
+    style OnPrem fill:#ffe0b2,stroke:#e65100,color:#000
 ```
 
 ## Sécurité par défaut
@@ -98,6 +120,17 @@ flowchart LR
     end
 
     Client["Client (Browser/SSMS)"] -->|TLS 1.2+ / Entra ID| Fabric
+
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style DF fill:#90caf9,stroke:#1565c0,color:#000
+    style DE fill:#90caf9,stroke:#1565c0,color:#000
+    style DS fill:#90caf9,stroke:#1565c0,color:#000
+    style DW fill:#90caf9,stroke:#1565c0,color:#000
+    style RTI fill:#90caf9,stroke:#1565c0,color:#000
+    style PBI fill:#ffcc02,stroke:#e6a800,color:#000
+    style OL fill:#b3e5fc,stroke:#0277bd,color:#000
+    style ALL fill:#bbdefb,stroke:#1565c0,color:#000
+    style Client fill:#f3e5f5,stroke:#6a1b9a,color:#000
 ```
 
 ## Protection Inbound
@@ -126,11 +159,17 @@ L'accès conditionnel Microsoft Entra ID est l'approche **Zero Trust** pour séc
 
 ```mermaid
 flowchart LR
-    User["👤 Utilisateur"] --> Signals["📋 Signaux\n• Identité\n• Localisation\n• Appareil\n• Application\n• Risque"]
+    User["👤 Utilisateur"] --> Signals["📋 Signaux\n- Identité\n- Localisation\n- Appareil\n- Application\n- Risque"]
     Signals --> Decision{"Entra\nConditional\nAccess"}
     Decision -->|Grant + MFA| Fabric["Microsoft Fabric"]
     Decision -->|Grant| Fabric
-    Decision -->|Block| Blocked["🚫 Accès Refusé"]
+    Decision -->|Block| Blocked["Accès Refusé"]
+
+    style User fill:#e1f5fe,stroke:#0277bd,color:#000
+    style Signals fill:#fff9c4,stroke:#f9a825,color:#000
+    style Decision fill:#d1c4e9,stroke:#4527a0,color:#000
+    style Fabric fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style Blocked fill:#ef9a9a,stroke:#c62828,color:#000
 ```
 
 ### Private Link au niveau Tenant
@@ -180,13 +219,23 @@ flowchart TB
         OL["OneLake"]
     end
 
-    Internet["🌐 Internet Public"]
+    Internet["Internet Public"]
 
     OnPrem -->|ExpressRoute/VPN| ER --> VNet
     PE -->|Azure Private Link\nBackbone Microsoft| Fabric
-    Internet -.->|❌ Bloqué si\nBlock Public Access| Fabric
+    Internet -.->|Bloqué si\nBlock Public Access| Fabric
 
-    style Internet fill:#ffcccc
+    style OnPrem fill:#e0f2f1,stroke:#00695c,color:#000
+    style Azure fill:#e8eaf6,stroke:#283593,color:#000
+    style VNet fill:#c5cae9,stroke:#1a237e,color:#000
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style Internet fill:#ffcdd2,stroke:#b71c1c,color:#000
+    style PE fill:#b2dfdb,stroke:#00695c,color:#000
+    style ER fill:#b39ddb,stroke:#4527a0,color:#000
+    style WS1 fill:#90caf9,stroke:#1565c0,color:#000
+    style WS2 fill:#90caf9,stroke:#1565c0,color:#000
+    style OL fill:#b3e5fc,stroke:#0277bd,color:#000
+    style UserOP fill:#e0f2f1,stroke:#00695c,color:#000
 ```
 
 ### Private Link au niveau Workspace
@@ -210,37 +259,46 @@ Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflo
 flowchart TB
     subgraph VNets["Azure Virtual Networks"]
         subgraph VNetA["VNet A"]
-            PEA1["PE → WS1"]
+            PEA1["PE vers WS1"]
         end
         subgraph VNetB["VNet B"]
-            PEB1["PE → WS1"]
-            PEB2["PE → WS2"]
-            PEB3["PE → WS3"]
+            PEB1["PE vers WS1"]
+            PEB2["PE vers WS2"]
+            PEB3["PE vers WS3"]
         end
     end
 
     subgraph Fabric["Fabric Tenant"]
-        WS1["🔒 Workspace 1\nPublic Access: Disabled"]
-        WS2["🔒 Workspace 2\nPublic Access: Disabled"]
-        WS3["🔓 Workspace 3\nPublic + Private Access"]
-        WS4["🌐 Workspace 4\nPublic Access Only"]
+        WS1["Workspace 1\nPublic Access: Disabled"]
+        WS2["Workspace 2\nPublic Access: Disabled"]
+        WS3["Workspace 3\nPublic + Private Access"]
+        WS4["Workspace 4\nPublic Access Only"]
     end
 
-    Internet["🌐 Internet"]
+    Internet["Internet"]
 
     PEA1 -->|Private Link| WS1
     PEB1 -->|Private Link| WS1
     PEB2 -->|Private Link| WS2
     PEB3 -->|Private Link| WS3
-    Internet -->|✅| WS3
-    Internet -->|✅| WS4
-    Internet -.->|❌| WS1
-    Internet -.->|❌| WS2
+    Internet -->|Autorisé| WS3
+    Internet -->|Autorisé| WS4
+    Internet -.->|Bloqué| WS1
+    Internet -.->|Bloqué| WS2
 
-    style WS1 fill:#e6ffe6
-    style WS2 fill:#e6ffe6
-    style WS3 fill:#fff3e6
-    style WS4 fill:#ffe6e6
+    style VNets fill:#e8eaf6,stroke:#283593,color:#000
+    style VNetA fill:#c5cae9,stroke:#1a237e,color:#000
+    style VNetB fill:#c5cae9,stroke:#1a237e,color:#000
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style WS1 fill:#a5d6a7,stroke:#2e7d32,color:#000
+    style WS2 fill:#a5d6a7,stroke:#2e7d32,color:#000
+    style WS3 fill:#ffe082,stroke:#f9a825,color:#000
+    style WS4 fill:#ef9a9a,stroke:#c62828,color:#000
+    style Internet fill:#ffcdd2,stroke:#b71c1c,color:#000
+    style PEA1 fill:#b2dfdb,stroke:#00695c,color:#000
+    style PEB1 fill:#b2dfdb,stroke:#00695c,color:#000
+    style PEB2 fill:#b2dfdb,stroke:#00695c,color:#000
+    style PEB3 fill:#b2dfdb,stroke:#00695c,color:#000
 ```
 
 > **Différence clé avec le Private Link Tenant :** Le Private Link Workspace permet de protéger uniquement les workspaces sensibles sans impacter l'ensemble du tenant. C'est l'approche recommandée pour les organisations qui ne peuvent pas forcer tous les utilisateurs sur un réseau privé.
@@ -258,12 +316,12 @@ Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflo
 
 ```mermaid
 flowchart LR
-    subgraph Allowed["✅ IP Autorisées"]
+    subgraph Allowed["IP Autorisées"]
         IP1["203.0.113.0/24\n(Bureau Paris)"]
         IP2["198.51.100.0/24\n(Bureau London)"]
     end
 
-    subgraph Blocked["❌ IP Non Autorisées"]
+    subgraph Blocked["IP Non Autorisées"]
         IP3["Toute autre IP"]
     end
 
@@ -273,9 +331,18 @@ flowchart LR
         Items["Lakehouse\nWarehouse\nNotebook\n..."]
     end
 
-    IP1 -->|✅| FW --> Items
-    IP2 -->|✅| FW
-    IP3 -.->|❌ Bloqué| FW
+    IP1 -->|Autorisé| FW --> Items
+    IP2 -->|Autorisé| FW
+    IP3 -.->|Bloqué| FW
+
+    style Allowed fill:#e8f5e9,stroke:#2e7d32,color:#000
+    style Blocked fill:#ffebee,stroke:#c62828,color:#000
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style FW fill:#fff9c4,stroke:#f9a825,color:#000
+    style IP1 fill:#a5d6a7,stroke:#2e7d32,color:#000
+    style IP2 fill:#a5d6a7,stroke:#2e7d32,color:#000
+    style IP3 fill:#ef9a9a,stroke:#c62828,color:#000
+    style Items fill:#90caf9,stroke:#1565c0,color:#000
 ```
 
 ### Comparaison des options Inbound
@@ -324,16 +391,21 @@ flowchart LR
 
     subgraph Azure["Azure"]
         subgraph ADLS["ADLS Gen2\n(Firewall activé)"]
-            RIR["Resource Instance Rules\n• Tenant ID\n• Workspace ID"]
+            RIR["Resource Instance Rules\n- Tenant ID\n- Workspace ID"]
         end
     end
 
     WS -->|"Trusted Access\n(identité workspace)"| RIR
-    RIR -->|"✅ Autorisé"| ADLS
+    RIR -->|"Autorisé"| ADLS
 
-    Internet["🌐 Internet"] -.->|"❌ Bloqué par Firewall"| ADLS
+    Internet["Internet"] -.->|"Bloqué par Firewall"| ADLS
 
-    style ADLS fill:#e6f3ff
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style WS fill:#90caf9,stroke:#1565c0,color:#000
+    style Azure fill:#fff3e0,stroke:#e65100,color:#000
+    style ADLS fill:#ffe0b2,stroke:#e65100,color:#000
+    style RIR fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style Internet fill:#ffcdd2,stroke:#b71c1c,color:#000
 ```
 
 ### Managed Private Endpoints
@@ -362,8 +434,8 @@ flowchart LR
     subgraph Fabric["Microsoft Fabric"]
         subgraph MVNET["Managed VNet\n(géré par Microsoft)"]
             Spark["Spark Cluster\n(isolé)"]
-            MPE1["Managed PE\n→ Azure SQL"]
-            MPE2["Managed PE\n→ ADLS Gen2"]
+            MPE1["Managed PE\nvers Azure SQL"]
+            MPE2["Managed PE\nvers ADLS Gen2"]
         end
     end
 
@@ -374,6 +446,15 @@ flowchart LR
 
     Spark --> MPE1 -->|"Private Link\nBackbone Microsoft"| SQL
     Spark --> MPE2 -->|"Private Link\nBackbone Microsoft"| ADLS
+
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style MVNET fill:#bbdefb,stroke:#1565c0,color:#000
+    style Spark fill:#90caf9,stroke:#0d47a1,color:#000
+    style MPE1 fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style MPE2 fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style Azure fill:#fff3e0,stroke:#e65100,color:#000
+    style SQL fill:#ffe0b2,stroke:#e65100,color:#000
+    style ADLS fill:#ffe0b2,stroke:#e65100,color:#000
 ```
 
 ### Managed Virtual Networks
@@ -440,6 +521,20 @@ flowchart TB
     OPGW --> Files
     SM --> VGW -->|Connexion dans le VNet| ASQL
     VGW --> ADLS
+
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style DF fill:#90caf9,stroke:#1565c0,color:#000
+    style SM fill:#90caf9,stroke:#1565c0,color:#000
+    style PL fill:#90caf9,stroke:#1565c0,color:#000
+    style OnPrem fill:#e0f2f1,stroke:#00695c,color:#000
+    style OPGW fill:#80cbc4,stroke:#00695c,color:#000
+    style SQLSrv fill:#b2dfdb,stroke:#00695c,color:#000
+    style Oracle fill:#b2dfdb,stroke:#00695c,color:#000
+    style Files fill:#b2dfdb,stroke:#00695c,color:#000
+    style Azure fill:#e8eaf6,stroke:#283593,color:#000
+    style VGW fill:#b39ddb,stroke:#4527a0,color:#000
+    style ASQL fill:#ffe0b2,stroke:#e65100,color:#000
+    style ADLS fill:#ffe0b2,stroke:#e65100,color:#000
 ```
 
 ### Service Tags
@@ -500,21 +595,29 @@ flowchart LR
 
     subgraph Rules["Outbound Rules"]
         direction TB
-        Allow["✅ Destinations Autorisées\n(via MPE ou Data Connections)"]
-        Block["❌ Tout le Reste"]
+        Allow["Destinations Autorisées\n(via MPE ou Data Connections)"]
+        Block["Tout le Reste"]
     end
 
     subgraph Destinations["Destinations"]
-        Corp["Corporate ADLS Gen2\n✅ Autorisé"]
-        Other["Endpoint Public Inconnu\n❌ Bloqué"]
+        Corp["Corporate ADLS Gen2\nAutorisé"]
+        Other["Endpoint Public Inconnu\nBloqué"]
     end
 
     Fabric --> Rules
     Allow -->|MPE| Corp
     Block -.->|Bloqué| Other
 
-    style Corp fill:#e6ffe6
-    style Other fill:#ffe6e6
+    style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style LH fill:#90caf9,stroke:#1565c0,color:#000
+    style NB fill:#90caf9,stroke:#1565c0,color:#000
+    style PL fill:#90caf9,stroke:#1565c0,color:#000
+    style Rules fill:#fff9c4,stroke:#f9a825,color:#000
+    style Allow fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style Block fill:#ef9a9a,stroke:#c62828,color:#000
+    style Destinations fill:#f5f5f5,stroke:#616161,color:#000
+    style Corp fill:#a5d6a7,stroke:#2e7d32,color:#000
+    style Other fill:#ef9a9a,stroke:#c62828,color:#000
 ```
 
 ### Data Exfiltration Protection (DEP)
@@ -528,7 +631,7 @@ La **DEP complète** est obtenue en combinant la protection inbound ET outbound 
 
 ```mermaid
 flowchart TB
-    subgraph DEP["🛡️ Data Exfiltration Protection"]
+    subgraph DEP["Data Exfiltration Protection"]
         direction LR
         subgraph InP["Protection Inbound"]
             PL1["Private Link"]
@@ -541,16 +644,26 @@ flowchart TB
         end
     end
 
-    ExtUser["👤 Utilisateur Externe\n(non autorisé)"] -.->|"❌ Bloqué par\nInbound Protection"| InP
-    IntUser["👤 Utilisateur Interne\n(autorisé)"] -->|"✅ Accès via\nPrivate Link"| InP
+    ExtUser["Utilisateur Externe\n(non autorisé)"] -.->|"Bloqué par\nInbound Protection"| InP
+    IntUser["Utilisateur Interne\n(autorisé)"] -->|"Accès via\nPrivate Link"| InP
     InP -->|Accès aux données| Fabric["Fabric Workspace"]
     Fabric --> OutP
-    OutP -->|"✅ Données vers\ndestination approuvée"| Corp["ADLS Gen2 Corporate"]
-    OutP -.->|"❌ Exfiltration\nbloquée"| Ext["Destination Non Autorisée"]
+    OutP -->|"Données vers\ndestination approuvée"| Corp["ADLS Gen2 Corporate"]
+    OutP -.->|"Exfiltration\nbloquée"| Ext["Destination Non Autorisée"]
 
-    style DEP fill:#f0f8ff
-    style Corp fill:#e6ffe6
-    style Ext fill:#ffe6e6
+    style DEP fill:#e8eaf6,stroke:#283593,color:#000
+    style InP fill:#c5cae9,stroke:#1a237e,color:#000
+    style OutP fill:#c5cae9,stroke:#1a237e,color:#000
+    style PL1 fill:#d1c4e9,stroke:#4527a0,color:#000
+    style CA1 fill:#d1c4e9,stroke:#4527a0,color:#000
+    style IPF fill:#d1c4e9,stroke:#4527a0,color:#000
+    style OAP fill:#ef9a9a,stroke:#c62828,color:#000
+    style MPE fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style ExtUser fill:#ffcdd2,stroke:#b71c1c,color:#000
+    style IntUser fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style Fabric fill:#90caf9,stroke:#0d47a1,color:#000
+    style Corp fill:#a5d6a7,stroke:#2e7d32,color:#000
+    style Ext fill:#ef9a9a,stroke:#c62828,color:#000
 ```
 
 ## Sécurité des Données
@@ -615,24 +728,43 @@ flowchart TD
 
     Q2 -->|"Tout le tenant"| Q2a{"Infrastructure\nVNet disponible ?"}
     Q2 -->|"Workspaces spécifiques"| Q2b{"Type de\nrestriction ?"}
-    Q2 -->|"Identité uniquement\n(Zero Trust)"| CA["✅ Entra\nConditional Access"]
+    Q2 -->|"Identité uniquement\n(Zero Trust)"| CA["Entra\nConditional Access"]
 
-    Q2a -->|Oui| TLPL["✅ Private Link\nTenant"]
+    Q2a -->|Oui| TLPL["Private Link\nTenant"]
     Q2a -->|Non| CA
 
-    Q2b -->|"Réseau privé\n(VNet)"| WSPL["✅ Private Link\nWorkspace"]
-    Q2b -->|"Plages IP\npubliques"| IPFW["✅ Workspace\nIP Firewall"]
+    Q2b -->|"Réseau privé\n(VNet)"| WSPL["Private Link\nWorkspace"]
+    Q2b -->|"Plages IP\npubliques"| IPFW["Workspace\nIP Firewall"]
 
     Q3 -->|Oui| Q4{"Type de source ?"}
     Q3 -->|Non| Q5{"Empêcher\nl'exfiltration ?"}
 
-    Q4 -->|"ADLS Gen2\n(firewall)"| TWA["✅ Trusted\nWorkspace Access"]
-    Q4 -->|"Azure SQL, Cosmos DB\netc. (private)"| MPE["✅ Managed\nPrivate Endpoints"]
-    Q4 -->|"Services Azure\ndans un VNet"| VGW["✅ VNet\nData Gateway"]
-    Q4 -->|"On-Premises"| OGW["✅ On-Premises\nGateway"]
+    Q4 -->|"ADLS Gen2\n(firewall)"| TWA["Trusted\nWorkspace Access"]
+    Q4 -->|"Azure SQL, Cosmos DB\netc. (private)"| MPE["Managed\nPrivate Endpoints"]
+    Q4 -->|"Services Azure\ndans un VNet"| VGW["VNet\nData Gateway"]
+    Q4 -->|"On-Premises"| OGW["On-Premises\nGateway"]
 
-    Q5 -->|Oui| DEP["✅ Outbound Access\nPolicies + Inbound\n= DEP complète"]
+    Q5 -->|Oui| DEP["Outbound Access\nPolicies + Inbound\n= DEP complète"]
     Q5 -->|Non| Done["Configuration\npar défaut suffisante"]
+
+    style Start fill:#e3f2fd,stroke:#0d47a1,color:#000
+    style Q1 fill:#fff9c4,stroke:#f9a825,color:#000
+    style Q2 fill:#fff9c4,stroke:#f9a825,color:#000
+    style Q2a fill:#fff9c4,stroke:#f9a825,color:#000
+    style Q2b fill:#fff9c4,stroke:#f9a825,color:#000
+    style Q3 fill:#fff9c4,stroke:#f9a825,color:#000
+    style Q4 fill:#fff9c4,stroke:#f9a825,color:#000
+    style Q5 fill:#fff9c4,stroke:#f9a825,color:#000
+    style CA fill:#d1c4e9,stroke:#4527a0,color:#000
+    style TLPL fill:#c5cae9,stroke:#1a237e,color:#000
+    style WSPL fill:#c5cae9,stroke:#1a237e,color:#000
+    style IPFW fill:#c5cae9,stroke:#1a237e,color:#000
+    style TWA fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style MPE fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style VGW fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style OGW fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style DEP fill:#ef9a9a,stroke:#c62828,color:#000
+    style Done fill:#e0e0e0,stroke:#616161,color:#000
 ```
 
 ## Résumé des Fonctionnalités et Statut
