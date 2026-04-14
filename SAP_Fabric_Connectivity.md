@@ -927,7 +927,7 @@ flowchart TD
 | **SAP BDC** | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ |
 | **SAP BTP** | ✘ | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ | ✘ |
 | **Native CDC** | ✘ SAP-side | ✔ Scheduled | ✔ Continuous | N/A | N/A | N/A | ✔ Partner | N/A |
-| **Governance** | Fabric | Fabric | Fabric | SAP | SAP | SAP + Fabric | Fabric | Dual |
+| **Governance** | Fabric | Fabric | Fabric | SAP | SAP | SAP (events) / Fabric (analytics) | Fabric | Dual |
 | **Use case** | Analytical | Analytical | Analytical | BI | Analytical | Operational | Analytical | Analytical+AI |
 | **GA status** | GA (2023) | Preview | GA (2026) | GA | GA | GA | GA (partners) | Preview |
 
