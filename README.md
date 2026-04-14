@@ -17,8 +17,8 @@ Collection de documents techniques et guides de troubleshooting.
 | **[Foundry_Agent_Monitoring_APIM.pdf](Foundry_Agent_Monitoring_APIM.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
 | **[SAP_Fabric_Connectivity.md](SAP_Fabric_Connectivity.md)** | SAP Connectivity in Microsoft Fabric -- toutes les méthodes de connexion SAP vers Fabric (8 connecteurs, Mirroring GA, Copy Job CDC, decision guide). Annonces Ignite 2025 et FabCon 2026 |
 | **[SAP_Fabric_Connectivity.pdf](SAP_Fabric_Connectivity.pdf)** | Version PDF avec 5 diagrammes Mermaid couleur, page de titre, table des matières, callouts stylés |
-| **[Fabric_Network_Security.md](Fabric_Network_Security.md)** | Configurations réseau dans Microsoft Fabric — Protection Inbound (Private Links tenant/workspace, IP Firewall, Conditional Access), Outbound sécurisé (Trusted Workspace Access, Managed Private Endpoints, Gateways), Protection Outbound (Data Exfiltration Prevention), guide de décision et 12 diagrammes Mermaid |
-| **[Fabric_Network_Security.pdf](Fabric_Network_Security.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
+| **[Fabric_Network_Security.md](Fabric_Network_Security.md)** | Network Configurations in Microsoft Fabric — Inbound Protection (Private Links tenant/workspace, IP Firewall, Conditional Access), Secure Outbound (Trusted Workspace Access, Managed Private Endpoints, Gateways), Outbound Protection (Data Exfiltration Prevention), decision guide and 12 colored Mermaid diagrams |
+| **[Fabric_Network_Security.pdf](Fabric_Network_Security.pdf)** | PDF version with rendered Mermaid diagrams, table of contents and syntax highlighting |
 
 ## Générer les PDFs
 

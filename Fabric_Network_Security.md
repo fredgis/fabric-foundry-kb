@@ -1,27 +1,27 @@
-# Configurations Réseau dans Microsoft Fabric
+# Network Configurations in Microsoft Fabric
 
-## Vue d'ensemble
+## Overview
 
-Microsoft Fabric est une plateforme SaaS unifiée pour l'analytique et l'IA, regroupant Data Factory, Data Engineering, Data Science, Data Warehousing, Real-Time Intelligence et Power BI autour d'un data lake unique : **OneLake**.
+Microsoft Fabric is a unified SaaS platform for analytics and AI, bringing together Data Factory, Data Engineering, Data Science, Data Warehousing, Real-Time Intelligence and Power BI around a single data lake: **OneLake**.
 
-La sécurité réseau dans Fabric s'articule autour de trois axes fondamentaux :
+Network security in Fabric is built around three fundamental pillars:
 
-| Axe | Objectif | Fonctionnalités clés |
-|-----|----------|---------------------|
-| **Protection Inbound** | Contrôler qui accède à Fabric | Conditional Access, Private Links (tenant/workspace), IP Firewall |
-| **Accès Outbound sécurisé** | Connecter Fabric à des sources protégées | Trusted Workspace Access, Managed Private Endpoints, VNet/On-prem Gateways |
-| **Protection Outbound** | Empêcher l'exfiltration de données | Outbound Access Policies, règles de destinations autorisées |
+| Pillar | Objective | Key Features |
+|--------|-----------|-------------|
+| **Inbound Protection** | Control who accesses Fabric | Conditional Access, Private Links (tenant/workspace), IP Firewall |
+| **Secure Outbound Access** | Connect Fabric to protected data sources | Trusted Workspace Access, Managed Private Endpoints, VNet/On-prem Gateways |
+| **Outbound Protection** | Prevent data exfiltration | Outbound Access Policies, allowed destination rules |
 
-La combinaison **Inbound + Outbound Protection** constitue la **Data Exfiltration Protection (DEP)** complète.
+Combining **Inbound + Outbound Protection** provides complete **Data Exfiltration Protection (DEP)**.
 
 ```mermaid
 flowchart TB
-    subgraph Internet["Internet / Réseau Public"]
-        Users["👤 Utilisateurs"]
-        ExtApps["📱 Applications"]
+    subgraph Internet["Internet / Public Network"]
+        Users["Users"]
+        ExtApps["Applications"]
     end
 
-    subgraph Inbound["🛡️ Protection Inbound"]
+    subgraph Inbound["Inbound Protection"]
         CA["Entra Conditional Access"]
         TLPL["Private Link Tenant"]
         WSPL["Private Link Workspace"]
@@ -44,20 +44,20 @@ flowchart TB
         OL["OneLake"]
     end
 
-    subgraph Outbound["🔒 Accès Outbound Sécurisé"]
+    subgraph Outbound["Secure Outbound Access"]
         TWA["Trusted Workspace Access"]
         MPE["Managed Private Endpoints"]
         VGW["VNet Data Gateway"]
         OGW["On-Prem Gateway"]
     end
 
-    subgraph ExtData["Sources de Données Externes"]
+    subgraph ExtData["External Data Sources"]
         ADLS["ADLS Gen2"]
         ASQL["Azure SQL DB"]
         OnPrem["On-Premises"]
     end
 
-    subgraph OutProt["🚫 Protection Outbound"]
+    subgraph OutProt["Outbound Protection"]
         OAP["Outbound Access Policies"]
     end
 
@@ -72,7 +72,7 @@ flowchart TB
     Fabric --> VGW --> ADLS
     Fabric --> OGW --> OnPrem
     Fabric --> OAP
-    OAP -.->|Bloqué| Internet
+    OAP -.->|Blocked| Internet
 
     style Internet fill:#fce4ec,stroke:#c62828,color:#000
     style Inbound fill:#e8eaf6,stroke:#283593,color:#000
@@ -97,26 +97,26 @@ flowchart TB
     style OnPrem fill:#ffe0b2,stroke:#e65100,color:#000
 ```
 
-## Sécurité par défaut
+## Secure by Default
 
-Microsoft Fabric est **sécurisé par défaut** sans aucune configuration supplémentaire :
+Microsoft Fabric is **secure by default** without any additional configuration:
 
-- **Authentification** : Toute interaction est authentifiée via **Microsoft Entra ID**
-- **Chiffrement en transit** : Tout le trafic est chiffré via **TLS 1.2** minimum (négociation TLS 1.3 quand disponible)
-- **Chiffrement au repos** : Toutes les données dans OneLake sont chiffrées automatiquement
-- **Réseau backbone Microsoft** : Les communications internes entre les expériences Fabric transitent par le réseau privé Microsoft, jamais par l'internet public
-- **Endpoints sécurisés** : Le backend Fabric est protégé par un réseau virtuel et n'est pas directement accessible depuis l'internet public
+- **Authentication**: Every interaction is authenticated via **Microsoft Entra ID**
+- **Encryption in transit**: All traffic is encrypted using **TLS 1.2** minimum (TLS 1.3 negotiation when available)
+- **Encryption at rest**: All data in OneLake is automatically encrypted
+- **Microsoft backbone network**: Internal communications between Fabric experiences travel through the Microsoft private network, never over the public internet
+- **Secure endpoints**: The Fabric backend is protected by a virtual network and is not directly accessible from the public internet
 
 ```mermaid
 flowchart LR
-    subgraph Fabric["Microsoft Fabric - Backbone Microsoft"]
+    subgraph Fabric["Microsoft Fabric - Microsoft Backbone"]
         direction LR
         DF["Data Factory"] <-->|TLS 1.2+| DE["Data Engineering"]
         DE <-->|TLS 1.2+| DS["Data Science"]
         DS <-->|TLS 1.2+| DW["Data Warehouse"]
         DW <-->|TLS 1.2+| RTI["Real-Time Intelligence"]
         RTI <-->|TLS 1.2+| PBI["Power BI"]
-        ALL["Toutes expériences"] <-->|Backbone privé| OL["OneLake"]
+        ALL["All experiences"] <-->|Private backbone| OL["OneLake"]
     end
 
     Client["Client (Browser/SSMS)"] -->|TLS 1.2+ / Entra ID| Fabric
@@ -133,37 +133,37 @@ flowchart LR
     style Client fill:#f3e5f5,stroke:#6a1b9a,color:#000
 ```
 
-## Protection Inbound
+## Inbound Protection
 
-La protection inbound contrôle le trafic entrant vers Fabric depuis l'internet ou les réseaux d'entreprise.
+Inbound protection controls traffic entering Fabric from the internet or corporate networks.
 
 ### Entra Conditional Access
 
-L'accès conditionnel Microsoft Entra ID est l'approche **Zero Trust** pour sécuriser l'accès à Fabric. Les décisions d'accès sont prises au moment de l'authentification en évaluant des signaux contextuels.
+Microsoft Entra ID Conditional Access is the **Zero Trust** approach for securing access to Fabric. Access decisions are made at authentication time by evaluating contextual signals.
 
-**Signaux évalués :**
+**Evaluated signals:**
 
-| Signal | Exemples de politiques |
-|--------|----------------------|
-| Utilisateurs et groupes | Cibler des populations spécifiques |
-| Localisation / IP | Autoriser uniquement certaines plages IP ou pays |
-| Appareils | Exiger des appareils conformes (Intune) |
-| Applications | Appliquer des règles par application Fabric |
-| Risque de connexion | Bloquer les connexions à risque élevé |
+| Signal | Policy examples |
+|--------|----------------|
+| Users and groups | Target specific populations |
+| Location / IP | Allow only certain IP ranges or countries |
+| Devices | Require compliant devices (Intune) |
+| Applications | Apply rules per Fabric application |
+| Sign-in risk | Block high-risk sign-ins |
 
-**Décisions possibles :** Bloquer, Autoriser, Exiger MFA, Exiger un appareil conforme.
+**Possible decisions:** Block, Grant, Require MFA, Require compliant device.
 
-**Prérequis :** Licence Microsoft Entra ID P1 (souvent incluse dans Microsoft 365 E3/E5).
+**Prerequisites:** Microsoft Entra ID P1 license (often included in Microsoft 365 E3/E5).
 
-> **Note :** Les politiques Conditional Access s'appliquent à Fabric et aux services Azure associés (Power BI, Azure Data Explorer, Azure SQL Database, Azure Storage). Cela peut être considéré comme trop large pour certains scénarios.
+> **Note:** Conditional Access policies apply to Fabric and related Azure services (Power BI, Azure Data Explorer, Azure SQL Database, Azure Storage). This may be considered too broad for some scenarios.
 
 ```mermaid
 flowchart LR
-    User["👤 Utilisateur"] --> Signals["📋 Signaux\n- Identité\n- Localisation\n- Appareil\n- Application\n- Risque"]
+    User["User"] --> Signals["Signals\n- Identity\n- Location\n- Device\n- Application\n- Risk"]
     Signals --> Decision{"Entra\nConditional\nAccess"}
     Decision -->|Grant + MFA| Fabric["Microsoft Fabric"]
     Decision -->|Grant| Fabric
-    Decision -->|Block| Blocked["Accès Refusé"]
+    Decision -->|Block| Blocked["Access Denied"]
 
     style User fill:#e1f5fe,stroke:#0277bd,color:#000
     style Signals fill:#fff9c4,stroke:#f9a825,color:#000
@@ -172,43 +172,43 @@ flowchart LR
     style Blocked fill:#ef9a9a,stroke:#c62828,color:#000
 ```
 
-### Private Link au niveau Tenant
+### Tenant-Level Private Link
 
-Le Private Link au niveau du tenant fournit une **protection périmétrique** pour l'ensemble du tenant Fabric.
+Tenant-level Private Link provides **perimeter-based protection** for the entire Fabric tenant.
 
-**Principe :** Un Azure Private Endpoint est créé dans le VNet du client, établissant un tunnel privé vers Fabric via le backbone Microsoft. Fabric devient inaccessible depuis l'internet public.
+**Concept:** An Azure Private Endpoint is created in the customer's VNet, establishing a private tunnel to Fabric via the Microsoft backbone. Fabric becomes inaccessible from the public internet.
 
-**Deux paramètres clés :**
+**Two key settings:**
 
-| Paramètre | Effet |
-|-----------|-------|
-| **Azure Private Links** (activé) | Le trafic depuis le VNet vers les endpoints supportés passe par le Private Link |
-| **Block Public Internet Access** (activé) | Fabric n'est plus accessible depuis l'internet public ; seul le Private Link est autorisé |
+| Setting | Effect |
+|---------|--------|
+| **Azure Private Links** (enabled) | Traffic from the VNet to supported endpoints goes through the Private Link |
+| **Block Public Internet Access** (enabled) | Fabric is no longer accessible from the public internet; only Private Link is allowed |
 
-**Scénarios de configuration :**
+**Configuration scenarios:**
 
-| Private Link | Block Public Access | Comportement |
+| Private Link | Block Public Access | Behavior |
 |:---:|:---:|---|
-| ✅ | ✅ | Accès uniquement via Private Endpoint. Endpoints non supportés bloqués. |
-| ✅ | ❌ | Trafic VNet via Private Link. Trafic internet public autorisé. |
-| ❌ | - | Accès standard via internet public. |
+| Yes | Yes | Access only via Private Endpoint. Unsupported endpoints blocked. |
+| Yes | No | VNet traffic via Private Link. Public internet traffic allowed. |
+| No | - | Standard access via public internet. |
 
-**Considérations :**
+**Considerations:**
 
-- **Tous les utilisateurs** doivent se connecter au réseau privé (VPN, ExpressRoute)
-- Impact sur la **bande passante** : les ressources statiques (CSS, images) transitent aussi par le Private Endpoint
-- Certaines fonctionnalités ont des **limitations** (Publish to Web désactivé, Copilot non supporté, export PDF/PowerPoint Power BI désactivé)
-- Les **Starter Pools Spark** sont désactivés (remplacés par des custom pools dans le VNet managé)
+- **All users** must connect through the private network (VPN, ExpressRoute)
+- **Bandwidth** impact: static resources (CSS, images) also transit through the Private Endpoint
+- Some features have **limitations** (Publish to Web disabled, Copilot not supported, Power BI PDF/PowerPoint export disabled)
+- **Spark Starter Pools** are disabled (replaced by custom pools in the managed VNet)
 
 ```mermaid
 flowchart TB
-    subgraph OnPrem["Réseau On-Premises"]
-        UserOP["👤 Utilisateurs"]
+    subgraph OnPrem["On-Premises Network"]
+        UserOP["Users"]
     end
 
     subgraph Azure["Azure"]
         subgraph VNet["Customer VNet"]
-            PE["Private Endpoint\n(IP privée)"]
+            PE["Private Endpoint\n(Private IP)"]
         end
         ER["ExpressRoute / VPN"]
     end
@@ -219,11 +219,11 @@ flowchart TB
         OL["OneLake"]
     end
 
-    Internet["Internet Public"]
+    Internet["Public Internet"]
 
     OnPrem -->|ExpressRoute/VPN| ER --> VNet
-    PE -->|Azure Private Link\nBackbone Microsoft| Fabric
-    Internet -.->|Bloqué si\nBlock Public Access| Fabric
+    PE -->|Azure Private Link\nMicrosoft Backbone| Fabric
+    Internet -.->|Blocked if\nBlock Public Access| Fabric
 
     style OnPrem fill:#e0f2f1,stroke:#00695c,color:#000
     style Azure fill:#e8eaf6,stroke:#283593,color:#000
@@ -238,33 +238,33 @@ flowchart TB
     style UserOP fill:#e0f2f1,stroke:#00695c,color:#000
 ```
 
-### Private Link au niveau Workspace
+### Workspace-Level Private Link
 
-Le Private Link workspace offre un contrôle **granulaire** : certains workspaces sont protégés par Private Link tandis que d'autres restent accessibles publiquement.
+Workspace-level Private Link offers **granular** control: specific workspaces are protected by Private Link while others remain publicly accessible.
 
-**Caractéristiques clés :**
+**Key characteristics:**
 
-- Relation **1:1** entre un workspace et son Private Link Service
-- Un Private Link Service peut avoir **plusieurs Private Endpoints** (depuis différents VNets)
-- Un VNet peut se connecter à **plusieurs workspaces** via des Private Endpoints distincts
-- L'accès public peut être restreint **indépendamment** par workspace
-- Les workspaces publics peuvent être protégés par Entra Conditional Access ou IP Filtering
+- **1:1** relationship between a workspace and its Private Link Service
+- A Private Link Service can have **multiple Private Endpoints** (from different VNets)
+- A VNet can connect to **multiple workspaces** via separate Private Endpoints
+- Public access can be restricted **independently** per workspace
+- Public workspaces can be secured with Entra Conditional Access or IP Filtering
 
-**Items supportés (Public Preview août 2025, GA septembre 2025) :**
+**Supported items (Public Preview August 2025, GA September 2025):**
 Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflows, Eventstream, Mirrored DB
 
-**Roadmap :** Support Power BI, Databases, Data Activator et plus.
+**Roadmap:** Support for Power BI, Databases, Data Activator and more.
 
 ```mermaid
 flowchart TB
     subgraph VNets["Azure Virtual Networks"]
         subgraph VNetA["VNet A"]
-            PEA1["PE vers WS1"]
+            PEA1["PE to WS1"]
         end
         subgraph VNetB["VNet B"]
-            PEB1["PE vers WS1"]
-            PEB2["PE vers WS2"]
-            PEB3["PE vers WS3"]
+            PEB1["PE to WS1"]
+            PEB2["PE to WS2"]
+            PEB3["PE to WS3"]
         end
     end
 
@@ -281,10 +281,10 @@ flowchart TB
     PEB1 -->|Private Link| WS1
     PEB2 -->|Private Link| WS2
     PEB3 -->|Private Link| WS3
-    Internet -->|Autorisé| WS3
-    Internet -->|Autorisé| WS4
-    Internet -.->|Bloqué| WS1
-    Internet -.->|Bloqué| WS2
+    Internet -->|Allowed| WS3
+    Internet -->|Allowed| WS4
+    Internet -.->|Blocked| WS1
+    Internet -.->|Blocked| WS2
 
     style VNets fill:#e8eaf6,stroke:#283593,color:#000
     style VNetA fill:#c5cae9,stroke:#1a237e,color:#000
@@ -301,28 +301,28 @@ flowchart TB
     style PEB3 fill:#b2dfdb,stroke:#00695c,color:#000
 ```
 
-> **Différence clé avec le Private Link Tenant :** Le Private Link Workspace permet de protéger uniquement les workspaces sensibles sans impacter l'ensemble du tenant. C'est l'approche recommandée pour les organisations qui ne peuvent pas forcer tous les utilisateurs sur un réseau privé.
+> **Key difference from Tenant-Level Private Link:** Workspace-level Private Link allows you to protect only sensitive workspaces without impacting the entire tenant. This is the recommended approach for organizations that cannot force all users onto a private network.
 
 ### Workspace IP Firewall
 
-Le pare-feu IP workspace est la solution la plus simple pour restreindre l'accès à un workspace depuis des plages IP publiques spécifiques.
+The workspace IP firewall is the simplest solution to restrict access to a workspace from specific public IP ranges.
 
-**Principe :** Seules les adresses IP ou plages IP explicitement autorisées peuvent accéder au workspace. Aucune infrastructure réseau Azure n'est requise.
+**Concept:** Only explicitly allowed IP addresses or IP ranges can access the workspace. No Azure network infrastructure is required.
 
-**Items supportés (Public Preview octobre 2025, GA Q1 2026) :**
+**Supported items (Public Preview October 2025, GA Q1 2026):**
 Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflows, Eventstream, Mirrored DB
 
-**Roadmap :** Support Power BI, Databases, Data Activator.
+**Roadmap:** Support for Power BI, Databases, Data Activator.
 
 ```mermaid
 flowchart LR
-    subgraph Allowed["IP Autorisées"]
-        IP1["203.0.113.0/24\n(Bureau Paris)"]
-        IP2["198.51.100.0/24\n(Bureau London)"]
+    subgraph Allowed["Allowed IPs"]
+        IP1["203.0.113.0/24\n(Paris Office)"]
+        IP2["198.51.100.0/24\n(London Office)"]
     end
 
-    subgraph Blocked["IP Non Autorisées"]
-        IP3["Toute autre IP"]
+    subgraph Blocked["Unauthorized IPs"]
+        IP3["Any other IP"]
     end
 
     FW{"IP Firewall\nRules"}
@@ -331,9 +331,9 @@ flowchart LR
         Items["Lakehouse\nWarehouse\nNotebook\n..."]
     end
 
-    IP1 -->|Autorisé| FW --> Items
-    IP2 -->|Autorisé| FW
-    IP3 -.->|Bloqué| FW
+    IP1 -->|Allowed| FW --> Items
+    IP2 -->|Allowed| FW
+    IP3 -.->|Blocked| FW
 
     style Allowed fill:#e8f5e9,stroke:#2e7d32,color:#000
     style Blocked fill:#ffebee,stroke:#c62828,color:#000
@@ -345,60 +345,60 @@ flowchart LR
     style Items fill:#90caf9,stroke:#1565c0,color:#000
 ```
 
-### Comparaison des options Inbound
+### Inbound Options Comparison
 
-| Critère | Conditional Access | Private Link Tenant | Private Link Workspace | IP Firewall |
-|---------|:-:|:-:|:-:|:-:|
-| **Granularité** | Tenant (par politique) | Tenant | Workspace | Workspace |
-| **Infrastructure Azure requise** | Non | VNet + PE | VNet + PE par WS | Non |
-| **Complexité** | Faible | Élevée | Moyenne | Faible |
-| **Approche** | Zero Trust (identité) | Périmétrique (réseau) | Périmétrique (réseau) | IP-based |
-| **Impact utilisateurs** | Transparent (MFA) | VPN/ER obligatoire | VPN/ER pour WS protégés | Aucun si IP autorisée |
-| **Coût additionnel** | Entra ID P1 | VNet + PE + ER/VPN | VNet + PE | Aucun |
-| **Statut** | GA | GA | GA (sept 2025) | GA (Q1 2026) |
+| Criteria | Conditional Access | Private Link Tenant | Private Link Workspace | IP Firewall |
+|----------|:-:|:-:|:-:|:-:|
+| **Granularity** | Tenant (per policy) | Tenant | Workspace | Workspace |
+| **Azure infrastructure required** | No | VNet + PE | VNet + PE per WS | No |
+| **Complexity** | Low | High | Medium | Low |
+| **Approach** | Zero Trust (identity) | Perimeter (network) | Perimeter (network) | IP-based |
+| **User impact** | Transparent (MFA) | VPN/ER mandatory | VPN/ER for protected WS | None if IP allowed |
+| **Additional cost** | Entra ID P1 | VNet + PE + ER/VPN | VNet + PE | None |
+| **Status** | GA | GA | GA (Sept 2025) | GA (Q1 2026) |
 
-## Accès Outbound Sécurisé
+## Secure Outbound Access
 
-L'accès outbound sécurisé permet à Fabric de se connecter à des sources de données protégées par des firewalls ou des réseaux privés.
+Secure outbound access allows Fabric to connect to data sources protected by firewalls or private networks.
 
 ### Trusted Workspace Access
 
-Le Trusted Workspace Access permet à des workspaces Fabric spécifiques d'accéder à des comptes **ADLS Gen2 protégés par firewall** de manière sécurisée.
+Trusted Workspace Access allows specific Fabric workspaces to securely access **firewall-enabled ADLS Gen2 accounts**.
 
-**Principe :** Le workspace Fabric dispose d'une **identité de workspace** (managed identity). Des **Resource Instance Rules** sont configurées sur le compte de stockage pour autoriser uniquement les workspaces spécifiés.
+**Concept:** The Fabric workspace has a **workspace identity** (managed identity). **Resource Instance Rules** are configured on the storage account to authorize only specified workspaces.
 
-**Prérequis :**
-- Workspace associé à une capacité **Fabric F SKU** (non supporté en Trial)
-- **Workspace Identity** créée et configurée comme Contributor
-- Principal d'authentification avec rôle Azure RBAC sur le compte de stockage (Storage Blob Data Contributor/Owner/Reader)
-- Resource Instance Rule configurée via **ARM Template** ou **PowerShell**
+**Prerequisites:**
+- Workspace associated with a **Fabric F SKU** capacity (not supported on Trial)
+- **Workspace Identity** created and configured as Contributor
+- Authentication principal with Azure RBAC role on the storage account (Storage Blob Data Contributor/Owner/Reader)
+- Resource Instance Rule configured via **ARM Template** or **PowerShell**
 
-**Scénarios supportés :**
+**Supported scenarios:**
 
-| Méthode | Description |
-|---------|-------------|
-| **OneLake Shortcut** | Shortcut ADLS Gen2 dans un Lakehouse |
-| **Pipeline** | Copie de données depuis ADLS Gen2 firewall-enabled |
-| **T-SQL COPY INTO** | Ingestion dans un Warehouse |
-| **Semantic Model** (import) | Modèle connecté à ADLS Gen2 |
-| **AzCopy** | Chargement performant vers OneLake |
+| Method | Description |
+|--------|-------------|
+| **OneLake Shortcut** | ADLS Gen2 shortcut in a Lakehouse |
+| **Pipeline** | Data copy from firewall-enabled ADLS Gen2 |
+| **T-SQL COPY INTO** | Ingestion into a Warehouse |
+| **Semantic Model** (import) | Model connected to ADLS Gen2 |
+| **AzCopy** | High-performance load to OneLake |
 
 ```mermaid
 flowchart LR
     subgraph Fabric["Microsoft Fabric"]
-        WS["Workspace\n(avec Workspace Identity)"]
+        WS["Workspace\n(with Workspace Identity)"]
     end
 
     subgraph Azure["Azure"]
-        subgraph ADLS["ADLS Gen2\n(Firewall activé)"]
+        subgraph ADLS["ADLS Gen2\n(Firewall enabled)"]
             RIR["Resource Instance Rules\n- Tenant ID\n- Workspace ID"]
         end
     end
 
-    WS -->|"Trusted Access\n(identité workspace)"| RIR
-    RIR -->|"Autorisé"| ADLS
+    WS -->|"Trusted Access\n(workspace identity)"| RIR
+    RIR -->|"Allowed"| ADLS
 
-    Internet["Internet"] -.->|"Bloqué par Firewall"| ADLS
+    Internet["Internet"] -.->|"Blocked by Firewall"| ADLS
 
     style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
     style WS fill:#90caf9,stroke:#1565c0,color:#000
@@ -410,42 +410,42 @@ flowchart LR
 
 ### Managed Private Endpoints
 
-Les Managed Private Endpoints permettent des connexions sécurisées et privées vers des sources de données Azure depuis les workloads Fabric, sans les exposer au réseau public.
+Managed Private Endpoints enable secure, private connections to Azure data sources from Fabric workloads without exposing them to the public network.
 
-**Principe :** Microsoft Fabric crée et gère des Private Endpoints dans un **VNet managé** dédié au workspace. Les administrateurs de workspace spécifient le resource ID de la source, le sous-resource cible, et une justification.
+**Concept:** Microsoft Fabric creates and manages Private Endpoints in a **managed VNet** dedicated to the workspace. Workspace admins specify the resource ID of the source, the target sub-resource, and a justification.
 
-**Sources supportées :** Azure Storage, Azure SQL Database, Azure Cosmos DB, Azure Key Vault, et bien d'autres.
+**Supported sources:** Azure Storage, Azure SQL Database, Azure Cosmos DB, Azure Key Vault, and many more.
 
-**Items supportés :**
-- Data Engineering (Notebooks Spark/Python, Lakehouses, Spark Job Definitions)
+**Supported items:**
+- Data Engineering (Spark/Python Notebooks, Lakehouses, Spark Job Definitions)
 - Eventstream (Preview)
 
-**Prérequis :**
-- Supporté sur Fabric Trial et toutes les capacités F SKU
-- Le workload Data Engineering doit être disponible dans la région du tenant ET de la capacité
+**Prerequisites:**
+- Supported on Fabric Trial and all F SKU capacities
+- Data Engineering workload must be available in both the tenant region AND the capacity region
 
-**Limitations :**
-- Les OneLake shortcuts ne supportent pas encore les connexions ADLS Gen2 / Blob Storage via MPE
-- Migration de workspace inter-régions non supportée
-- Création via FQDN (Private Link Service) uniquement via REST API
+**Limitations:**
+- OneLake shortcuts do not yet support ADLS Gen2 / Blob Storage connections via MPE
+- Cross-region workspace migration not supported
+- FQDN-based creation (Private Link Service) only via REST API
 
 ```mermaid
 flowchart LR
     subgraph Fabric["Microsoft Fabric"]
-        subgraph MVNET["Managed VNet\n(géré par Microsoft)"]
-            Spark["Spark Cluster\n(isolé)"]
-            MPE1["Managed PE\nvers Azure SQL"]
-            MPE2["Managed PE\nvers ADLS Gen2"]
+        subgraph MVNET["Managed VNet\n(managed by Microsoft)"]
+            Spark["Spark Cluster\n(isolated)"]
+            MPE1["Managed PE\nto Azure SQL"]
+            MPE2["Managed PE\nto ADLS Gen2"]
         end
     end
 
-    subgraph Azure["Azure (Client)"]
-        SQL["Azure SQL DB\n(Firewall activé)"]
+    subgraph Azure["Azure (Customer)"]
+        SQL["Azure SQL DB\n(Firewall enabled)"]
         ADLS["ADLS Gen2\n(Private)"]
     end
 
-    Spark --> MPE1 -->|"Private Link\nBackbone Microsoft"| SQL
-    Spark --> MPE2 -->|"Private Link\nBackbone Microsoft"| ADLS
+    Spark --> MPE1 -->|"Private Link\nMicrosoft Backbone"| SQL
+    Spark --> MPE2 -->|"Private Link\nMicrosoft Backbone"| ADLS
 
     style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
     style MVNET fill:#bbdefb,stroke:#1565c0,color:#000
@@ -459,41 +459,41 @@ flowchart LR
 
 ### Managed Virtual Networks
 
-Les VNets managés sont des réseaux virtuels créés et gérés par Fabric pour chaque workspace. Ils fournissent l'isolation réseau pour les workloads Spark.
+Managed VNets are virtual networks created and managed by Fabric for each workspace. They provide network isolation for Spark workloads.
 
-**Activation automatique quand :**
-1. Des **Managed Private Endpoints** sont ajoutés au workspace
-2. Le paramètre **Private Link** est activé et un job Spark est exécuté
+**Automatically provisioned when:**
+1. **Managed Private Endpoints** are added to the workspace
+2. The **Private Link** setting is enabled and a Spark job is executed
 
-**Caractéristiques :**
-- Isolation complète des clusters Spark (réseau dédié)
-- Pas besoin de dimensionner les subnets (géré par Fabric)
-- Les **Starter Pools** sont désactivés (clusters Custom Pools on-demand, démarrage 3-5 min)
-- Non supporté dans les régions Switzerland West et West Central US
+**Characteristics:**
+- Complete Spark cluster isolation (dedicated network)
+- No need to size subnets (managed by Fabric)
+- **Starter Pools** are disabled (on-demand Custom Pools, 3-5 min startup)
+- Not supported in Switzerland West and West Central US regions
 
 ### Data Gateways
 
 #### On-Premises Data Gateway
 
-Passerelle installée sur un serveur dans le réseau d'entreprise, servant de pont entre les sources on-premises et Fabric.
+A gateway installed on a server within the corporate network, acting as a bridge between on-premises data sources and Fabric.
 
-| Caractéristique | Détail |
-|----------------|--------|
-| **Installation** | Serveur Windows dans le réseau interne |
-| **Protocole** | Canal sécurisé sortant (pas d'ouverture de ports entrants) |
-| **Sources** | Toute source accessible depuis le serveur gateway |
-| **Gestion** | Manuelle (mises à jour, haute disponibilité) |
+| Characteristic | Detail |
+|---------------|--------|
+| **Installation** | Windows server in the internal network |
+| **Protocol** | Secure outbound channel (no inbound port opening) |
+| **Sources** | Any source accessible from the gateway server |
+| **Management** | Manual (updates, high availability) |
 
 #### VNet Data Gateway
 
-Passerelle managée déployée dans un VNet Azure du client, permettant de se connecter aux services Azure dans le VNet sans gateway on-premises.
+A managed gateway deployed into a customer's Azure VNet, enabling connections to Azure services within the VNet without an on-premises gateway.
 
-| Caractéristique | Détail |
-|----------------|--------|
-| **Déploiement** | Injection dans un VNet Azure existant |
-| **Gestion** | Managée par Microsoft |
-| **Sources** | Services Azure dans le VNet ou peered VNets |
-| **Utilisations** | Dataflows Gen2, Semantic Models |
+| Characteristic | Detail |
+|---------------|--------|
+| **Deployment** | Injection into an existing Azure VNet |
+| **Management** | Managed by Microsoft |
+| **Sources** | Azure services in the VNet or peered VNets |
+| **Workloads** | Dataflows Gen2, Semantic Models |
 
 ```mermaid
 flowchart TB
@@ -503,23 +503,23 @@ flowchart TB
         PL["Pipelines"]
     end
 
-    subgraph OnPrem["Réseau On-Premises"]
-        OPGW["On-Prem Gateway\n(serveur Windows)"]
+    subgraph OnPrem["On-Premises Network"]
+        OPGW["On-Prem Gateway\n(Windows Server)"]
         SQLSrv["SQL Server"]
         Oracle["Oracle DB"]
         Files["File Shares"]
     end
 
     subgraph Azure["Azure VNet"]
-        VGW["VNet Data Gateway\n(managé)"]
+        VGW["VNet Data Gateway\n(managed)"]
         ASQL["Azure SQL MI"]
         ADLS["ADLS Gen2"]
     end
 
-    DF --> OPGW -->|Canal sécurisé sortant| SQLSrv
+    DF --> OPGW -->|Secure outbound channel| SQLSrv
     OPGW --> Oracle
     OPGW --> Files
-    SM --> VGW -->|Connexion dans le VNet| ASQL
+    SM --> VGW -->|Connection within VNet| ASQL
     VGW --> ADLS
 
     style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
@@ -539,44 +539,44 @@ flowchart TB
 
 ### Service Tags
 
-Les Service Tags Azure sont des groupes d'adresses IP gérés automatiquement, utilisables dans les NSG, Azure Firewall et routes définies par l'utilisateur.
+Azure Service Tags are automatically managed groups of IP addresses, usable in NSGs, Azure Firewall and user-defined routes.
 
-| Tag | Service | Direction | Régional |
+| Tag | Service | Direction | Regional |
 |-----|---------|-----------|----------|
-| `Power BI` | Power BI et Microsoft Fabric | Inbound/Outbound | Oui |
-| `DataFactory` | Azure Data Factory | Inbound/Outbound | Oui |
-| `DataFactoryManagement` | Pipeline on-premises | Outbound | Non |
-| `EventHub` | Azure Event Hubs | Outbound | Oui |
-| `KustoAnalytics` | Real-Time Analytics | Inbound/Outbound | Non |
-| `SQL` | Warehouse | Outbound | Oui |
-| `PowerQueryOnline` | Power Query Online | Inbound/Outbound | Non |
+| `Power BI` | Power BI and Microsoft Fabric | Inbound/Outbound | Yes |
+| `DataFactory` | Azure Data Factory | Inbound/Outbound | Yes |
+| `DataFactoryManagement` | On-premises pipeline | Outbound | No |
+| `EventHub` | Azure Event Hubs | Outbound | Yes |
+| `KustoAnalytics` | Real-Time Analytics | Inbound/Outbound | No |
+| `SQL` | Warehouse | Outbound | Yes |
+| `PowerQueryOnline` | Power Query Online | Inbound/Outbound | No |
 
-> **Conseil :** Lors de l'utilisation de tags régionaux, ajoutez le tag de la région home du tenant **et** de la région de la capacité (si différente), ainsi que les régions paired correspondantes.
+> **Tip:** When using regional tags, add the tag for the tenant's home region **and** the capacity region (if different), as well as the corresponding paired regions.
 
-### Matrice des connecteurs Outbound sécurisés
+### Secure Outbound Connectors Matrix
 
-| Méthode de connexion | Sources supportées | Workloads Fabric |
-|---------------------|-------------------|-----------------|
+| Connection Method | Supported Sources | Fabric Workloads |
+|-------------------|-------------------|-----------------|
 | **Trusted Workspace Access** | ADLS Gen2 (firewall) | Shortcuts, Pipelines, COPY INTO, Semantic Models |
 | **Managed Private Endpoints** | Azure SQL, ADLS Gen2, Cosmos DB, Key Vault... | Spark Notebooks, Lakehouses, Spark Jobs, Eventstream |
-| **VNet Data Gateway** | Services Azure dans un VNet | Dataflows Gen2, Semantic Models |
-| **On-Premises Gateway** | SQL Server, Oracle, fichiers, SAP... | Dataflows Gen2, Semantic Models, Pipelines |
-| **Service Tags** | Azure SQL VM, SQL MI, REST APIs | Pipelines, intégration réseau |
+| **VNet Data Gateway** | Azure services in a VNet | Dataflows Gen2, Semantic Models |
+| **On-Premises Gateway** | SQL Server, Oracle, files, SAP... | Dataflows Gen2, Semantic Models, Pipelines |
+| **Service Tags** | Azure SQL VM, SQL MI, REST APIs | Pipelines, network integration |
 
-## Protection Outbound
+## Outbound Protection
 
 ### Outbound Access Policies
 
-Les Outbound Access Policies permettent de **restreindre les connexions sortantes** d'un workspace Fabric vers des destinations non autorisées.
+Outbound Access Policies allow you to **restrict outbound connections** from a Fabric workspace to unauthorized destinations.
 
-**Objectif :** Empêcher les utilisateurs malveillants d'exfiltrer des données vers des destinations non approuvées.
+**Objective:** Prevent malicious users from exfiltrating data to unapproved destinations.
 
-**Caractéristiques :**
-- Contrôle au **niveau workspace**
-- Les destinations sont autorisées via des **Managed Private Endpoints** ou des **Data Connections**
-- Toute connexion vers une destination non explicitement autorisée est **bloquée**
+**Characteristics:**
+- **Workspace-level** control
+- Destinations are allow-listed via **Managed Private Endpoints** or **Data Connections**
+- Any connection to a destination not explicitly allowed is **blocked**
 
-**Disponibilité :**
+**Availability:**
 
 | Item Type | Public Preview | GA |
 |-----------|:-:|:-:|
@@ -595,18 +595,18 @@ flowchart LR
 
     subgraph Rules["Outbound Rules"]
         direction TB
-        Allow["Destinations Autorisées\n(via MPE ou Data Connections)"]
-        Block["Tout le Reste"]
+        Allow["Allowed Destinations\n(via MPE or Data Connections)"]
+        Block["Everything Else"]
     end
 
     subgraph Destinations["Destinations"]
-        Corp["Corporate ADLS Gen2\nAutorisé"]
-        Other["Endpoint Public Inconnu\nBloqué"]
+        Corp["Corporate ADLS Gen2\nAllowed"]
+        Other["Unknown Public Endpoint\nBlocked"]
     end
 
     Fabric --> Rules
     Allow -->|MPE| Corp
-    Block -.->|Bloqué| Other
+    Block -.->|Blocked| Other
 
     style Fabric fill:#e3f2fd,stroke:#0d47a1,color:#000
     style LH fill:#90caf9,stroke:#1565c0,color:#000
@@ -622,34 +622,34 @@ flowchart LR
 
 ### Data Exfiltration Protection (DEP)
 
-La **DEP complète** est obtenue en combinant la protection inbound ET outbound :
+Complete **DEP** is achieved by combining inbound AND outbound protection:
 
-| Composante | Rôle |
+| Component | Role |
 |-----------|------|
-| **Inbound** (Private Link / IP Firewall / Conditional Access) | Contrôle **qui** peut accéder aux données et **depuis où** |
-| **Outbound** (Outbound Access Policies) | Empêche les utilisateurs autorisés d'**exfiltrer** les données vers des destinations non approuvées |
+| **Inbound** (Private Link / IP Firewall / Conditional Access) | Controls **who** can access data and **from where** |
+| **Outbound** (Outbound Access Policies) | Prevents authorized users from **exfiltrating** data to unapproved destinations |
 
 ```mermaid
 flowchart TB
     subgraph DEP["Data Exfiltration Protection"]
         direction LR
-        subgraph InP["Protection Inbound"]
+        subgraph InP["Inbound Protection"]
             PL1["Private Link"]
             CA1["Conditional Access"]
             IPF["IP Firewall"]
         end
-        subgraph OutP["Protection Outbound"]
+        subgraph OutP["Outbound Protection"]
             OAP["Outbound Access Policies"]
-            MPE["Managed Private Endpoints\n(destinations autorisées)"]
+            MPE["Managed Private Endpoints\n(allowed destinations)"]
         end
     end
 
-    ExtUser["Utilisateur Externe\n(non autorisé)"] -.->|"Bloqué par\nInbound Protection"| InP
-    IntUser["Utilisateur Interne\n(autorisé)"] -->|"Accès via\nPrivate Link"| InP
-    InP -->|Accès aux données| Fabric["Fabric Workspace"]
+    ExtUser["External User\n(unauthorized)"] -.->|"Blocked by\nInbound Protection"| InP
+    IntUser["Internal User\n(authorized)"] -->|"Access via\nPrivate Link"| InP
+    InP -->|Data access| Fabric["Fabric Workspace"]
     Fabric --> OutP
-    OutP -->|"Données vers\ndestination approuvée"| Corp["ADLS Gen2 Corporate"]
-    OutP -.->|"Exfiltration\nbloquée"| Ext["Destination Non Autorisée"]
+    OutP -->|"Data to\napproved destination"| Corp["Corporate ADLS Gen2"]
+    OutP -.->|"Exfiltration\nblocked"| Ext["Unauthorized Destination"]
 
     style DEP fill:#e8eaf6,stroke:#283593,color:#000
     style InP fill:#c5cae9,stroke:#1a237e,color:#000
@@ -666,86 +666,86 @@ flowchart TB
     style Ext fill:#ef9a9a,stroke:#c62828,color:#000
 ```
 
-## Sécurité des Données
+## Data Security
 
-### Chiffrement
+### Encryption
 
-| Type | Mécanisme | Détail |
+| Type | Mechanism | Detail |
 |------|-----------|--------|
-| **En transit** | TLS 1.2 / 1.3 | Tout le trafic client-Fabric et inter-expériences |
-| **Au repos** | Clés Microsoft (défaut) | Chiffrement automatique de toutes les données dans OneLake |
-| **Au repos (avancé)** | Customer Managed Keys (CMK) | Second layer de chiffrement avec des clés Azure Key Vault gérées par le client |
-| **Power BI** | BYOK | Bring Your Own Key pour les datasets Power BI |
+| **In transit** | TLS 1.2 / 1.3 | All client-to-Fabric and inter-experience traffic |
+| **At rest** | Microsoft-managed keys (default) | Automatic encryption of all data in OneLake |
+| **At rest (advanced)** | Customer Managed Keys (CMK) | Second layer of encryption with customer-managed Azure Key Vault keys |
+| **Power BI** | BYOK | Bring Your Own Key for Power BI datasets |
 
 ### Customer Managed Keys (CMK)
 
-Les CMK permettent aux organisations d'ajouter une **couche de chiffrement supplémentaire** avec des clés qu'elles gèrent elles-mêmes dans Azure Key Vault.
+CMK allows organizations to add an **additional encryption layer** with keys they manage themselves in Azure Key Vault.
 
-**Disponibilité :**
+**Availability:**
 
 | Item Type | Public Preview | GA |
 |-----------|:-:|:-:|
-| Lakehouse, Spark Job, Environment, Pipeline, Dataflow, API for GraphQL, ML Model/Experiment | Août 2025 | Oct 2025 |
+| Lakehouse, Spark Job, Environment, Pipeline, Dataflow, API for GraphQL, ML Model/Experiment | Aug 2025 | Oct 2025 |
 | Data Warehouse | Sept 2025 | Oct 2025 |
 | Databases, Mirrored Experiences, Power BI | Roadmap | Roadmap |
 
-## Résidences des Données et Multi-Geo
+## Data Residency and Multi-Geo
 
-Microsoft Fabric supporte le déploiement **multi-géo** avec des capacités réparties sur **54 data centers** à travers le monde.
+Microsoft Fabric supports **multi-geo** deployment with capacities spread across **54 data centers** worldwide.
 
-**Caractéristiques :**
-- Les workspaces dans différentes régions font toujours partie du même data lake OneLake
-- La couche d'exécution des requêtes, les caches et les données restent dans la géographie Azure de création
-- Certaines métadonnées et traitements sont stockés dans la géographie home du tenant
-- **Conformité Data Residency** par défaut
+**Characteristics:**
+- Workspaces in different regions are still part of the same OneLake data lake
+- The query execution layer, caches, and data remain in the Azure geography where they were created
+- Some metadata and processing is stored at rest in the tenant's home geography
+- **Data Residency compliant** by default
 
-## Conformité et Certifications
+## Compliance and Certifications
 
-Microsoft Fabric supporte un large éventail de standards de conformité :
+Microsoft Fabric supports a wide range of compliance standards:
 
 | Certification | Date |
 |--------------|------|
-| **ISO 27001, 27701, 27017, 27018** | Décembre 2023 |
-| **HIPAA** | Janvier 2024 |
-| **Australian IRAP** | Février 2024 |
-| **SOC 1 & 2 Type 2, SOX, CSA STAR** | Mai 2024 |
-| **HITRUST** | Septembre 2024 |
-| **FedRAMP** (Azure Commercial) | Novembre 2024 |
-| **PCI DSS** | Janvier 2025 |
-| **K-ISMS** | Mai 2025 |
-| **GDPR, EUDB** | Supporté |
+| **ISO 27001, 27701, 27017, 27018** | December 2023 |
+| **HIPAA** | January 2024 |
+| **Australian IRAP** | February 2024 |
+| **SOC 1 & 2 Type 2, SOX, CSA STAR** | May 2024 |
+| **HITRUST** | September 2024 |
+| **FedRAMP** (Azure Commercial) | November 2024 |
+| **PCI DSS** | January 2025 |
+| **K-ISMS** | May 2025 |
+| **GDPR, EUDB** | Supported |
 
-Fabric est un **Microsoft Online Service** de base.
+Fabric is a core **Microsoft Online Service**.
 
-## Guide de Décision
+## Decision Guide
 
 ```mermaid
 flowchart TD
-    Start["Quel est votre besoin\nde sécurité réseau ?"] --> Q1{"Protéger l'accès\nentrant vers Fabric ?"}
+    Start["What is your\nnetwork security need?"] --> Q1{"Protect inbound\naccess to Fabric?"}
 
-    Q1 -->|Oui| Q2{"Quel niveau\nde protection ?"}
-    Q1 -->|Non| Q3{"Connecter Fabric\nà des sources protégées ?"}
+    Q1 -->|Yes| Q2{"What level\nof protection?"}
+    Q1 -->|No| Q3{"Connect Fabric\nto protected sources?"}
 
-    Q2 -->|"Tout le tenant"| Q2a{"Infrastructure\nVNet disponible ?"}
-    Q2 -->|"Workspaces spécifiques"| Q2b{"Type de\nrestriction ?"}
-    Q2 -->|"Identité uniquement\n(Zero Trust)"| CA["Entra\nConditional Access"]
+    Q2 -->|"Entire tenant"| Q2a{"VNet infrastructure\navailable?"}
+    Q2 -->|"Specific workspaces"| Q2b{"Type of\nrestriction?"}
+    Q2 -->|"Identity only\n(Zero Trust)"| CA["Entra\nConditional Access"]
 
-    Q2a -->|Oui| TLPL["Private Link\nTenant"]
-    Q2a -->|Non| CA
+    Q2a -->|Yes| TLPL["Private Link\nTenant"]
+    Q2a -->|No| CA
 
-    Q2b -->|"Réseau privé\n(VNet)"| WSPL["Private Link\nWorkspace"]
-    Q2b -->|"Plages IP\npubliques"| IPFW["Workspace\nIP Firewall"]
+    Q2b -->|"Private network\n(VNet)"| WSPL["Private Link\nWorkspace"]
+    Q2b -->|"Public IP\nranges"| IPFW["Workspace\nIP Firewall"]
 
-    Q3 -->|Oui| Q4{"Type de source ?"}
-    Q3 -->|Non| Q5{"Empêcher\nl'exfiltration ?"}
+    Q3 -->|Yes| Q4{"Source type?"}
+    Q3 -->|No| Q5{"Prevent\nexfiltration?"}
 
     Q4 -->|"ADLS Gen2\n(firewall)"| TWA["Trusted\nWorkspace Access"]
     Q4 -->|"Azure SQL, Cosmos DB\netc. (private)"| MPE["Managed\nPrivate Endpoints"]
-    Q4 -->|"Services Azure\ndans un VNet"| VGW["VNet\nData Gateway"]
+    Q4 -->|"Azure services\nin a VNet"| VGW["VNet\nData Gateway"]
     Q4 -->|"On-Premises"| OGW["On-Premises\nGateway"]
 
-    Q5 -->|Oui| DEP["Outbound Access\nPolicies + Inbound\n= DEP complète"]
-    Q5 -->|Non| Done["Configuration\npar défaut suffisante"]
+    Q5 -->|Yes| DEP["Outbound Access\nPolicies + Inbound\n= Full DEP"]
+    Q5 -->|No| Done["Default configuration\nis sufficient"]
 
     style Start fill:#e3f2fd,stroke:#0d47a1,color:#000
     style Q1 fill:#fff9c4,stroke:#f9a825,color:#000
@@ -767,24 +767,24 @@ flowchart TD
     style Done fill:#e0e0e0,stroke:#616161,color:#000
 ```
 
-## Résumé des Fonctionnalités et Statut
+## Feature Summary and Status
 
-| Fonctionnalité | Niveau | Direction | Statut | Cas d'usage principal |
-|---------------|--------|-----------|--------|----------------------|
+| Feature | Level | Direction | Status | Primary Use Case |
+|---------|-------|-----------|--------|-----------------|
 | **Entra Conditional Access** | Tenant | Inbound | GA | Zero Trust, MFA, IP filtering |
-| **Private Link Tenant** | Tenant | Inbound | GA | Isolation réseau complète du tenant |
-| **Private Link Workspace** | Workspace | Inbound | GA (Sept 2025) | Isolation réseau granulaire par workspace |
-| **Workspace IP Firewall** | Workspace | Inbound | GA (Q1 2026) | Restriction par IP sans infrastructure VNet |
-| **Trusted Workspace Access** | Workspace | Outbound | GA | Accès ADLS Gen2 firewall-enabled |
-| **Managed Private Endpoints** | Workspace | Outbound | GA | Connexion privée aux sources Azure |
-| **Managed VNets** | Workspace | Outbound | GA | Isolation Spark + support MPE |
-| **VNet Data Gateway** | Org | Outbound | GA | Connexion managée aux services Azure dans VNet |
-| **On-Premises Gateway** | Org | Outbound | GA | Connexion aux sources on-premises |
-| **Service Tags** | NSG/Firewall | Both | GA | Règles réseau Azure |
-| **Outbound Access Policies** | Workspace | Outbound | GA (Sept-Nov 2025) | Anti-exfiltration de données |
-| **Customer Managed Keys** | Workspace | Data | GA (Oct 2025) | Chiffrement double couche |
+| **Private Link Tenant** | Tenant | Inbound | GA | Full tenant network isolation |
+| **Private Link Workspace** | Workspace | Inbound | GA (Sept 2025) | Granular per-workspace network isolation |
+| **Workspace IP Firewall** | Workspace | Inbound | GA (Q1 2026) | IP-based restriction without VNet infrastructure |
+| **Trusted Workspace Access** | Workspace | Outbound | GA | Firewall-enabled ADLS Gen2 access |
+| **Managed Private Endpoints** | Workspace | Outbound | GA | Private connection to Azure sources |
+| **Managed VNets** | Workspace | Outbound | GA | Spark isolation + MPE support |
+| **VNet Data Gateway** | Org | Outbound | GA | Managed connection to Azure services in VNet |
+| **On-Premises Gateway** | Org | Outbound | GA | Connection to on-premises sources |
+| **Service Tags** | NSG/Firewall | Both | GA | Azure network rules |
+| **Outbound Access Policies** | Workspace | Outbound | GA (Sept-Nov 2025) | Data exfiltration prevention |
+| **Customer Managed Keys** | Workspace | Data | GA (Oct 2025) | Dual-layer encryption |
 
-## Références
+## References
 
 - [Security overview - Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/security/security-overview)
 - [Private Links overview](https://learn.microsoft.com/en-us/fabric/security/security-private-links-overview)
