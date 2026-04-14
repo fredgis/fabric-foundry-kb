@@ -250,10 +250,10 @@ Workspace-level Private Link offers **granular** control: specific workspaces ar
 - Public access can be restricted **independently** per workspace
 - Public workspaces can be secured with Entra Conditional Access or IP Filtering
 
-**Supported items (Public Preview August 2025, GA September 2025):**
-Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflows, Eventstream, Mirrored DB
+**Supported items (GA since September 2025):**
+Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflows, Eventstream, Mirrored DB. Access to workspace-level Private Link workspaces is available via both the Fabric portal and API.
 
-**Roadmap:** Support for Power BI, Databases, Data Activator and more.
+> **Limitation — Unsupported item types:** Power BI reports/dashboards, Fabric databases, Data Activator, deployment pipelines, and default semantic models are **not yet covered** by workspace-level Private Link. These items remain accessible via public endpoints unless the entire tenant is secured with tenant-level Private Link or Microsoft Entra Conditional Access is used. Support for these item types is on the roadmap.
 
 ```mermaid
 flowchart TB
@@ -309,10 +309,10 @@ The workspace IP firewall is the simplest solution to restrict access to a works
 
 **Concept:** Only explicitly allowed IP addresses or IP ranges can access the workspace. No Azure network infrastructure is required.
 
-**Supported items (Public Preview October 2025, GA Q1 2026):**
-Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflows, Eventstream, Mirrored DB
+**Supported items (GA since Q1 2026):**
+Lakehouse, Shortcut, Notebook, ML Experiment/Model, Pipeline, Warehouse, Dataflows, Eventstream, Mirrored DB. Both API and UI configuration are supported.
 
-**Roadmap:** Support for Power BI, Databases, Data Activator.
+> **Limitation — Unsupported item types:** Power BI reports/dashboards, Fabric databases, Data Activator, deployment pipelines, and default semantic models are **not covered** by workspace IP Firewall rules. Traffic to these items bypasses the IP firewall and remains accessible from any network unless the entire tenant is locked down with tenant-level Private Link or Microsoft Entra Conditional Access. Support for these items is on the roadmap.
 
 ```mermaid
 flowchart LR
@@ -355,7 +355,7 @@ flowchart LR
 | **Approach** | Zero Trust (identity) | Perimeter (network) | Perimeter (network) | IP-based |
 | **User impact** | Transparent (MFA) | VPN/ER mandatory | VPN/ER for protected WS | None if IP allowed |
 | **Additional cost** | Entra ID P1 | VNet + PE + ER/VPN | VNet + PE | None |
-| **Status** | GA | GA | GA (Sept 2025) | GA (Q1 2026) |
+| **Status** | GA | GA | GA | GA |
 
 ## Secure Outbound Access
 
@@ -418,7 +418,7 @@ Managed Private Endpoints enable secure, private connections to Azure data sourc
 
 **Supported items:**
 - Data Engineering (Spark/Python Notebooks, Lakehouses, Spark Job Definitions)
-- Eventstream (Preview)
+- Eventstream
 
 **Prerequisites:**
 - Supported on Fabric Trial and all F SKU capacities
@@ -494,6 +494,7 @@ A managed gateway deployed into a customer's Azure VNet, enabling connections to
 | **Management** | Managed by Microsoft |
 | **Sources** | Azure services in the VNet or peered VNets |
 | **Workloads** | Dataflows Gen2, Semantic Models |
+| **Enterprise proxy & cert auth** | GA (2026) — supports enterprise proxy servers and certificate-based authentication for corporate network compliance |
 
 ```mermaid
 flowchart TB
@@ -537,6 +538,18 @@ flowchart TB
     style ADLS fill:#ffe0b2,stroke:#e65100,color:#000
 ```
 
+### Eventstream Private Network Support
+
+*Preview — Q1 2026*
+
+Fabric Eventstreams can now ingest data from private networks via a **managed VNet** and a **streaming data gateway**, enabling secure real-time data ingestion without exposing source endpoints to the public internet. This allows organizations to stream events from Azure Event Hubs, IoT Hub, or custom sources within a VNet directly into Fabric, with traffic routed entirely through the Microsoft backbone.
+
+Key points:
+- Eventstreams leverage the workspace's managed VNet for network isolation
+- A streaming data gateway bridges the private network to the Eventstream ingestion endpoint
+- Supports managed private endpoints for source connectivity
+- Custom Endpoint as source/destination and Eventhouse direct ingestion remain unsupported
+
 ### Service Tags
 
 Azure Service Tags are automatically managed groups of IP addresses, usable in NSGs, Azure Firewall and user-defined routes.
@@ -576,13 +589,13 @@ Outbound Access Policies allow you to **restrict outbound connections** from a F
 - Destinations are allow-listed via **Managed Private Endpoints** or **Data Connections**
 - Any connection to a destination not explicitly allowed is **blocked**
 
-**Availability:**
+**Status (as of April 2026):**
 
-| Item Type | Public Preview | GA |
-|-----------|:-:|:-:|
-| Lakehouse, Spark Notebooks, Spark Jobs | Sept 2025 | Sept 2025 |
-| Dataflows, Pipelines, Copy Jobs, Warehouse, Mirrored DBs | Oct 2025 | Nov 2025 |
-| Power BI, Databases | Roadmap | Roadmap |
+| Item Type | Status |
+|-----------|--------|
+| Lakehouse, Spark Notebooks, Spark Jobs | **GA** (since Sept 2025) |
+| Dataflows, Pipelines, Copy Jobs, Warehouse, Mirrored DBs | **GA** (since Nov 2025) |
+| Power BI, Databases | Planned (roadmap) |
 
 ```mermaid
 flowchart LR
@@ -681,13 +694,13 @@ flowchart TB
 
 CMK allows organizations to add an **additional encryption layer** with keys they manage themselves in Azure Key Vault.
 
-**Availability:**
+**Status (as of April 2026):**
 
-| Item Type | Public Preview | GA |
-|-----------|:-:|:-:|
-| Lakehouse, Spark Job, Environment, Pipeline, Dataflow, API for GraphQL, ML Model/Experiment | Aug 2025 | Oct 2025 |
-| Data Warehouse | Sept 2025 | Oct 2025 |
-| Databases, Mirrored Experiences, Power BI | Roadmap | Roadmap |
+| Item Type | Status |
+|-----------|--------|
+| Lakehouse, Spark Job, Environment, Pipeline, Dataflow, API for GraphQL, ML Model/Experiment | **GA** (since Oct 2025) |
+| Data Warehouse | **GA** (since Oct 2025) |
+| Databases, Mirrored Experiences, Power BI | Planned (roadmap) |
 
 ## Data Residency and Multi-Geo
 
@@ -769,20 +782,25 @@ flowchart TD
 
 ## Feature Summary and Status
 
+*Updated as of April 2026*
+
 | Feature | Level | Direction | Status | Primary Use Case |
 |---------|-------|-----------|--------|-----------------|
-| **Entra Conditional Access** | Tenant | Inbound | GA | Zero Trust, MFA, IP filtering |
-| **Private Link Tenant** | Tenant | Inbound | GA | Full tenant network isolation |
-| **Private Link Workspace** | Workspace | Inbound | GA (Sept 2025) | Granular per-workspace network isolation |
-| **Workspace IP Firewall** | Workspace | Inbound | GA (Q1 2026) | IP-based restriction without VNet infrastructure |
-| **Trusted Workspace Access** | Workspace | Outbound | GA | Firewall-enabled ADLS Gen2 access |
-| **Managed Private Endpoints** | Workspace | Outbound | GA | Private connection to Azure sources |
-| **Managed VNets** | Workspace | Outbound | GA | Spark isolation + MPE support |
-| **VNet Data Gateway** | Org | Outbound | GA | Managed connection to Azure services in VNet |
-| **On-Premises Gateway** | Org | Outbound | GA | Connection to on-premises sources |
-| **Service Tags** | NSG/Firewall | Both | GA | Azure network rules |
-| **Outbound Access Policies** | Workspace | Outbound | GA (Sept-Nov 2025) | Data exfiltration prevention |
-| **Customer Managed Keys** | Workspace | Data | GA (Oct 2025) | Dual-layer encryption |
+| **Entra Conditional Access** | Tenant | Inbound | **GA** | Zero Trust, MFA, IP filtering |
+| **Private Link Tenant** | Tenant | Inbound | **GA** | Full tenant network isolation |
+| **Private Link Workspace** | Workspace | Inbound | **GA** | Granular per-workspace network isolation |
+| **Workspace IP Firewall** | Workspace | Inbound | **GA** | IP-based restriction without VNet infrastructure |
+| **Trusted Workspace Access** | Workspace | Outbound | **GA** | Firewall-enabled ADLS Gen2 access |
+| **Managed Private Endpoints** | Workspace | Outbound | **GA** | Private connection to Azure sources |
+| **Managed VNets** | Workspace | Outbound | **GA** | Spark isolation + MPE support |
+| **VNet Data Gateway** | Org | Outbound | **GA** | Managed connection to Azure services in VNet; enterprise proxy & cert auth support |
+| **On-Premises Gateway** | Org | Outbound | **GA** | Connection to on-premises sources |
+| **Service Tags** | NSG/Firewall | Both | **GA** | Azure network rules |
+| **Outbound Access Policies** | Workspace | Outbound | **GA** | Data exfiltration prevention |
+| **Customer Managed Keys** | Workspace | Data | **GA** | Dual-layer encryption |
+| **Eventstream Private Network** | Workspace | Outbound | **Preview** | Secure real-time ingestion from private networks |
+| **Power BI Network Isolation** | Workspace | Inbound | **Planned** | WS-level Private Link and IP Firewall for Power BI items |
+| **Fabric Databases Network Isolation** | Workspace | Inbound | **Planned** | WS-level Private Link and IP Firewall for Fabric databases |
 
 ## References
 
