@@ -13,7 +13,7 @@ Microsoft Fabric offers multiple ways to connect to SAP systems. These range fro
 
 This document describes the primary architectural patterns available in 2026 for integrating SAP systems with Microsoft Fabric. These patterns range from full data ingestion into OneLake to semantic federation and event-driven operational analytics, enabling organizations to select the appropriate integration model based on governance, licensing, and performance constraints.
 
-> **Power BI Direct Lake (GA March 2026):** Data ingested into OneLake -- whether via connectors, Copy Job, or Mirroring -- can be consumed by Power BI using Direct Lake mode. This eliminates the need for data import or intermediate semantic models, ensuring dashboards reflect the latest data with near-in-memory performance.
+> **Power BI Direct Lake mode (GA March 2026):** Direct Lake is a storage mode for tables within a Power BI semantic model. It reads Delta Lake files directly from OneLake without importing data into the model's in-memory cache, combining the performance of Import mode with the freshness of DirectQuery. Data ingested into OneLake -- whether via connectors, Copy Job, or Mirroring -- can be consumed through semantic models using Direct Lake mode, ensuring dashboards reflect the latest data with near-in-memory performance while keeping a single copy of the data in OneLake.
 
 ```mermaid
 graph TD
@@ -138,16 +138,16 @@ graph LR
 | **SAP HANA Database** | ✔ incl. DQ | ✔ Lookup + Copy | ✔ | OPDG |
 | **SAP Table -- App Server** | ✘ | ✔ | ✔ | OPDG + NCo |
 | **SAP Table -- Msg Server** | ✘ | ✔ | ✘ | OPDG |
-| **OData (generic)** | ✔ | ✔ | ✘ | None / OPDG |
+| **OData (generic)** | ✔ | ✔ | ✔ Full load | None / OPDG |
 
 > **Legend:** ✔ = Supported | ✘ = Not supported | DQ = DirectQuery
 
 ### When to Use
 
-- **SAP BW connectors** -- BW InfoProviders, BEx queries, Open Hub destinations. BW 7.3, 7.5, BW/4HANA 2.0. Best for aggregated datasets.
+- **SAP BW connectors** -- BW InfoProviders, BEx queries, Open Hub destinations. BW 7.3, 7.5, BW/4HANA 2.0. Best for aggregated datasets. Also applicable to the **embedded analytics layer in S/4HANA**, which exposes BW-like query capabilities via CDS analytical queries.
 - **SAP HANA** -- HANA views, tables, stored procedures. Also supports DirectQuery via Dataflow Gen2.
 - **SAP Table** -- ABAP table/view extraction via RFC (`VBAK`, `MARA`, `KNA1`). Medium-volume extractions.
-- **OData** -- SAP apps exposing OData APIs (SuccessFactors, S/4HANA Cloud, C4C). Small-to-medium volumes.
+- **OData** -- SAP applications exposing OData services via SAP Gateway. Covers not only SaaS applications (SuccessFactors, S/4HANA Cloud, C4C) but also **SAP ECC and S/4HANA on-premises** when OData services are activated. Standard and custom CDS Views exposed as OData endpoints are supported. Best for small-to-medium volumes.
 
 ### Typical Scenarios
 
@@ -227,7 +227,7 @@ graph LR
 | SAP Ariba | SaaS | ✔ |
 | SAP Concur | SaaS | ✔ |
 
-> **Other SAP systems** (CRM, SRM, SCM) based on NetWeaver ABAP are covered via ODP/SLT, same as ECC. Any SAP system supporting ODP extraction is eligible.
+> **Other SAP systems** (CRM, SRM, SCM) based on NetWeaver ABAP are covered via ODP/SLT, same as ECC. Any SAP system supporting ODP extraction is eligible. **SAP Datasphere itself** can also serve as a mirroring source, allowing organizations to mirror curated Datasphere views and models into OneLake. The solution supports all source types offered by SAP Datasphere.
 
 ### Key Benefits
 
@@ -236,7 +236,7 @@ graph LR
 - **End-to-end lineage** -- full governance and audit trail
 - **Native Fabric integration** -- SQL endpoint, Power BI Direct Lake, Notebooks, Lakehouses
 - **Limited impact on SAP when SLT-based ODP extraction is already operational** -- if SLT triggers and ODP queues are pre-configured, Mirroring adds marginal load. However, initial SLT configuration introduces logging overhead on source tables (trigger installation, change-log table creation). Plan the initial setup during low-activity windows.
-- **Up to 1,000 tables** per mirrored database (increased from ~100 at FabCon 2026)
+- **Up to 1,000 tables** per mirrored database (increased from 500 at FabCon 2026)
 
 ### Prerequisites
 
@@ -260,7 +260,7 @@ graph LR
 
 ## Method 3 -- Copy Job CDC for SAP
 
-Introduced at **Ignite 2025**, Copy Job supports **Change Data Capture (CDC)** for SAP via Datasphere. Unlike Mirroring (autonomous), Copy Job CDC provides **explicit orchestration control** within a Data Factory pipeline.
+Introduced at **Ignite 2025**, Copy Job supports **Change Data Capture (CDC)** for SAP via Datasphere. This capability is currently in **Preview** (as of April 2026). Unlike Mirroring (autonomous), Copy Job CDC provides **explicit orchestration control** within a Data Factory pipeline.
 
 ```mermaid
 graph LR
@@ -403,7 +403,9 @@ graph LR
 - **Query performance depends on SAP infrastructure** -- response time is bounded by SAP system capacity and network latency
 - **No offline access** -- if SAP is unavailable, dashboards are unavailable
 - **Requires On-Premises Data Gateway** for BW and HANA connections
-- **Not suitable for large-scale data science / notebook workloads** -- federation is optimized for BI consumption, not for Spark-based analytics
+- **Not suitable for large-scale batch data science workloads** -- Power BI federation (Live Connection / DirectQuery) is optimized for BI consumption, not for Spark-based bulk analytics. However, **SAP Datasphere views can be consumed from Fabric Spark notebooks via ODBC** without replication, enabling data engineering and data science use cases in a virtualized mode (see note below)
+
+> **Notebook access via ODBC:** Microsoft documents the consumption of SAP Datasphere analytical views directly from Fabric Spark notebooks using ODBC drivers. This extends the federation pattern beyond BI-only scenarios, enabling data engineers to query SAP data from notebooks for feature engineering, data validation, or exploratory analysis -- without replicating data into OneLake. Performance depends on SAP Datasphere capacity and network latency.
 
 ### When to Use
 
@@ -542,11 +544,22 @@ graph LR
 
 ### Architecture Components
 
+**Sub-pattern A: SAP Event Mesh → Azure Event Grid → Fabric Eventstream**
+
 - **SAP Event Mesh** (part of SAP BTP) -- publishes business events in CloudEvents format
 - **Azure Event Grid** -- receives events from SAP Event Mesh and routes to Fabric
 - **Fabric Eventstream** -- ingests, transforms, and routes events within Fabric
 - **KQL Database / Eventhouse** -- stores event data for time-series analysis and anomaly detection
 - **Real-Time Dashboards** -- visualize operational KPIs with sub-minute refresh
+
+**Sub-pattern B: SAP Datasphere Replication Flow → Fabric Eventstream via Kafka**
+
+Since February 2026, Microsoft documents a complementary pattern where **SAP Datasphere replication flows** push change data to a Kafka-compatible endpoint, which Fabric Eventstream ingests for near-real-time dashboards and alerting. This pattern is relevant when SAP Datasphere is already in place and the organization wants to leverage its existing replication infrastructure for operational analytics with second-level latency.
+
+- **SAP Datasphere** -- replication flows configured with a Kafka-compatible target
+- **Fabric Eventstream** -- consumes Kafka topics as a source
+- **KQL Database / Eventhouse** -- stores and queries the change stream
+- **Real-Time Dashboards / Activator** -- visualize and alert on SAP changes
 
 ### When to Use
 
@@ -612,9 +625,11 @@ graph LR
 1. The partner tool (e.g., dab Nexus, Theobald Xtract Universal) connects to SAP using its own extraction protocol (RFC, BAPI, Table CDC, or proprietary mechanisms -- not necessarily ODP)
 2. Initial data load and incremental changes are written as Delta Lake files into a Fabric-managed **landing zone**
 3. The Fabric mirroring engine picks up these files and merges them into a **mirrored database** in OneLake
-4. A SQL analytics endpoint and default semantic model are automatically created, identical to native Mirroring behavior
+4. A SQL analytics endpoint is automatically created for the mirrored database, providing immediate SQL query access. Note: since September 2025, default semantic models are no longer auto-created for mirrored databases -- create one explicitly if needed for Power BI consumption.
 
-### Certified SAP Partners
+### Certified SAP Partners (Examples)
+
+The Open Mirroring partner ecosystem continues to grow. The following are notable partners with SAP-specific connectors:
 
 | Partner | Product | Extraction Method | Key Differentiator |
 |---------|---------|-------------------|-------------------|
@@ -623,6 +638,9 @@ graph LR
 | **Theobald Software** | Xtract Universal | Table CDC / DeltaQ | Independent of SAP ODP restrictions; low SAP footprint |
 | **SNP** | SNP Glue | SAP-native triggers | Enterprise-grade transformation capabilities |
 | **ASAPIO** | ASAPIO Connector | RFC / OData | Specialized in S/4HANA Cloud |
+| **AecorSoft** | AecorSoft for Fabric | SAP-native | SAP-certified extraction with Open Mirroring support |
+
+> For the full partner list, see [Open Mirroring Partner Ecosystem](https://learn.microsoft.com/fabric/mirroring/open-mirroring-partners-ecosystem).
 
 ### When to Use
 
@@ -767,6 +785,30 @@ Microsoft Fabric Data Factory has received significant enhancements across 2025 
 
 ## Alternative Approaches
 
+### Azure Data Factory SAP CDC Connector to OneLake
+
+Organizations already using **Azure Data Factory (ADF)** or **Azure Synapse Analytics** can leverage the **SAP CDC connector** to replicate SAP data with change tracking directly into OneLake. This is not a Fabric-native capability but a well-documented hybrid pattern.
+
+**How it works:**
+
+1. ADF SAP CDC connector connects to SAP via a **Self-Hosted Integration Runtime (SHIR)** with **SAP .NET Connector** installed
+2. The connector uses SAP's ODP framework to extract initial loads and delta changes
+3. Data is written to a Fabric Lakehouse or OneLake-compatible storage as the destination
+
+**When to consider:**
+
+- Organization has existing ADF/Synapse pipelines and SAP CDC expertise
+- Fabric-native Copy Job CDC (Method 3) is still in Preview and not yet validated for production
+- Need full ODP-based CDC without SAP Datasphere (the ADF connector communicates directly with SAP ODP, not via Datasphere)
+
+**Constraints:**
+
+- Requires SHIR infrastructure (VM with SAP .NET Connector 3.0)
+- SAP ODP extraction licensing applies -- verify with SAP that third-party ODP consumption is permitted under your license agreement
+- Not serverless -- SHIR must be provisioned and maintained
+
+> **Source:** [SAP CDC connector in Azure Data Factory](https://learn.microsoft.com/azure/data-factory/connector-sap-change-data-capture)
+
 ### OneLake Shortcuts
 
 If SAP data already exists in external storage (ADLS, S3), create a **OneLake Shortcut** to make it available in Fabric without re-copying.
@@ -778,6 +820,22 @@ Informatica, Boomi, Theobald, and others offer SAP connectors writing to OneLake
 ### Logic Apps / Power Automate
 
 For event-driven micro-integrations (e.g., SAP order creation triggers a Fabric action). Not suitable for bulk data.
+
+---
+
+## Licensing and Constraints Checklist
+
+When selecting an SAP-to-Fabric integration pattern, verify the following constraints systematically:
+
+| Constraint | Affected Methods | What to Check |
+|-----------|-----------------|---------------|
+| **SAP ODP extraction licensing** | Methods 2, 3, ADF CDC | SAP restricts ODP consumption to authorized products. Verify your SAP contract allows the chosen extraction tool to use ODP. Datasphere is always authorized. Third-party tools (ADF CDC, partner connectors) may require explicit SAP approval. |
+| **SAP Datasphere licensing** | Methods 2, 3, 5 | Requires SAP Datasphere with Premium Outbound Integration add-on. This is a separate SAP subscription with its own cost model. |
+| **SAP BTP licensing** | Method 6 | SAP Event Mesh requires an SAP BTP subscription. Event activation in S/4HANA may require additional configuration effort. |
+| **SAP BDC licensing** | Method 8 | SAP Business Data Cloud is a distinct product from Datasphere. Verify availability and pricing for your SAP contract tier. |
+| **Fabric capacity sizing** | All methods | Mirroring and CDC consume Fabric CU. Size capacity based on data volume, refresh frequency, and concurrent users. Method 4 (federation) consumes no Fabric CU for data ingestion but does consume Power BI query capacity. |
+| **Network requirements** | Methods 1, 2, 3, 4, 7 | On-premises SAP requires either OPDG, SHIR, VNet peering, or ExpressRoute. Plan firewall rules for RFC (33XX), HANA (30015), and HTTPS (443). |
+| **Data residency** | All methods | Methods involving data movement (1, 2, 3, 5, 7, 8) place SAP data in OneLake regions. Methods 4 and 6 keep data in SAP. Evaluate against regulatory requirements. |
 
 ---
 
@@ -844,7 +902,7 @@ flowchart TD
 | Feature | Status | Coverage |
 |---------|:---:|---------|
 | **Mirroring for SAP** | ◑ Preview | S/4HANA, BW, BW/4HANA, SuccessFactors, Ariba |
-| **Copy Job CDC for SAP** | ✔ GA | SAP via Datasphere to Lakehouse |
+| **Copy Job CDC for SAP** | ◑ Preview | SAP via Datasphere to Lakehouse (CDC in Copy Job remains Preview as of April 2026) |
 
 ### FabCon 2026 -- March 2026
 
@@ -852,7 +910,7 @@ flowchart TD
 |---------|:---:|-----------|
 | **Mirroring for SAP** | ✔ GA | + SAP ECC, + Concur. Up to 1,000 tables. |
 | **Copy Job enhancements** | ✔ GA | Auto-partitioning, audit columns, zero-cost |
-| **Direct Lake for Power BI** | ✔ GA | Dashboards read Delta directly from OneLake |
+| **Direct Lake in OneLake** | ✔ GA | Semantic models read Delta tables directly from OneLake |
 
 > **Docs:** [Microsoft Fabric Mirrored Databases From SAP](https://learn.microsoft.com/fabric/mirroring/sap)
 
@@ -871,7 +929,7 @@ flowchart TD
 | **Native CDC** | ✘ SAP-side | ✔ Scheduled | ✔ Continuous | N/A | N/A | N/A | ✔ Partner | N/A |
 | **Governance** | Fabric | Fabric | Fabric | SAP | SAP | SAP + Fabric | Fabric | Dual |
 | **Use case** | Analytical | Analytical | Analytical | BI | Analytical | Operational | Analytical | Analytical+AI |
-| **GA status** | GA (2023) | GA (2025) | GA (2026) | GA | GA | GA | GA (partners) | Preview |
+| **GA status** | GA (2023) | Preview | GA (2026) | GA | GA | GA | GA (partners) | Preview |
 
 > **Legend:** ✔ Supported/Required | ✘ Not required | N/A = Not applicable | RT = Real-time | DS = Datasphere
 
