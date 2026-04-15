@@ -35,9 +35,7 @@ footer: 'April 2026'
 
 # Network Security — Three Pillars
 
-![w:780 center](images/pillars.png)
-
-Fabric network security is built on **three pillars**: controlling who comes in (**inbound**), securing how data goes out (**outbound**), and preventing unauthorized export (**exfiltration protection**).
+![w:680](images/pillars.png)
 
 ---
 
@@ -68,7 +66,7 @@ First line of defense — applies **before** any network control.
 
 # Private Link — Workspace Level
 
-![bg right:38% w:420](images/inbound.png)
+![bg right:45% w:520](images/inbound.png)
 
 **Preferred approach** for granular isolation.
 
@@ -136,7 +134,7 @@ Securing connections from Fabric to data sources
 
 # Managed VNet & Private Endpoints
 
-![bg right:38% w:420](images/outbound.png)
+![bg right:45% w:520](images/outbound.png)
 
 ### Managed Virtual Network
 - Microsoft-managed VNet per workspace
@@ -213,7 +211,7 @@ Preventing unauthorized data export
 
 # Outbound Policies + DEP
 
-![bg right:38% w:420](images/dep.png)
+![bg right:45% w:520](images/dep.png)
 
 ### Outbound Access Policies (GA)
 - Restrict workspace outbound to **declared destinations only**
@@ -243,7 +241,7 @@ Essential operational layers
 
 # DNS Configuration for Private Link
 
-![bg right:38% w:420](images/dns.png)
+![bg right:45% w:520](images/dns.png)
 
 ### Private DNS Zones Required
 - `privatelink.fabric.microsoft.com`
@@ -311,34 +309,11 @@ Identity (Entra + CA)  →  Network (PL / IP FW)  →  Data (Purview / DLP)
 
 # End-to-End Architecture
 
-![w:830 center](images/e2e.png)
-
-**Workspace-level privatization** — recommended for most enterprises.
-Isolate sensitive workspaces without impacting the entire tenant.
+![w:650](images/e2e.png)
 
 ---
 
-# Feature Status — April 2026
-
-| Feature | Status | Scope |
-|---------|:------:|-------|
-| Conditional Access | **GA** | Tenant |
-| Private Link (Tenant) | **GA** | Tenant |
-| Private Link (Workspace) | **GA** | Workspace |
-| IP Firewall Rules | **GA** | Workspace |
-| Managed VNet | **GA** | Workspace |
-| Managed Private Endpoints | **GA** | Workspace |
-| Trusted Workspace Access | **GA** | Workspace |
-| Outbound Access Policies | **GA** | Workspace |
-| VNet Data Gateway | **GA** | VNet |
-| Customer Managed Keys | **GA** | Capacity |
-| Eventstream Private Network | **Preview** | Workspace |
-| Power BI Network Protection | **Planned** | — |
-| Fabric Database Network | **Planned** | — |
-
----
-
-# Known Limitations
+# Feature Status & Known Limitations
 
 | Item | Private Link | IP Firewall | Managed VNet | Outbound Policy |
 |------|:----------:|:---------:|:-----------:|:--------------:|

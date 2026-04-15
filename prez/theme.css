@@ -176,6 +176,8 @@ strong {
 /* ── Images ── */
 img {
   border-radius: 4px;
+  display: block;
+  margin: 0 auto;
 }
 
 /* ── Blockquotes as callout boxes ── */
