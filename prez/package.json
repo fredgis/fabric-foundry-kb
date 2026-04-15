@@ -2,7 +2,7 @@
   "name": "fabric-network-security-prez",
   "private": true,
   "scripts": {
-    "dev": "npx @marp-team/marp-cli --theme theme.css --html -w slides.md",
+    "dev": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files -s .",
     "build": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files slides.md -o dist/index.html",
     "pdf": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files --pdf slides.md -o dist/slides.pdf"
   },
