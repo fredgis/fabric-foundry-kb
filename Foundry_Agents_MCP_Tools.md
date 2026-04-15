@@ -1,4 +1,8 @@
-# Azure AI Foundry Agents & MCP Tools — Prompt vs Hosted
+---
+title: "Azure AI Foundry Agents & MCP Tools"
+subtitle: "Prompt vs Hosted — Integration Guide"
+date: "2025"
+---
 
 > How to integrate MCP (Model Context Protocol) tools — such as MongoDB — with Azure AI Foundry agents.  
 > Covers both **Prompt Agents** (managed by Foundry) and **Hosted Agents** (your own containerized code).

@@ -1,4 +1,8 @@
-# 🤖 Microsoft Fabric – ML Endpoints : Bonnes Pratiques
+---
+title: "Microsoft Fabric — ML Endpoints"
+subtitle: "Bonnes Pratiques"
+date: "2025"
+---
 
 > **Contexte** : Ce document répond aux questions fréquentes sur l'utilisation des **ML Model Endpoints (Preview)** dans Microsoft Fabric pour l'inférence en temps réel. Il couvre le logging systématique des entrées/sorties, la personnalisation des endpoints via un wrapper MLflow PyFunc, et fournit des exemples de code complets prêts à adapter.
 

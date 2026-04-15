@@ -1,4 +1,8 @@
-# Monitoring Foundry Agents — Per-User Token Tracking via APIM AI Gateway
+---
+title: "Monitoring Foundry Agents"
+subtitle: "Per-User Token Tracking via APIM AI Gateway"
+date: "2025"
+---
 
 > Track **who** uses **which agent**, how many **tokens** are consumed, and the **estimated cost** — all with per-caller attribution that Foundry's built-in tracing does not natively provide.
 

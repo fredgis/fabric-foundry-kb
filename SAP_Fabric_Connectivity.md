@@ -1,11 +1,8 @@
-# Microsoft SAP to Fabric Connectivity Architecture Patterns (2026)
-
-\begin{center}
-{\large April 2026 -- Complete Reference Guide}\\[4pt]
-{\small Based on: Microsoft Fabric Documentation, Ignite 2025, FabCon 2026}
-\end{center}
-
-\vspace{8pt}
+---
+title: "SAP to Fabric Connectivity"
+subtitle: "Architecture Patterns — Complete Reference Guide"
+date: "April 2026"
+---
 
 ## Overview
 

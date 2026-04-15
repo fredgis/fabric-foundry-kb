@@ -1,6 +1,10 @@
-# Microsoft Fabric — Private Link MFA Authentication Loop Resolution
+---
+title: "Microsoft Fabric — Private Link MFA Authentication Loop Resolution"
+subtitle: "Troubleshooting Guide"
+date: "2025"
+---
 
-## 📋 Summary
+## Summary
 
 | Item | Detail |
 |------|--------|
