@@ -141,6 +141,29 @@ flowchart LR
 
 Inbound protection controls traffic entering Fabric from the internet or corporate networks.
 
+### Tenant Setting: Workspace-Level Inbound Network Rules
+
+Before workspace administrators can configure Private Link or IP Firewall at the workspace level, a **tenant administrator** must enable the **"Workspace-level inbound network rules"** setting in the Fabric Admin portal (under **Tenant settings > Network security**).
+
+When this setting is **disabled** (default), workspace-level Private Link and IP Firewall options are hidden from workspace administrators. Enabling it delegates inbound network control to individual workspace admins, allowing them to restrict public access independently per workspace.
+
+> **Important:** This tenant setting does not enforce any network restriction by itself — it only **unlocks** the capability for workspace admins. Each workspace admin must then explicitly configure Private Link or IP Firewall rules on their workspace.
+
+#### Interaction Between Tenant and Workspace Network Settings
+
+The tenant-level public access setting and workspace-level inbound rules interact as follows:
+
+| Tenant Public Access | Workspace Private Link | Workspace IP Firewall | Portal Access | API Access | Notes |
+|:---:|:---:|:---:|---|---|---|
+| **Allowed** | Not configured | Not configured | Public | Public | Default — no restriction |
+| **Allowed** | Configured (public disabled) | — | Via WS Private Link only | Via WS Private Link only | Workspace locked down |
+| **Allowed** | — | Configured | From allowed IPs only | From allowed IPs only | IP-based restriction |
+| **Restricted** (Block Public Access) | Not configured | Not configured | Via Tenant PL only | Via Tenant PL only | Tenant-wide lockdown |
+| **Restricted** (Block Public Access) | Configured | — | Via Tenant PL only | Via WS Private Link or Tenant PL | Portal requires tenant PL; API can use workspace PL |
+| **Restricted** (Block Public Access) | — | Configured | Via Tenant PL only | Via Tenant PL only | IP firewall rules are overridden by tenant restriction |
+
+> **Key takeaway:** When tenant-level public access is **restricted**, the tenant Private Link takes precedence for portal access. Workspace-level Private Link provides additional API-level access paths but does not bypass the tenant restriction for the Fabric portal.
+
 ### Entra Conditional Access
 
 Microsoft Entra ID Conditional Access is the **Zero Trust** approach for securing access to Fabric. Access decisions are made at authentication time by evaluating contextual signals.
@@ -392,10 +415,12 @@ Trusted Workspace Access allows specific Fabric workspaces to securely access **
 **Concept:** The Fabric workspace has a **workspace identity** (managed identity). **Resource Instance Rules** are configured on the storage account to authorize only specified workspaces.
 
 **Prerequisites:**
-- Workspace associated with a **Fabric F SKU** capacity (not supported on Trial)
-- **Workspace Identity** created and configured as Contributor
-- Authentication principal with Azure RBAC role on the storage account (Storage Blob Data Contributor/Owner/Reader)
-- Resource Instance Rule configured via **ARM Template** or **PowerShell**
+- Workspace associated with a **Fabric F SKU** capacity (not supported on Trial or Power BI Premium P SKU)
+- **Workspace Identity** created and configured as Contributor on the workspace
+- Authentication principal (user or service principal) with an **Azure RBAC data-plane role** on the ADLS Gen2 storage account: `Storage Blob Data Contributor`, `Storage Blob Data Owner`, or `Storage Blob Data Reader` depending on the operation
+- **Resource Instance Rule** configured on the storage account's firewall to allow the specific Fabric workspace. This rule references the **Entra tenant ID** and the **workspace resource ID** and must be deployed via **ARM Template**, **Bicep**, or **PowerShell** (the Azure portal does not support resource instance rules natively)
+
+> **Checklist:** If Trusted Workspace Access is not working, verify: (1) the workspace identity exists and is not disabled, (2) the RBAC role is assigned at the storage account or container level (not the resource group), (3) the resource instance rule uses the correct workspace resource ID (not just the workspace name), and (4) the storage account firewall allows "trusted Microsoft services" access.
 
 **Supported scenarios:**
 
@@ -518,7 +543,9 @@ A managed gateway deployed into a customer's Azure VNet, enabling connections to
 | **Management** | Managed by Microsoft |
 | **Sources** | Azure services in the VNet or peered VNets |
 | **Workloads** | Dataflows Gen2, Semantic Models |
-| **Enterprise proxy & cert auth** | GA (2026) — supports enterprise proxy servers and certificate-based authentication for corporate network compliance |
+| **Enterprise proxy & cert auth** | **GA** — supports enterprise HTTP/HTTPS proxy servers and certificate-based authentication, allowing the gateway to route traffic through corporate proxies and authenticate with client certificates. Essential for organizations with mandatory proxy inspection policies. |
+
+> **Reference:** [VNet Data Gateway documentation](https://learn.microsoft.com/en-us/data-integration/vnet/overview)
 
 ```mermaid
 flowchart TB
@@ -807,6 +834,19 @@ When deploying multiple Private Endpoints (tenant-level + workspace-level), plan
 
 > **Common pitfall:** Forgetting to create or link Private DNS Zones is the most frequent cause of Private Link connectivity failures. Always verify with `nslookup` or `Resolve-DnsName` that Fabric FQDNs resolve to `10.x.x.x` (private IPs) rather than public IPs from the client's network.
 
+### DNS Best Practices Checklist
+
+> **DNS Quick Validation Guide**
+>
+> 1. **Create all required Private DNS Zones** listed above and link them to every VNet that hosts a Private Endpoint or from which users connect to Fabric.
+> 2. **Test resolution before go-live** — from a VM inside the VNet, run:
+>    - `nslookup <your-workspace>.fabric.microsoft.com` (Windows)
+>    - `Resolve-DnsName <your-workspace>.pbidedicated.windows.net` (PowerShell)
+>    - Expected: a `10.x.x.x` private IP, **not** a public IP.
+> 3. **Hybrid DNS:** If using on-premises DNS servers, configure **conditional forwarders** for each `privatelink.*` zone pointing to Azure DNS (`168.63.129.16`) via an Azure DNS Private Resolver or a DNS forwarder VM in the VNet.
+> 4. **Automate DNS record lifecycle:** Use Azure Policy (e.g., `Deploy-DINE-PrivateDNSZoneGroup`) to automatically create DNS records when new Private Endpoints are provisioned — manual record management is error-prone at scale.
+> 5. **Monitor for DNS drift:** Periodically re-run resolution tests after infrastructure changes (VNet peering, new PEs, zone re-linking). A broken DNS zone link silently reverts traffic to the public path.
+
 ## Monitoring, Logging and Auditing
 
 Network security controls are only effective if monitored. Fabric integrates with Azure's monitoring ecosystem to provide visibility into access patterns, threats and configuration drift.
@@ -977,6 +1017,7 @@ flowchart TD
 - [Conditional Access in Fabric](https://learn.microsoft.com/en-us/fabric/security/security-conditional-access)
 - [IP Firewall Rules in Fabric](https://learn.microsoft.com/en-us/fabric/security/security-ip-firewall-rules)
 - [Service Tags](https://learn.microsoft.com/en-us/fabric/security/security-service-tags)
+- [VNet Data Gateway](https://learn.microsoft.com/en-us/data-integration/vnet/overview)
 - [Information Protection in Fabric](https://learn.microsoft.com/en-us/fabric/governance/information-protection)
 - [Data Loss Prevention in Fabric](https://learn.microsoft.com/en-us/fabric/governance/data-loss-prevention-overview)
 - [Azure Private DNS Zones](https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns)
