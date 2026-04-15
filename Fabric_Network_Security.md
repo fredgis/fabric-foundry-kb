@@ -1106,6 +1106,15 @@ flowchart TD
 | Outbound Access Policies | Managed VNet + MPE (or Data Connections) → Enable outbound policy → Non-listed destinations blocked | Must declare all legitimate destinations before enabling |
 | Full DEP | Inbound (PL or IPFW or CA) + Outbound (OAP) | Both sides required for complete exfiltration protection |
 
+**How to read this diagram:**
+
+- **Orange boxes (top)** are prerequisites that must be in place before any feature can be enabled: a Fabric F SKU capacity, the tenant-level toggle for workspace inbound rules, or an Entra ID P1 license.
+- **Arrows** represent "requires" relationships — follow them top-down to see what each feature depends on. For example, *Managed Private Endpoints* (green) require a *Managed VNet* (green), which itself requires an *F SKU* (orange).
+- **Teal boxes** are Azure infrastructure components (VNet, Private Endpoints, DNS Zones, ExpressRoute/VPN) that must be provisioned in the customer's subscription.
+- **Purple boxes** are identity prerequisites specific to Trusted Workspace Access (Workspace Identity, RBAC role, Resource Instance Rule).
+- **The dashed arrow** from MPE to Managed VNet indicates that the VNet is auto-provisioned when the first MPE is created — you don't need to create it manually.
+- **Red box** (Outbound Access Policies) sits at the end of the chain: it requires both Managed VNet and MPE to be in place, since it blocks all destinations not explicitly declared.
+
 ## End-to-End Network Architecture
 
 The following diagram provides a consolidated view of the complete Fabric network security architecture — inbound protection, outbound connectivity, data exfiltration prevention, DNS resolution and monitoring.
@@ -1249,6 +1258,20 @@ flowchart TB
 ```
 
 > **Legend:** Green = protected workspaces (covered by WS Private Link / IP Firewall). Yellow = Power BI items (not yet covered by workspace-level network controls — use tenant-level PL or Conditional Access).
+
+**How to read this diagram:**
+
+The diagram is organized in **7 horizontal layers**, top to bottom, following the path of a request from user to data source:
+
+1. **Clients** (top, purple): Three types of callers — corporate users on VPN/ExpressRoute, remote users on the internet, and automated service principals. All must authenticate.
+2. **Identity Layer** (purple): Microsoft Entra ID evaluates every request. Conditional Access policies (MFA, device compliance, location) decide whether access is granted or blocked. This is the first gate.
+3. **Inbound Network Layer** (blue): Requests that pass identity checks are then filtered by network controls — Tenant Private Endpoint (entire tenant), Workspace Private Endpoints (specific workspaces), or IP Firewall rules. The dashed red arrow shows that remote users are blocked if PL/IPFW is enforced.
+4. **DNS Resolution** (teal, left): Private DNS Zones and DNS Private Resolvers ensure that Fabric FQDNs resolve to private IPs rather than public ones. Without this layer, Private Endpoints are bypassed.
+5. **Microsoft Fabric Tenant** (blue, center): Contains two workspace groups — *Protected Workspaces* (green, covered by WS-level network controls) and *Power BI Workspaces* (yellow, not yet covered — network protection planned). OneLake sits below both.
+6. **Secure Outbound** (green) and **Outbound Protection** (red): When Fabric needs external data, it uses Managed VNets → Managed Private Endpoints (to Azure SQL, Cosmos DB), Trusted Workspace Access (to ADLS Gen2) or Gateways (to on-premises). Outbound Access Policies block any destination not explicitly allowed.
+7. **Monitoring & Audit** (cyan, bottom): Azure Monitor, Microsoft Sentinel and Fabric Admin Audit Logs receive telemetry from the entire tenant for threat detection and compliance reporting.
+
+> **Key insight:** A fully secured Fabric environment activates all 7 layers. Most organizations start with layers 1–2 (identity) and progressively add layers 3–7 as maturity increases.
 
 ## Known Limitations by Item Type
 
