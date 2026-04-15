@@ -1488,4 +1488,3 @@ The following table consolidates all known limitations for workspace-level netwo
 - [Azure Private DNS Zones](https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-dns)
 - [Microsoft Sentinel — Entra ID connector](https://learn.microsoft.com/en-us/azure/sentinel/data-connectors/microsoft-entra-id)
 - [Fabric Security Whitepaper](https://aka.ms/FabricSecurityWhitepaper)
-- *End-to-end network security in Microsoft Fabric* -- Arthi Ramasubramanian Iyer & Rick Xu, FabCon 2025
