@@ -2,12 +2,11 @@
   "name": "fabric-network-security-prez",
   "private": true,
   "scripts": {
-    "dev": "slidev",
-    "build": "slidev build",
-    "export": "slidev export"
+    "dev": "npx @marp-team/marp-cli --theme theme.css --html -w slides.md",
+    "build": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files slides.md -o dist/index.html",
+    "pdf": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files --pdf slides.md -o dist/slides.pdf"
   },
   "dependencies": {
-    "@slidev/cli": "^51.0.0",
-    "@slidev/theme-seriph": "^0.25.0"
+    "@marp-team/marp-cli": "^4.0.0"
   }
 }

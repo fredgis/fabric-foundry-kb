@@ -1,0 +1,204 @@
+/* @theme fabric */
+
+@import 'default';
+
+:root {
+  --fabric-blue: #0078d4;
+  --fabric-dark: #003f6b;
+  --heading-dark: #1e3a5f;
+  --text-color: #1a1a2e;
+  --bg-light: #f8fafc;
+  --green: #2e7d32;
+  --red: #c62828;
+  --orange: #f57c00;
+}
+
+section {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 23px;
+  padding: 50px 60px 40px;
+  background: #ffffff;
+  color: var(--text-color);
+  border-top: 4px solid var(--fabric-blue);
+}
+
+section::after {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+h1 {
+  color: var(--fabric-blue);
+  font-size: 1.55em;
+  font-weight: 700;
+  border-bottom: 2px solid #e3f2fd;
+  padding-bottom: 6px;
+  margin-bottom: 14px;
+}
+
+h2 {
+  color: var(--heading-dark);
+  font-size: 1.2em;
+  font-weight: 600;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
+
+h3 {
+  color: var(--fabric-blue);
+  font-size: 1.0em;
+  font-weight: 600;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+/* ── Lead / Title slide ── */
+section.lead {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: linear-gradient(135deg, #0078d4 0%, #005a9e 50%, #003f6b 100%);
+  color: white;
+  border-top: none;
+}
+
+section.lead h1 {
+  color: white;
+  font-size: 2.1em;
+  border-bottom: 3px solid rgba(255,255,255,0.3);
+  padding-bottom: 12px;
+}
+
+section.lead h2 {
+  color: rgba(255,255,255,0.85);
+  font-weight: 400;
+  font-size: 1.15em;
+}
+
+section.lead h3 {
+  color: rgba(255,255,255,0.7);
+  font-weight: 400;
+}
+
+section.lead p {
+  color: rgba(255,255,255,0.65);
+  font-size: 0.9em;
+}
+
+/* ── Section divider ── */
+section.divider {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #f0f4f8;
+  border-top: 4px solid var(--fabric-blue);
+  border-left: 6px solid var(--fabric-blue);
+}
+
+section.divider h1 {
+  font-size: 1.9em;
+  border-bottom: none;
+  color: var(--fabric-blue);
+}
+
+section.divider p {
+  color: #4b5563;
+  font-size: 1.05em;
+}
+
+/* ── Tables ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78em;
+  margin: 10px 0;
+}
+
+th {
+  background: var(--fabric-blue);
+  color: white;
+  padding: 7px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.95em;
+}
+
+td {
+  padding: 5px 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+tr:nth-child(even) td {
+  background: #f8fafc;
+}
+
+/* ── Code ── */
+code {
+  background: #f1f5f9;
+  color: var(--fabric-blue);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: 'Cascadia Mono', 'Consolas', monospace;
+  font-size: 0.82em;
+}
+
+pre {
+  margin: 8px 0;
+}
+
+pre code {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 14px;
+  border-radius: 6px;
+  display: block;
+}
+
+/* ── Lists ── */
+ul, ol {
+  margin: 6px 0;
+  padding-left: 1.4em;
+}
+
+li {
+  margin: 3px 0;
+  line-height: 1.45;
+}
+
+/* ── Emphasis ── */
+strong {
+  color: var(--fabric-blue);
+  font-weight: 700;
+}
+
+/* ── Images ── */
+img {
+  border-radius: 4px;
+}
+
+/* ── Blockquotes as callout boxes ── */
+blockquote {
+  background: #e3f2fd;
+  border-left: 4px solid var(--fabric-blue);
+  padding: 10px 14px;
+  border-radius: 0 5px 5px 0;
+  margin: 10px 0;
+  font-size: 0.85em;
+  color: #1a1a2e;
+}
+
+blockquote p {
+  margin: 0;
+}
+
+/* ── Link styling ── */
+a {
+  color: var(--fabric-blue);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
