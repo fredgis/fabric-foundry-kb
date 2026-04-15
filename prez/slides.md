@@ -1,80 +1,122 @@
 ---
-theme: apple-basic
+theme: seriph
 title: Network Security in Microsoft Fabric
 info: Architecture, Security & Best Practices — April 2026
-drawings:
-  persist: false
+class: text-center
 transition: slide-left
 mdc: true
+drawings:
+  persist: false
 ---
 
 # Network Security in Microsoft Fabric
 
 Architecture, Security & Best Practices
 
-<div class="absolute bottom-10">
-  <span class="font-700">
-    April 2026
-  </span>
+<div class="pt-6 text-gray-400">
+April 2026
 </div>
 
+<style>
+h1 {
+  background: linear-gradient(135deg, #0078d4 0%, #00bcf2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+</style>
+
 ---
-layout: intro-image-right
-image: https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=800
+layout: two-cols
+layoutClass: gap-8
 ---
 
 # Agenda
 
-<div class="leading-8">
-
-**Foundations** — Secure by Default
-
-**Inbound** — Conditional Access, Private Link, IP Firewall
-
-**Outbound** — TWA, MPE, Gateways
-
-**Protection** — DEP & Exfiltration Controls
-
-**Operations** — DNS, Monitoring, Testing
-
-**Patterns** — Architecture Scenarios
-
-**Roadmap** — Feature Status
-
-</div>
-
----
-
-# Microsoft Fabric — Unified SaaS Analytics
-
 <br>
 
-| Experience | Role |
-|---|---|
-| **Data Factory** | ETL & Orchestration |
-| **Data Engineering** | Spark & Notebooks |
-| **Data Science** | ML Experiments & Models |
-| **Data Warehouse** | T-SQL Analytics |
-| **Real-Time Intelligence** | Streaming & KQL |
-| **Power BI** | Reports & Dashboards |
+<v-clicks>
+
+**1.** Fabric Security Foundations
+
+**2.** Inbound Protection
+
+**3.** Secure Outbound Access
+
+**4.** Outbound Protection & DEP
+
+**5.** DNS Configuration
+
+**6.** Monitoring & Auditing
+
+**7.** Architecture Patterns
+
+**8.** Feature Status & Roadmap
+
+</v-clicks>
+
+::right::
 
 <br>
+<br>
 
-All experiences share **OneLake** — a single, unified data lake built on ADLS Gen2.
+```mermaid {scale: 0.65}
+flowchart TB
+    subgraph In["Inbound"]
+        CA["Conditional Access"]
+        PL["Private Link"]
+        FW["IP Firewall"]
+    end
+    subgraph Fabric["Microsoft Fabric"]
+        WS["Workspaces"]
+        OL["OneLake"]
+    end
+    subgraph Out["Outbound"]
+        MPE["Managed PE"]
+        TWA["TWA"]
+        GW["Gateways"]
+    end
+    In --> Fabric --> Out
+    style In fill:#e8eaf6,stroke:#3949ab
+    style Fabric fill:#e3f2fd,stroke:#0078d4
+    style Out fill:#e8f5e9,stroke:#2e7d32
+```
 
 ---
 
 # Three Pillars of Network Security
 
-<br>
-
-| Pillar | Objective | Key Features |
-|--------|-----------|-------------|
-| **Inbound Protection** | Control who accesses Fabric and from where | Conditional Access, Private Links, IP Firewall |
-| **Secure Outbound** | Connect Fabric to protected data sources | Trusted Workspace Access, Managed PE, Gateways |
-| **Outbound Protection** | Prevent data exfiltration | Outbound Access Policies, allowed destinations |
-
-<br>
+```mermaid {scale: 0.7}
+flowchart LR
+    subgraph Inbound["🛡️ Inbound Protection"]
+        direction TB
+        CA["Conditional Access"]
+        TLPL["Private Link — Tenant"]
+        WSPL["Private Link — Workspace"]
+        IPFW["IP Firewall"]
+    end
+    subgraph Fabric["Microsoft Fabric"]
+        direction TB
+        WS["Workspaces"]
+        OL["OneLake"]
+    end
+    subgraph Outbound["🔗 Secure Outbound"]
+        direction TB
+        TWA["Trusted WS Access"]
+        MPE["Managed PE"]
+        VGW["VNet Gateway"]
+        OGW["On-Prem Gateway"]
+    end
+    subgraph Block["🚫 Outbound Protection"]
+        OAP["Outbound Access Policies"]
+    end
+    Inbound --> Fabric
+    Fabric --> Outbound
+    Fabric --> Block
+    style Inbound fill:#e8eaf6,stroke:#3949ab
+    style Fabric fill:#e3f2fd,stroke:#0078d4
+    style Outbound fill:#e8f5e9,stroke:#2e7d32
+    style Block fill:#ffebee,stroke:#c62828
+```
 
 > **Inbound + Outbound Protection = Data Exfiltration Protection (DEP)**
 
@@ -86,360 +128,385 @@ No configuration needed — Fabric is secure out of the box.
 
 <br>
 
-| Feature | Detail |
-|---------|--------|
-| **Authentication** | Every request authenticated via Microsoft Entra ID |
-| **Encryption in transit** | TLS 1.2 minimum, TLS 1.3 negotiated when available |
-| **Encryption at rest** | All OneLake data automatically encrypted |
-| **Microsoft backbone** | Internal traffic never traverses the public internet |
-| **Secure endpoints** | Backend protected by VNet, not directly accessible |
+```mermaid {scale: 0.65}
+flowchart LR
+    Client["Client"] -->|"TLS 1.2+"| Entra["Entra ID Auth"]
+    Entra --> Fabric["Microsoft Fabric"]
+    subgraph Fabric
+        direction LR
+        DF["Data Factory"] <-->|backbone| DE["Data Eng."]
+        DE <-->|backbone| DW["Warehouse"]
+        DW <-->|backbone| PBI["Power BI"]
+        ALL["All"] <-->|private| OL["OneLake"]
+    end
+    style Client fill:#f3e5f5,stroke:#6a1b9a
+    style Entra fill:#d1c4e9,stroke:#4527a0
+    style Fabric fill:#e3f2fd,stroke:#0078d4
+```
 
-<br>
-
-The features that follow add **additional layers** on top of this baseline.
+| Layer | Mechanism |
+|-------|-----------|
+| Authentication | Entra ID on every request |
+| Transit encryption | TLS 1.2 min, 1.3 negotiated |
+| Rest encryption | Microsoft-managed keys, all OneLake data |
+| Internal traffic | Microsoft backbone only — never public internet |
 
 ---
 layout: section
 ---
 
 # Inbound Protection
+Controlling access to Fabric
 
 ---
 
-# Inbound Options Comparison
+# Inbound Options at a Glance
 
 <br>
 
-| Criteria | Conditional Access | PL Tenant | PL Workspace | IP Firewall |
+| | Conditional Access | PL Tenant | PL Workspace | IP Firewall |
 |---|:---:|:---:|:---:|:---:|
-| **Granularity** | Tenant | Tenant | Workspace | Workspace |
-| **Azure infra needed** | No | VNet + PE | VNet + PE | No |
+| **Scope** | Tenant | Tenant | Workspace | Workspace |
+| **Infra needed** | None | VNet + PE | VNet + PE | None |
 | **Complexity** | Low | High | Medium | Low |
 | **Approach** | Zero Trust | Perimeter | Perimeter | IP-based |
-| **User impact** | Transparent | VPN/ER required | VPN/ER for protected WS | None |
-| **Status** | GA | GA | GA | GA |
+| **User impact** | Transparent | VPN/ER mandatory | VPN/ER for target WS | None |
+| **Status** | **GA** | **GA** | **GA** | **GA** |
 
 <br>
 
-> **Prerequisite:** A tenant admin must enable *Workspace-level inbound network rules* before WS admins can configure Private Link or IP Firewall.
+> **Prerequisite:** Tenant admin must enable *Workspace-level inbound network rules* before WS admins can configure PL or IP FW per workspace.
 
 ---
 
 # Entra Conditional Access
 
-The **first gate** — Zero Trust identity-based controls.
+```mermaid {scale: 0.7}
+flowchart LR
+    User["User"] --> Signals["Signals\nIdentity · Location\nDevice · Risk"]
+    Signals --> CA{"Conditional\nAccess"}
+    CA -->|"Grant + MFA"| Fabric["Fabric"]
+    CA -->|"Block"| Denied["Access Denied"]
+    style User fill:#e1f5fe,stroke:#0277bd
+    style Signals fill:#fff9c4,stroke:#f9a825
+    style CA fill:#d1c4e9,stroke:#4527a0
+    style Fabric fill:#c8e6c9,stroke:#2e7d32
+    style Denied fill:#ef9a9a,stroke:#c62828
+```
 
-<br>
+| Practice | Detail |
+|----------|--------|
+| **Phishing-resistant MFA** | FIDO2, Windows Hello, cert-based |
+| **Device compliance** | Require Intune-managed devices |
+| **PIM** | Just-in-time admin elevation |
+| **CAE** | Near-real-time token revocation |
 
-| Signal | Examples |
-|--------|---------|
-| User / Group | Target specific populations |
-| Location / IP | Allow only certain ranges or countries |
-| Device | Require Intune compliance |
-| Application | Per-Fabric-app rules |
-| Risk level | Block high-risk sign-ins |
-
-<br>
-
-**Decisions:** Block · Grant · Require MFA · Require compliant device
-
-**Prerequisite:** Entra ID P1 license (included in M365 E3/E5)
-
----
-
-# Zero Trust Identity Best Practices
-
-<br>
-
-| Practice | Description |
-|----------|-------------|
-| **Phishing-resistant MFA** | FIDO2 keys, Windows Hello, certificate-based |
-| **Device Compliance** | Require managed devices via Intune |
-| **PIM** | Just-in-time, time-limited admin elevation |
-| **Service Principal Governance** | Audit & restrict SPN/MI access to Fabric APIs |
-| **Continuous Access Evaluation** | Near-real-time token revocation on risk events |
-
-<br>
-
-> **Start with identity** (MFA, CA, PIM) before layering network controls. This ensures baseline protection regardless of the user's network path.
+**Prerequisite:** Entra ID P1 (included in M365 E3/E5)
 
 ---
 
-# Tenant-Level Private Link
+# Private Link — Tenant vs Workspace
 
-Full tenant isolation — Fabric becomes inaccessible from the public internet.
+```mermaid {scale: 0.55}
+flowchart TB
+    subgraph TenantPL["Tenant PL — All or Nothing"]
+        CorpA["Corp Users\n(VPN/ER)"] --> PE_T["Tenant PE"]
+        PE_T --> TFabric["Entire Tenant\n🔒 All Locked"]
+        Internet1["Internet"] -.->|"Blocked"| TFabric
+    end
+    subgraph WorkspacePL["Workspace PL — Granular ★"]
+        CorpB["Corp Users\n(VPN/ER)"] --> PE_W1["PE → WS1"]
+        CorpB --> PE_W2["PE → WS2"]
+        PE_W1 --> WS1["WS1 Data Eng.\n🔒 Private"]
+        PE_W2 --> WS2["WS2 Warehouse\n🔒 Private"]
+        Internet2["Internet"] -->|"CA OK"| WS3["WS3 BI\n🌐 Public"]
+        Internet2 -.->|"Blocked"| WS1
+    end
+    style TenantPL fill:#fff3e0,stroke:#e65100
+    style WorkspacePL fill:#e8f5e9,stroke:#2e7d32
+    style TFabric fill:#ffe0b2,stroke:#e65100
+    style WS1 fill:#c8e6c9,stroke:#2e7d32
+    style WS2 fill:#c8e6c9,stroke:#2e7d32
+    style WS3 fill:#fff9c4,stroke:#f9a825
+```
 
-<br>
-
-| Setting | Effect |
-|---------|--------|
-| **Azure Private Links** | VNet traffic routed through Private Link |
-| **Block Public Access** | Public internet access disabled |
-
-<br>
-
-**Considerations:**
-
-- All users must connect via VPN or ExpressRoute
-- Copilot, Publish to Web, some exports are **disabled**
-- Spark Starter Pools disabled — custom pools take 3-5 min
-- Cross-tenant access not supported
-- Private DNS Zone required
-
-<br>
-
-> **Best for:** Regulated industries where zero public traffic is mandated. Consider workspace-level PL first.
-
----
-
-# Workspace-Level Private Link ★
-
-**Recommended approach** — protect only sensitive workspaces.
-
-<br>
-
-**Characteristics:**
-
-- 1:1 relationship: workspace ↔ Private Link Service
-- Multiple PEs from different VNets to the same workspace
-- Public access disabled **per workspace**
-- GA since September 2025
-
-<br>
-
-**Supported:** Lakehouse, Warehouse, Notebook, Pipeline, Dataflow, Eventstream, Mirrored DB, ML Experiment/Model
-
-**Not yet supported:** Power BI reports/dashboards, Fabric databases, Data Activator *(planned)*
-
-<br>
-
-> Unlike tenant-level PL, this allows self-service BI workspaces to remain publicly accessible with CA protection.
+| | Tenant PL | Workspace PL ★ |
+|---|---|---|
+| **Scope** | Entire tenant | Per workspace |
+| **Impact** | All users need VPN/ER | Only users of protected WS |
+| **Limitations** | Copilot disabled, exports limited | Power BI items not yet covered |
+| **Best for** | Strict regulation | Most organizations |
 
 ---
 
 # Workspace IP Firewall
 
-The simplest option — no Azure infrastructure required.
+```mermaid {scale: 0.7}
+flowchart LR
+    IP1["Paris Office\n203.0.113.0/24"] -->|"✅ Allowed"| FW{"IP Firewall"}
+    IP2["London Office\n198.51.100.0/24"] -->|"✅ Allowed"| FW
+    IP3["Unknown IP"] -.->|"❌ Blocked"| FW
+    FW --> WS["Fabric Workspace"]
+    style IP1 fill:#c8e6c9,stroke:#2e7d32
+    style IP2 fill:#c8e6c9,stroke:#2e7d32
+    style IP3 fill:#ef9a9a,stroke:#c62828
+    style FW fill:#fff9c4,stroke:#f9a825
+    style WS fill:#bbdefb,stroke:#1565c0
+```
 
-<br>
-
-**Concept:** Only explicitly allowed IP ranges can access the workspace.
-
-**GA since Q1 2026.** Same supported items as Workspace PL.
-
-<br>
-
-**Key notes:**
-
-- Fabric REST API remains accessible regardless of IP rules (by design, to prevent lockout)
-- Use Conditional Access to govern API-level access
-- Power BI items and Fabric databases are **not covered** (planned)
-
-<br>
-
-> **Best for:** Organizations with static office IPs, no VNet infrastructure, needing quick workspace-level protection.
+- **GA Q1 2026** — Lakehouse, Warehouse, Notebook, Pipeline, Dataflow, Eventstream, Mirrored DB
+- No Azure infrastructure needed
+- Fabric REST API stays accessible (by design — prevents lockout)
+- Power BI items and Fabric DBs **not covered** (planned)
 
 ---
 
-# Tenant vs Workspace Interaction
+# Tenant ↔ Workspace Interaction
 
-<br>
-
-| Tenant Public Access | WS PL | WS IP FW | Portal | API |
+| Tenant Public | WS PL | WS IP FW | Portal | API |
 |:---:|:---:|:---:|---|---|
 | Allowed | — | — | Public | Public |
-| Allowed | Configured | — | WS PL only | WS PL only |
-| Allowed | — | Configured | Allowed IPs | Allowed IPs |
-| Restricted | — | — | Tenant PL only | Tenant PL only |
-| Restricted | Configured | — | Tenant PL only | WS PL or Tenant PL |
-| Restricted | — | Configured | Tenant PL only | Tenant PL only |
+| Allowed | ✅ | — | WS PL only | WS PL only |
+| Allowed | — | ✅ | Allowed IPs | Allowed IPs |
+| Restricted | — | — | Tenant PL | Tenant PL |
+| Restricted | ✅ | — | Tenant PL | WS PL or Tenant PL |
+| Restricted | — | ✅ | Tenant PL | Tenant PL |
 
 <br>
 
-> When tenant public access is **restricted**, tenant PL takes precedence for portal access. Workspace PL only adds API-level paths.
+> When tenant access is **restricted**, tenant PL takes precedence for portal. Workspace PL adds API paths only.
 
 ---
 layout: section
 ---
 
 # Secure Outbound Access
+Connecting Fabric to protected data sources
 
 ---
 
-# Outbound Options Overview
+# Outbound Connectors
 
-<br>
+```mermaid {scale: 0.6}
+flowchart LR
+    subgraph Fabric["Microsoft Fabric"]
+        NB["Notebook"]
+        PL["Pipeline"]
+        SM["Semantic Model"]
+        DF["Dataflow Gen2"]
+    end
+    subgraph Methods["Connection Methods"]
+        TWA["Trusted WS\nAccess"]
+        MPE["Managed PE\n(in Managed VNet)"]
+        VGW["VNet Data\nGateway"]
+        OGW["On-Prem\nGateway"]
+    end
+    subgraph Sources["Data Sources"]
+        ADLS["ADLS Gen2\n🔒 Firewall"]
+        SQL["Azure SQL\n🔒 Private"]
+        SQLMI["SQL MI\n(in VNet)"]
+        OnPrem["SQL Server\nSAP · Oracle"]
+    end
+    PL --> TWA --> ADLS
+    NB --> MPE --> SQL
+    SM --> VGW --> SQLMI
+    DF --> OGW --> OnPrem
+    style Fabric fill:#e3f2fd,stroke:#0078d4
+    style Methods fill:#e8f5e9,stroke:#2e7d32
+    style Sources fill:#fff3e0,stroke:#e65100
+```
 
-| Method | Sources | Fabric Workloads |
-|--------|---------|-----------------|
-| **Trusted Workspace Access** | ADLS Gen2 (firewall-enabled) | Shortcuts, Pipelines, COPY INTO, Semantic Models |
-| **Managed Private Endpoints** | Azure SQL, Cosmos DB, Key Vault, ADLS... | Spark Notebooks, Lakehouses, Eventstream |
-| **VNet Data Gateway** | Azure services in a VNet | Dataflows Gen2, Semantic Models |
-| **On-Premises Gateway** | SQL Server, Oracle, SAP, files | Dataflows Gen2, Semantic Models, Pipelines |
+| Method | Sources | Workloads |
+|--------|---------|-----------|
+| **TWA** | ADLS Gen2 (firewall) | Shortcuts, Pipelines, COPY INTO |
+| **Managed PE** | Azure SQL, Cosmos DB, Key Vault | Spark, Lakehouses, Eventstream |
+| **VNet GW** | Azure services in VNet | Dataflows Gen2, Semantic Models |
+| **On-Prem GW** | SQL Server, Oracle, SAP | Dataflows, Semantic Models, Pipelines |
 
 ---
 
-# Trusted Workspace Access
+# Trusted Workspace Access — Prerequisites
 
-Access **firewall-enabled ADLS Gen2** via workspace identity.
+```mermaid {scale: 0.65}
+flowchart LR
+    FSKU["F SKU\nCapacity"] --> WI["Workspace\nIdentity"]
+    WI --> RBAC["RBAC on\nADLS Gen2"]
+    RBAC --> RIR["Resource\nInstance Rule"]
+    RIR --> ADLS["ADLS Gen2\n🔒 Firewall"]
+    style FSKU fill:#ffe0b2,stroke:#e65100
+    style WI fill:#e1bee7,stroke:#6a1b9a
+    style RBAC fill:#e1bee7,stroke:#6a1b9a
+    style RIR fill:#c8e6c9,stroke:#2e7d32
+    style ADLS fill:#fff3e0,stroke:#e65100
+```
 
-<br>
+All **four** prerequisites are required:
 
-**Prerequisites — all four are required:**
-
-1. Workspace on **Fabric F SKU** capacity (not Trial or P SKU)
+1. Workspace on **Fabric F SKU** (not Trial or P SKU)
 2. **Workspace Identity** created and enabled
-3. RBAC role on ADLS Gen2 (`Storage Blob Data Contributor/Owner/Reader`)
-4. **Resource Instance Rule** on storage firewall (deploy via ARM/Bicep/PowerShell)
+3. **RBAC role** on storage: `Storage Blob Data Contributor/Owner/Reader`
+4. **Resource Instance Rule** on storage firewall (ARM / Bicep / PowerShell)
 
-<br>
-
-**Supported:** OneLake Shortcuts, Pipelines, T-SQL COPY INTO, Semantic Models, AzCopy
-
-<br>
-
-> Failure at any step **silently blocks** access — no error, just empty results. Verify all four prerequisites.
+> ⚠️ Failure at any step **silently blocks** access — no error, just empty results.
 
 ---
 
 # Managed Private Endpoints
 
-Private connections to Azure services in a Microsoft-managed VNet.
+```mermaid {scale: 0.65}
+flowchart LR
+    subgraph Fabric["Microsoft Fabric"]
+        subgraph MVNET["Managed VNet (auto-provisioned)"]
+            Spark["Spark"]
+            MPE1["MPE → SQL"]
+            MPE2["MPE → ADLS"]
+        end
+    end
+    SQL["Azure SQL\n🔒 Firewall"]
+    ADLS["ADLS Gen2\n🔒 Private"]
+    Spark --> MPE1 -->|"Private Link"| SQL
+    Spark --> MPE2 -->|"Private Link"| ADLS
+    style Fabric fill:#e3f2fd,stroke:#0078d4
+    style MVNET fill:#bbdefb,stroke:#1565c0
+    style Spark fill:#90caf9,stroke:#0d47a1
+    style MPE1 fill:#c8e6c9,stroke:#2e7d32
+    style MPE2 fill:#c8e6c9,stroke:#2e7d32
+    style SQL fill:#ffe0b2,stroke:#e65100
+    style ADLS fill:#ffe0b2,stroke:#e65100
+```
 
-<br>
-
-**How it works:**
-
-1. Workspace admin creates an MPE (specifies resource ID + sub-resource)
-2. Fabric provisions a **Managed VNet** (auto, on first MPE or Spark job)
-3. Source owner **approves** the Private Endpoint
-4. All traffic stays on the Microsoft backbone
-
-<br>
-
-**Supported sources:** Azure SQL, ADLS Gen2, Cosmos DB, Key Vault, and more
-
-**Limitations:** Starter Pools disabled (3-5 min startup), OneLake shortcuts don't support MPE yet, not all regions available
+- Managed VNet auto-provisioned on first MPE or Spark job
+- Source owner must **approve** the PE
+- All traffic on Microsoft backbone
+- **Limitations:** Starter Pools disabled (3-5 min startup), not all regions
 
 ---
 
 # Data Gateways
 
-<br>
+```mermaid {scale: 0.65}
+flowchart TB
+    subgraph Fabric["Fabric"]
+        DF["Dataflows Gen2"]
+        SM["Semantic Models"]
+    end
+    subgraph OnPrem["On-Premises"]
+        OGW["On-Prem Gateway"]
+        SQLSrv["SQL Server"]
+        SAP["SAP"]
+    end
+    subgraph Azure["Azure VNet"]
+        VGW["VNet Data Gateway"]
+        SQLMI["Azure SQL MI"]
+    end
+    DF --> OGW --> SQLSrv
+    OGW --> SAP
+    SM --> VGW --> SQLMI
+    style Fabric fill:#e3f2fd,stroke:#0078d4
+    style OnPrem fill:#e0f2f1,stroke:#00695c
+    style Azure fill:#e8eaf6,stroke:#283593
+    style OGW fill:#80cbc4,stroke:#00695c
+    style VGW fill:#b39ddb,stroke:#4527a0
+```
 
-| | On-Premises Gateway | VNet Data Gateway |
+| | On-Premises GW | VNet Data GW |
 |---|---|---|
-| **Deployment** | Windows server on-prem | Into customer Azure VNet |
-| **Management** | Manual (updates, HA) | Managed by Microsoft |
-| **Sources** | Any on-prem source | Azure services in VNet/peered VNets |
-| **Workloads** | Dataflows Gen2, Semantic Models, Pipelines | Dataflows Gen2, Semantic Models |
-| **Proxy / Cert Auth** | — | **GA** (enterprise proxy + cert auth) |
-
-<br>
-
-**Eventstream Private Network** *(Preview Q1 2026):* Ingest from private networks via managed VNet and streaming data gateway. Supports Event Hubs, IoT Hub, custom VNet sources.
+| Management | Manual | Managed by Microsoft |
+| Sources | Any on-prem | Azure VNet services |
+| **Proxy + Cert Auth** | — | **GA** (2026) |
 
 ---
 layout: section
 ---
 
 # Outbound Protection & DEP
+Preventing data exfiltration
 
 ---
 
-# Outbound Access Policies
+# Outbound Access Policies + DEP
 
-Restrict outbound connections to **authorized destinations only**.
+```mermaid {scale: 0.6}
+flowchart LR
+    ExtUser["Unauthorized\nUser"] -.->|"Blocked"| Inbound["Inbound\nPL / IPFW / CA"]
+    IntUser["Authorized\nUser"] -->|"Private Link"| Inbound
+    Inbound --> Fabric["Fabric WS"]
+    Fabric --> OAP{"Outbound\nPolicy"}
+    OAP -->|"Declared dest."| Corp["Corporate\nADLS Gen2"]
+    OAP -.->|"Blocked"| Unknown["Unknown\nEndpoint"]
+    style ExtUser fill:#ef9a9a,stroke:#c62828
+    style IntUser fill:#c8e6c9,stroke:#2e7d32
+    style Inbound fill:#c5cae9,stroke:#1a237e
+    style Fabric fill:#90caf9,stroke:#0d47a1
+    style OAP fill:#fff9c4,stroke:#f9a825
+    style Corp fill:#c8e6c9,stroke:#2e7d32
+    style Unknown fill:#ef9a9a,stroke:#c62828
+```
 
-<br>
-
-1. Declare allowed destinations via **MPE** or **Data Connections**
-2. Enable **Outbound Access Policy** on workspace
-3. Any undeclared destination → **blocked**
-
-<br>
-
-| Item Type | Status |
-|-----------|--------|
-| Lakehouse, Spark, Notebooks | **GA** |
-| Pipelines, Warehouse, Mirrored DBs | **GA** |
-| Power BI, Databases | Planned |
-
-<br>
-
-> Declare **all** legitimate destinations before enabling the policy. Undeclared connections will break immediately.
-
----
-
-# Data Exfiltration Protection
-
-**Complete DEP = Inbound + Outbound Protection**
-
-<br>
-
-| Component | Role |
-|-----------|------|
-| **Inbound** (PL / IP FW / CA) | Controls who can access data and from where |
-| **Outbound** (Outbound Access Policies) | Prevents exfiltration to unapproved destinations |
-
-<br>
-
-**Complementary data-level controls:**
+**DEP = Inbound + Outbound.** Complementary data controls:
 
 | Control | Mechanism |
 |---------|-----------|
-| **Purview Information Protection** | Sensitivity labels across Fabric items |
-| **Data Loss Prevention** | Block export of classified items |
-| **Power BI Export Restrictions** | Disable CSV/Excel/PPT export |
-| **Endpoint DLP** | Block copy to USB / unauthorized cloud |
-| **Defender Session Controls** | Monitor/block downloads in real time |
+| Purview labels | Sensitivity labels across all Fabric items |
+| DLP | Block export of classified data |
+| PBI export restrictions | Disable CSV/Excel/PPT export |
+| Endpoint DLP | Block USB / unauthorized cloud copy |
+| Defender session | Monitor & block downloads in real time |
 
 ---
 layout: section
 ---
 
 # DNS Configuration
+The #1 Private Link failure point
 
 ---
 
-# DNS — The #1 Private Link Failure Point
+# DNS — Required Zones & Architecture
 
-<br>
-
-**Required Private DNS Zones:**
+```mermaid {scale: 0.55}
+flowchart LR
+    subgraph OnPrem["On-Premises"]
+        DNS["DNS Servers"]
+    end
+    subgraph Azure["Azure"]
+        Resolver["DNS Private\nResolver"]
+        PDNS["Private DNS Zones\n*.analysis.windows.net\n*.pbidedicated.windows.net\n*.dfs.core.windows.net"]
+    end
+    PE["Private Endpoints\n(10.x.x.x)"]
+    DNS -->|"Conditional\nForwarder"| Resolver --> PDNS -->|"Private IP"| PE
+    style OnPrem fill:#e0f2f1,stroke:#00695c
+    style Azure fill:#e8eaf6,stroke:#283593
+    style PE fill:#c8e6c9,stroke:#2e7d32
+```
 
 | Zone | Used By |
 |------|---------|
 | `privatelink.analysis.windows.net` | Power BI / Semantic Models |
 | `privatelink.pbidedicated.windows.net` | Dedicated capacity |
-| `privatelink.blob.core.windows.net` | OneLake (Blob) |
 | `privatelink.dfs.core.windows.net` | OneLake (DFS) |
+| `privatelink.blob.core.windows.net` | OneLake (Blob) |
 | `privatelink.servicebus.windows.net` | Event Hubs |
-| `privatelink.prod.powerapps.com` | Dataflows |
 
-<br>
-
-> Forgetting to create or link DNS zones is the **most common** cause of Private Link failures. Always verify with `nslookup` — expect `10.x.x.x`, not a public IP.
+> Missing DNS zones = traffic bypasses PE silently. Always `nslookup` → expect `10.x.x.x`.
 
 ---
 
 # DNS Best Practices
 
-<br>
+<v-clicks>
 
-1. **Create all required zones** and link to every VNet hosting a PE
-2. **Test before go-live** — `Resolve-DnsName <ws>.pbidedicated.windows.net` must return a private IP
-3. **Hybrid DNS** — configure conditional forwarders for `privatelink.*` zones to Azure DNS (`168.63.129.16`) via a DNS Private Resolver
-4. **Automate** — use Azure Policy (`Deploy-DINE-PrivateDNSZoneGroup`) to auto-create DNS records on PE creation
-5. **Monitor for drift** — re-test after infrastructure changes (VNet peering, new PEs, zone re-linking)
+1. **Create all zones** + link to every VNet hosting PEs
+2. **Test:** `Resolve-DnsName <ws>.pbidedicated.windows.net` → private IP
+3. **Hybrid:** conditional forwarders → Azure DNS (`168.63.129.16`) via Private Resolver
+4. **Automate:** Azure Policy `Deploy-DINE-PrivateDNSZoneGroup` for DNS records
+5. **Monitor:** re-test after infra changes — broken links revert silently to public
 
-<br>
-
-**IP Planning:** 1 PE = 1 private IP. Reserve at least a `/27` subnet (32 IPs) for Fabric PEs.
+</v-clicks>
 
 <br>
 
-> A broken DNS zone link **silently reverts** traffic to the public path — no error, no warning.
+**IP Planning:** 1 PE = 1 IP. Reserve `/27` (32 IPs) minimum for Fabric PEs.
 
 ---
 layout: section
@@ -451,65 +518,32 @@ layout: section
 
 # Monitoring Stack
 
-<br>
-
-| Log Source | Key Signals |
-|------------|-------------|
-| **Entra Sign-in Logs** | MFA challenges, CA hits, risky sign-ins |
-| **Fabric Admin Audit** | Sharing, exports, gateway operations |
-| **Private Endpoint Metrics** | Bytes in/out, connection counts |
-| **NSG Flow Logs** | Allow/deny on PE subnets |
-| **Azure Firewall Logs** | Rule hits, threat intel, DNS queries |
-
-<br>
-
-**Sentinel integration:** Ingest all sources into Log Analytics → Microsoft Sentinel for anomaly detection, automated playbooks, and hunting queries.
-
-**NSG + Azure Firewall:** Apply service tags (`PowerBI`, `DataFactory`, `SQL`) in NSG rules. Route outbound through Azure Firewall for centralized logging. NAT Gateway for static outbound IP.
-
----
-
-# Audit & Review Cadence
-
-<br>
+```mermaid {scale: 0.6}
+flowchart LR
+    subgraph Sources["Log Sources"]
+        E["Entra Logs"]
+        F["Fabric Audit"]
+        P["PE Metrics"]
+        N["NSG Flows"]
+    end
+    LA["Log Analytics"] --> Sentinel["Microsoft Sentinel"]
+    LA --> Alerts["Azure Monitor\nAlerts"]
+    Sentinel --> Play["Playbooks\n(auto-response)"]
+    Sources --> LA
+    style Sources fill:#e0f7fa,stroke:#00838f
+    style LA fill:#e8eaf6,stroke:#283593
+    style Sentinel fill:#c5cae9,stroke:#1a237e
+    style Alerts fill:#fff9c4,stroke:#f9a825
+    style Play fill:#ef9a9a,stroke:#c62828
+```
 
 | Review | Frequency | Owner |
 |--------|-----------|-------|
-| IP Firewall rules accuracy | Monthly | Workspace admin |
-| Outbound policy allowed destinations | Quarterly | Security team |
-| Private Endpoint approvals | Quarterly | Azure subscription owner |
-| Conditional Access effectiveness | Quarterly | Identity team |
-| DNS zone records and VNet links | Semi-annually | Network team |
-| Penetration testing | Annually | Security team |
-
----
-layout: section
----
-
-# Testing & Validation
-
----
-
-# Connectivity & Performance Tests
-
-<br>
-
-| Test | Tool | Expected Result |
-|------|------|----------------|
-| DNS resolution for PE | `nslookup` / `Resolve-DnsName` | Private IP (`10.x.x.x`) |
-| Portal access via PE | Browser from VNet | Portal loads, no public fallback |
-| IP Firewall block | Access from unauthorized IP | HTTP 403 |
-| MPE to Azure SQL | Notebook query | Succeeds, SQL audit shows private IP |
-| Outbound policy block | Connect to undeclared destination | Connection refused |
-
-<br>
-
-**Performance notes:**
-
-- Baseline **before** enabling PL/MVNet
-- Spark custom pools: 3-5 min startup (vs seconds for Starter Pools)
-- PE throughput: up to 8 Gbps per endpoint
-- Cross-region: co-locate PEs with capacities to minimize latency
+| IP FW rules | Monthly | WS admin |
+| Outbound allowed destinations | Quarterly | Security |
+| PE approvals | Quarterly | Azure sub owner |
+| CA effectiveness | Quarterly | Identity team |
+| DNS records | Semi-annually | Network team |
 
 ---
 layout: section
@@ -521,98 +555,184 @@ layout: section
 
 # Feature Dependencies
 
-<br>
+```mermaid {scale: 0.55}
+flowchart TD
+    FSKU["F SKU"] --> TWA["TWA"]
+    FSKU --> MVNET["Managed VNet"]
+    TS["Tenant Setting:\nWS Inbound Rules"] --> WSPL["WS Private Link"]
+    TS --> IPFW["WS IP Firewall"]
+    P1["Entra P1"] --> CA["Conditional Access"]
+    MVNET --> MPE["Managed PE"]
+    MPE --> OAP["Outbound Policies"]
+    VNet["Customer VNet"] --> PE["PE"] --> WSPL
+    DNS["Private DNS"] --> WSPL
+    WI["WS Identity"] --> TWA
+    RBAC["RBAC"] --> TWA
+    style FSKU fill:#ffe0b2,stroke:#e65100
+    style TS fill:#ffe0b2,stroke:#e65100
+    style P1 fill:#ffe0b2,stroke:#e65100
+    style WSPL fill:#c5cae9,stroke:#1a237e
+    style IPFW fill:#c5cae9,stroke:#1a237e
+    style CA fill:#d1c4e9,stroke:#4527a0
+    style TWA fill:#c8e6c9,stroke:#2e7d32
+    style MVNET fill:#c8e6c9,stroke:#2e7d32
+    style MPE fill:#c8e6c9,stroke:#2e7d32
+    style OAP fill:#ef9a9a,stroke:#c62828
+    style VNet fill:#b2dfdb,stroke:#00695c
+    style PE fill:#b2dfdb,stroke:#00695c
+    style DNS fill:#b2dfdb,stroke:#00695c
+    style WI fill:#e1bee7,stroke:#6a1b9a
+    style RBAC fill:#e1bee7,stroke:#6a1b9a
+```
 
 | Chain | Steps |
 |-------|-------|
-| **Workspace Private Link** | Tenant setting → VNet + PE + DNS Zone → WS admin disables public access |
-| **Workspace IP Firewall** | Tenant setting → WS admin adds IP ranges (no infra needed) |
-| **Managed Private Endpoints** | F SKU → Managed VNet (auto) → MPE → Source owner approves PE |
-| **Trusted Workspace Access** | F SKU → Workspace Identity → RBAC role → Resource Instance Rule |
-| **Outbound Access Policies** | Managed VNet + MPE in place → Enable policy → Undeclared destinations blocked |
-| **Full DEP** | Inbound (PL or IPFW or CA) + Outbound (OAP) |
+| **WS PL** | Tenant setting → VNet + PE + DNS → disable public |
+| **MPE** | F SKU → MVNet (auto) → MPE → source approves |
+| **TWA** | F SKU → WS Identity → RBAC → Resource Instance Rule |
+
+---
+
+# End-to-End Architecture — Workspace-Level
+
+```mermaid {scale: 0.45}
+flowchart TB
+    subgraph Corp["Corporate Network"]
+        Users["Users"]
+        ERVPN["ER / VPN"]
+    end
+    subgraph Azure["Customer Azure"]
+        subgraph Spoke["Spoke VNet"]
+            PE1["PE → WS1"]
+            PE2["PE → WS2"]
+        end
+        PDNS["Private DNS Zones"]
+    end
+    subgraph Entra["Entra ID"]
+        CA["Conditional Access"]
+    end
+    subgraph Fabric["Microsoft Fabric Tenant"]
+        subgraph WS1["WS1 Data Eng 🔒"]
+            LH["Lakehouse"]
+            NB["Notebook"]
+        end
+        subgraph WS2["WS2 Warehouse 🔒"]
+            WH["Warehouse"]
+        end
+        subgraph WS3["WS3 BI 🌐"]
+            RPT["Reports"]
+        end
+        subgraph OutB["Outbound"]
+            MPE["Managed PE"]
+            TWA["TWA"]
+        end
+    end
+    subgraph Data["Data Sources"]
+        SQL["Azure SQL"]
+        ADLS["ADLS Gen2"]
+    end
+    Users --> ERVPN --> Spoke
+    PE1 --> WS1
+    PE2 --> WS2
+    PDNS -.-> PE1
+    PDNS -.-> PE2
+    Users --> CA -->|"MFA OK"| WS3
+    MPE -->|"Private Link"| SQL
+    TWA -->|"Workspace ID"| ADLS
+    style Corp fill:#e0f2f1,stroke:#00695c
+    style Azure fill:#e8eaf6,stroke:#283593
+    style Entra fill:#d1c4e9,stroke:#4527a0
+    style Fabric fill:#e3f2fd,stroke:#0078d4
+    style WS1 fill:#c8e6c9,stroke:#2e7d32
+    style WS2 fill:#c8e6c9,stroke:#2e7d32
+    style WS3 fill:#fff9c4,stroke:#f9a825
+    style OutB fill:#e8f5e9,stroke:#2e7d32
+    style Data fill:#fff3e0,stroke:#e65100
+```
+
+> **Workspace-level** = protect sensitive WS only. Tenant PL possible but more restrictive.
 
 ---
 
 # Scenario 1 — Regulated Enterprise
 
-GDPR / HIPAA / PCI DSS
-
-<br>
+<span class="text-sm text-gray-400">GDPR / HIPAA / PCI DSS</span>
 
 | Layer | Recommendation |
 |-------|---------------|
-| **Inbound** | Tenant PL + Block Public Access. All users on VPN/ER. |
-| **Outbound** | MVNet + MPE + Outbound Policies on every workspace |
-| **Identity** | Phishing-resistant MFA, compliant devices, PIM |
-| **Data** | CMK + Purview labels + DLP. Disable Power BI exports. |
-| **DNS** | Centralized zones in hub. DNS Private Resolver for hybrid. |
-| **Monitoring** | Full Sentinel integration. Quarterly rule reviews. |
+| **Inbound** | Tenant PL + Block Public. All users VPN/ER. |
+| **Outbound** | MVNet + MPE + Outbound Policies everywhere |
+| **Identity** | Phishing-resistant MFA + PIM + compliant devices |
+| **Data** | CMK + Purview labels + DLP. Disable PBI exports. |
+| **DNS** | Centralized zones + DNS Private Resolver |
+| **Monitoring** | Full Sentinel. Quarterly reviews. |
 
-<br>
-
-> Most restrictive. Disables Copilot, Publish to Web, some exports. Required when regulations mandate zero public internet traffic.
+> Most restrictive. Disables Copilot, Publish to Web, some exports.
 
 ---
 
-# Scenario 2 — Mixed Sensitivity
+# Scenario 2 — Mixed Sensitivity ★
 
-Central data platform team with varying workspace sensitivity levels.
-
-<br>
+<span class="text-sm text-gray-400">Most common pattern</span>
 
 | Layer | Recommendation |
 |-------|---------------|
-| **Inbound** | WS PL for sensitive workspaces. IP FW for semi-restricted. Public + CA for BI. |
-| **Outbound** | TWA for ADLS Gen2. MPE for Azure SQL/Cosmos. VNet GW for Dataflows. |
-| **Identity** | MFA for all. Device compliance for admin roles. |
-| **Data** | CMK on sensitive workspaces. Labels propagated to reports. |
-| **Monitoring** | Audit logs + PE failure alerts. |
+| **Inbound** | WS PL (sensitive) + IP FW (semi) + Public+CA (BI) |
+| **Outbound** | TWA for ADLS. MPE for SQL/Cosmos. VNet GW for DF. |
+| **Identity** | MFA all. Device compliance for admins. |
+| **Data** | CMK on sensitive WS. Labels to reports. |
+| **Monitoring** | Audit logs + PE failure alerts |
 
-<br>
-
-> Best balance of security and usability. **Most common pattern** in enterprise deployments.
+> Best balance of security and usability for enterprise data platforms.
 
 ---
 
 # Scenarios 3 & 4
 
-<br>
+<div class="grid grid-cols-2 gap-8">
+<div>
 
-**Scenario 3 — Startup (Cost-Optimized)**
-
-| Layer | Choice |
-|-------|--------|
-| Inbound | Conditional Access + IP Firewall (no VNet) |
-| Outbound | VNet GW or On-Prem GW |
-| Data | Default encryption. Labels if M365 E5. |
-| Monitoring | Entra sign-in logs + Fabric admin logs |
-
-<br>
-
-**Scenario 4 — Multi-Region Global**
+### Startup — Cost-Optimized
 
 | Layer | Choice |
 |-------|--------|
-| Inbound | WS PL per region (PEs co-located with capacity) |
-| Outbound | Regional MVNets + MPE. Azure Firewall per hub. |
-| Data | Regional Key Vaults + multi-geo residency |
-| Monitoring | Regional Log Analytics → global Sentinel |
+| Inbound | CA + IP Firewall |
+| Outbound | VNet GW / On-Prem GW |
+| Data | Default encryption |
+| Monitoring | Entra + Fabric logs |
+
+<span class="text-sm text-gray-400">No VNet infra. Minimal cost.</span>
+
+</div>
+<div>
+
+### Multi-Region Global
+
+| Layer | Choice |
+|-------|--------|
+| Inbound | WS PL per region |
+| Outbound | Regional MVNet + MPE |
+| Data | Regional KV + multi-geo |
+| Monitoring | Regional LA → Sentinel |
+
+<span class="text-sm text-gray-400">PEs co-located with capacity.</span>
+
+</div>
+</div>
 
 ---
 layout: section
 ---
 
 # Feature Status & Roadmap
+April 2026
 
 ---
 
-# Feature Summary — April 2026
-
-<br>
+# Feature Summary
 
 | Feature | Scope | Status |
-|---------|-------|--------|
+|---------|-------|:---:|
 | Entra Conditional Access | Tenant | **GA** |
 | Private Link — Tenant | Tenant | **GA** |
 | Private Link — Workspace | Workspace | **GA** |
@@ -623,31 +743,27 @@ layout: section
 | VNet Data Gateway (+ proxy/cert) | Org | **GA** |
 | Outbound Access Policies | Workspace | **GA** |
 | Customer Managed Keys | Workspace | **GA** |
-| Eventstream Private Network | Workspace | **Preview** |
-| Power BI Network Isolation | Workspace | **Planned** |
-| Fabric DB Network Isolation | Workspace | **Planned** |
+| Eventstream Private Network | Workspace | *Preview* |
+| Power BI Network Isolation | Workspace | *Planned* |
+| Fabric DB Network Isolation | Workspace | *Planned* |
 
 ---
 
 # Known Limitations
 
-<br>
+| Item | WS PL | IP FW | MVNet | Outbound | CMK |
+|------|:---:|:---:|:---:|:---:|:---:|
+| Lakehouse | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Warehouse | ✅ | ✅ | — | ✅ | ✅ |
+| Notebook / Spark | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Pipeline / Dataflow | ✅ | ✅ | — | ✅ | ✅ |
+| Eventstream | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Mirrored DB | ✅ | ✅ | — | ✅ | — |
+| **Power BI** | 🔜 | 🔜 | — | 🔜 | 🔜 |
+| **Fabric DBs** | 🔜 | 🔜 | — | 🔜 | 🔜 |
+| **Data Activator** | 🔜 | 🔜 | — | — | — |
 
-| Item Type | WS PL | WS IP FW | Managed VNet | Outbound Policies | CMK |
-|-----------|:---:|:---:|:---:|:---:|:---:|
-| Lakehouse | GA | GA | GA | GA | GA |
-| Warehouse | GA | GA | — | GA | GA |
-| Notebook / Spark | GA | GA | GA | GA | GA |
-| Pipeline / Dataflow | GA | GA | — | GA | GA |
-| Eventstream | GA | GA | GA | GA | GA |
-| Mirrored DB | GA | GA | — | GA | — |
-| **Power BI** | Planned | Planned | — | Planned | Planned |
-| **Fabric Databases** | Planned | Planned | — | Planned | Planned |
-| **Data Activator** | Planned | Planned | — | — | — |
-
-<br>
-
-> Until Power BI and Fabric DB are covered, protect with **tenant-level PL** or **Conditional Access**.
+> Until PBI/DBs covered → protect with **tenant PL** or **Conditional Access**.
 
 ---
 
@@ -655,31 +771,35 @@ layout: section
 
 <br>
 
-**Identity first** — Start with Conditional Access, MFA, PIM. Network controls complement identity, they don't replace it.
+**Identity first** — CA + MFA + PIM before network controls
 
-**Workspace-level preferred** — Use workspace PL/IPFW for sensitive workspaces. Reserve tenant PL for strict regulatory mandates.
+**Workspace-level ★** — PL/IPFW per workspace, not tenant-wide
 
-**Layered defense** — Combine inbound + outbound + data controls for full DEP. No single control is sufficient.
+**Layered defense** — Inbound + Outbound + Data = full DEP
 
-**DNS is critical** — Private DNS Zones are the #1 failure point. Test resolution before go-live. Monitor for drift.
+**DNS is #1 failure** — Private DNS Zones, test with `nslookup`, monitor drift
 
-**Monitor everything** — Route logs to Sentinel. Review rules quarterly. Automate response with playbooks.
+**Monitor everything** — Sentinel + playbooks + quarterly reviews
+
+<br>
 
 ---
-layout: intro
+layout: center
+class: text-center
 ---
 
 # Thank You
+
+<br>
 
 Network Security in Microsoft Fabric — April 2026
 
 <br>
 
-**References:**
+[Fabric Security Overview](https://learn.microsoft.com/en-us/fabric/security/security-overview) ·
+[Private Links](https://learn.microsoft.com/en-us/fabric/security/security-private-links-overview) ·
+[Managed VNets](https://learn.microsoft.com/en-us/fabric/security/security-managed-vnets-fabric-overview)
 
-- [Fabric Security Overview](https://learn.microsoft.com/en-us/fabric/security/security-overview)
-- [Private Links](https://learn.microsoft.com/en-us/fabric/security/security-private-links-overview)
-- [Managed VNets & PE](https://learn.microsoft.com/en-us/fabric/security/security-managed-vnets-fabric-overview)
-- [Trusted Workspace Access](https://learn.microsoft.com/en-us/fabric/security/security-trusted-workspace-access)
-- [IP Firewall Rules](https://learn.microsoft.com/en-us/fabric/security/security-ip-firewall-rules)
-- [Fabric Security Whitepaper](https://aka.ms/FabricSecurityWhitepaper)
+[TWA](https://learn.microsoft.com/en-us/fabric/security/security-trusted-workspace-access) ·
+[IP Firewall](https://learn.microsoft.com/en-us/fabric/security/security-ip-firewall-rules) ·
+[Whitepaper](https://aka.ms/FabricSecurityWhitepaper)
