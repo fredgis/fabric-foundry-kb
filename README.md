@@ -4,84 +4,91 @@
 
 ![Repository Overview](images/repo-overview.png)
 
-This repository is a collection of field-tested technical documents covering **network security**, **data connectivity**, **ML operations**, and **AI agent architectures** on the Microsoft cloud platform. Each guide includes detailed Mermaid diagrams, decision matrices, and actionable configuration steps — built for **architects, platform engineers, and developers** working with Fabric and Azure AI.
+A collection of field-tested technical documents covering **network security**, **data connectivity**, **ML operations**, and **AI agent architectures** on the Microsoft cloud platform. Each guide includes detailed Mermaid diagrams, decision matrices, and actionable configuration steps — built for **architects, platform engineers, and developers**.
 
-It also ships two **GitHub Copilot CLI skills** (`md2pdf` and `md2prez`) that automate document and presentation generation from Markdown.
+The repository also ships two **GitHub Copilot CLI skills** (`md2pdf` and `md2prez`) that automate document and presentation generation from Markdown.
 
 ## Contents
 
-| Document | Description |
-|----------|-------------|
-| **[Fabric_PrivateLink_MFA_Loop_Resolution.md](Fabric_PrivateLink_MFA_Loop_Resolution.md)** | Troubleshooting guide: MFA authentication loop when accessing Microsoft Fabric via Azure Private Link. Root cause analysis, Mermaid diagrams, and reusable validation scripts. |
-| **[Fabric_PrivateLink_MFA_Loop_Resolution.pdf](Fabric_PrivateLink_MFA_Loop_Resolution.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
-| **[MLinFabric.md](MLinFabric.md)** | Bonnes pratiques pour les ML Model Endpoints dans Microsoft Fabric |
-| **[MLinFabric.pdf](MLinFabric.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
-| **[Foundry_Agents_MCP_Tools.md](Foundry_Agents_MCP_Tools.md)** | Azure AI Foundry Agents & MCP Tools — Prompt Agent vs Hosted Agent comparison with MongoDB MCP examples, architecture diagrams, and deployment guide |
-| **[Foundry_Agents_MCP_Tools.pdf](Foundry_Agents_MCP_Tools.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
-| **[skills/md2pdf](skills/md2pdf)** | Copilot CLI skill — Génération de PDF depuis Markdown avec support Mermaid (pandoc + xelatex). Installable dans `~/.copilot/installed-plugins/` |
-| **[skills/md2prez](skills/md2prez)** | Copilot CLI skill — Génération de présentations HTML depuis Markdown avec Marp CLI, thème CSS custom et diagrammes Mermaid pré-rendus. Installable dans `~/.copilot/installed-plugins/` |
-| **[Foundry_Agent_Monitoring_APIM.md](Foundry_Agent_Monitoring_APIM.md)** | Monitoring des agents Foundry via APIM AI Gateway — tracking per-user/per-agent des tokens et coûts avec Application Insights, KQL queries, dashboards et alertes |
-| **[Foundry_Agent_Monitoring_APIM.pdf](Foundry_Agent_Monitoring_APIM.pdf)** | Version PDF avec diagrammes Mermaid rendus, table des matières et coloration syntaxique |
-| **[SAP_Fabric_Connectivity.md](SAP_Fabric_Connectivity.md)** | SAP Connectivity in Microsoft Fabric -- toutes les méthodes de connexion SAP vers Fabric (8 connecteurs, Mirroring GA, Copy Job CDC, decision guide). Annonces Ignite 2025 et FabCon 2026 |
-| **[SAP_Fabric_Connectivity.pdf](SAP_Fabric_Connectivity.pdf)** | Version PDF avec 5 diagrammes Mermaid couleur, page de titre, table des matières, callouts stylés |
-| **[Fabric_Network_Security.md](Fabric_Network_Security.md)** | Network Configurations in Microsoft Fabric — Inbound Protection (Private Links tenant/workspace, IP Firewall, Conditional Access), Secure Outbound (Trusted Workspace Access, Managed Private Endpoints, Gateways), Outbound Protection (Data Exfiltration Prevention), decision guide and 16 colored Mermaid diagrams |
-| **[Fabric_Network_Security.pdf](Fabric_Network_Security.pdf)** | PDF version with rendered Mermaid diagrams, table of contents and syntax highlighting |
-| **[prez/](prez/)** | Marp presentation — Network Security in Microsoft Fabric. Run with `cd prez && npm install && npm run dev`. Covers all topics from the Fabric_Network_Security document in 20+ slides with pre-rendered Mermaid diagrams, custom CSS theme and callout boxes. |
+### Technical Guides
 
-## Générer les PDFs
+| Document | PDF | Description |
+|----------|-----|-------------|
+| [Fabric_Network_Security](markdown/Fabric_Network_Security.md) | [PDF](pdf/Fabric_Network_Security.pdf) | Network configurations in Microsoft Fabric — Inbound protection (Private Links, IP Firewall, Conditional Access), secure outbound (Trusted Workspace Access, Managed Private Endpoints, Gateways), data exfiltration prevention, DNS, monitoring, and 16 colored Mermaid diagrams |
+| [Fabric_PrivateLink_MFA_Loop_Resolution](markdown/Fabric_PrivateLink_MFA_Loop_Resolution.md) | [PDF](pdf/Fabric_PrivateLink_MFA_Loop_Resolution.pdf) | Troubleshooting guide: MFA authentication loop when accessing Microsoft Fabric via Azure Private Link. Root cause analysis, Mermaid diagrams, and reusable validation scripts |
+| [MLinFabric](markdown/MLinFabric.md) | [PDF](pdf/MLinFabric.pdf) | Best practices for ML Model Endpoints in Microsoft Fabric |
+| [Foundry_Agents_MCP_Tools](markdown/Foundry_Agents_MCP_Tools.md) | [PDF](pdf/Foundry_Agents_MCP_Tools.pdf) | Azure AI Foundry Agents & MCP Tools — Prompt Agent vs Hosted Agent comparison with MongoDB MCP examples, architecture diagrams, and deployment guide |
+| [Foundry_Agent_Monitoring_APIM](markdown/Foundry_Agent_Monitoring_APIM.md) | [PDF](pdf/Foundry_Agent_Monitoring_APIM.pdf) | Monitoring Foundry agents via APIM AI Gateway — per-user/per-agent token and cost tracking with Application Insights, KQL queries, dashboards, and alerts |
+| [SAP_Fabric_Connectivity](markdown/SAP_Fabric_Connectivity.md) | [PDF](pdf/SAP_Fabric_Connectivity.pdf) | SAP connectivity in Microsoft Fabric — all connection methods (8 connectors, Mirroring GA, Copy Job CDC, decision guide) |
 
-Les PDFs sont générés via **pandoc** avec un filtre Lua qui convertit les blocs Mermaid en images PNG via `mmdc`.
+### Presentations
 
-### Prérequis
+| Presentation | Description |
+|-------------|-------------|
+| [prez/](prez/) | Marp slide deck — Network Security in Microsoft Fabric. 20+ slides with pre-rendered Mermaid diagrams, custom CSS theme, and callout boxes. Run with `cd prez && npm install && npm run dev` |
+
+### Copilot CLI Skills
+
+| Skill | Description |
+|-------|-------------|
+| [skills/md2pdf](skills/md2pdf) | Generate professional PDFs from Markdown with Mermaid diagram support (pandoc + xelatex) |
+| [skills/md2prez](skills/md2prez) | Generate HTML slide presentations from Markdown with Marp CLI, custom CSS themes, and pre-rendered Mermaid diagrams |
+
+## Generating PDFs
+
+PDFs are generated via **pandoc** with Mermaid diagrams pre-rendered to PNG via `mmdc`.
+
+### Prerequisites
 
 ```bash
 # pandoc + LaTeX (XeLaTeX)
 sudo apt-get install pandoc texlive-xetex texlive-fonts-recommended \
                      texlive-fonts-extra texlive-latex-extra lmodern fonts-dejavu
 
-# Mermaid CLI (pour le rendu des diagrammes)
+# Mermaid CLI (diagram rendering)
 npm install -g @mermaid-js/mermaid-cli
 ```
 
-### Commandes
+### Commands
 
 ```bash
-make          # Génère MLinFabric.pdf
-make clean    # Supprime le PDF généré
+make          # Generate PDFs
+make clean    # Remove generated PDFs
 ```
 
-## Installer la skill md2pdf dans GitHub Copilot CLI
+## Installing Copilot CLI Skills
 
-La skill `md2pdf` permet à Copilot CLI de générer automatiquement des PDFs depuis n'importe quel fichier Markdown avec support Mermaid. Une fois installée, il suffit de demander "génère un PDF de ce markdown" et Copilot invoque la skill.
+### md2pdf — Markdown to PDF
 
-### Prérequis système
+Automatically generates PDFs from any Markdown file with Mermaid support. Once installed, just ask: *"generate a PDF from this markdown"*.
 
-| Outil | Installation |
-|-------|-------------|
-| pandoc | `winget install JohnMacFarlane.Pandoc` (Windows) ou `apt install pandoc` (Linux) |
-| XeLaTeX | [MiKTeX](https://miktex.org/download) (Windows) ou `apt install texlive-xetex` (Linux) |
+#### System Requirements
+
+| Tool | Installation |
+|------|-------------|
+| pandoc | `winget install JohnMacFarlane.Pandoc` (Windows) or `apt install pandoc` (Linux) |
+| XeLaTeX | [MiKTeX](https://miktex.org/download) (Windows) or `apt install texlive-xetex` (Linux) |
 | mmdc | `npm install -g @mermaid-js/mermaid-cli` |
 
-### Installation
+#### Setup
 
-**1. Copier le plugin dans le répertoire Copilot CLI :**
+**1. Copy the plugin to the Copilot CLI directory:**
 
 ```bash
-# Cloner ce repo (ou copier le dossier skills/md2pdf)
 git clone https://github.com/fredgis/Divers.git
 cp -r Divers/skills/md2pdf ~/.copilot/installed-plugins/local/md2pdf
 ```
 
-Sur Windows (PowerShell) :
+Windows (PowerShell):
 
 ```powershell
 git clone https://github.com/fredgis/Divers.git
 Copy-Item -Recurse "Divers\skills\md2pdf" "$env:USERPROFILE\.copilot\installed-plugins\local\md2pdf"
 ```
 
-**2. Enregistrer le plugin dans `~/.copilot/config.json` :**
+**2. Register the plugin in `~/.copilot/config.json`:**
 
-Ajouter cette entrée dans le tableau `installed_plugins` :
+Add this entry to the `installed_plugins` array:
 
 ```json
 {
@@ -94,65 +101,53 @@ Ajouter cette entrée dans le tableau `installed_plugins` :
 }
 ```
 
-> ⚠️ Remplacer `~` par le chemin complet (`/home/user` ou `C:\\Users\\user`) dans `cache_path`.
+> Replace `~` with the full path (`/home/user` or `C:\\Users\\user`) in `cache_path`.
 
-**3. Redémarrer Copilot CLI :**
+**3. Restart Copilot CLI** (`/restart`) and verify with `/skills`.
 
-```
-/restart
-```
-
-**4. Vérifier :**
+#### Usage
 
 ```
-/skills
+Generate a PDF from my_file.md
 ```
 
-La skill `md2pdf` devrait apparaître dans la liste.
+Copilot CLI will automatically:
+1. Detect and render Mermaid diagrams to PNG via `mmdc`
+2. Generate the PDF via `pandoc + xelatex` with table of contents, numbering, and syntax highlighting
+3. Clean up temporary files
 
-### Utilisation
+---
 
-Une fois installée, demandez simplement :
+### md2prez — Markdown to Slides
 
-```
-Génère un PDF de mon_fichier.md
-```
+Automatically generates HTML slide presentations from Markdown via **Marp CLI**, with Mermaid support and custom CSS themes. Once installed, just ask: *"create a presentation from this document"*.
 
-Copilot CLI invoquera automatiquement la skill qui :
-1. Détecte et rend les diagrammes Mermaid en PNG via `mmdc`
-2. Génère le PDF via `pandoc + xelatex` avec table des matières, numérotation et coloration syntaxique
-3. Nettoie les fichiers temporaires
+#### System Requirements
 
-## Installer la skill md2prez dans GitHub Copilot CLI
-
-La skill `md2prez` permet à Copilot CLI de générer automatiquement des présentations HTML (slides) depuis Markdown via **Marp CLI**, avec support Mermaid (pré-rendu PNG) et thème CSS personnalisé. Demandez "crée une présentation de ce document" et Copilot invoque la skill.
-
-### Prérequis système
-
-| Outil | Installation |
-|-------|-------------|
-| @marp-team/marp-cli | `npm install -g @marp-team/marp-cli` ou en local via `package.json` |
+| Tool | Installation |
+|------|-------------|
+| @marp-team/marp-cli | `npm install -g @marp-team/marp-cli` or locally via `package.json` |
 | mmdc | `npm install -g @mermaid-js/mermaid-cli` |
 
-### Installation
+#### Setup
 
-**1. Copier le plugin dans le répertoire Copilot CLI :**
+**1. Copy the plugin to the Copilot CLI directory:**
 
 ```bash
 git clone https://github.com/fredgis/Divers.git
 cp -r Divers/skills/md2prez ~/.copilot/installed-plugins/local/md2prez
 ```
 
-Sur Windows (PowerShell) :
+Windows (PowerShell):
 
 ```powershell
 git clone https://github.com/fredgis/Divers.git
 Copy-Item -Recurse "Divers\skills\md2prez" "$env:USERPROFILE\.copilot\installed-plugins\local\md2prez"
 ```
 
-**2. Enregistrer le plugin dans `~/.copilot/config.json` :**
+**2. Register the plugin in `~/.copilot/config.json`:**
 
-Ajouter cette entrée dans le tableau `installed_plugins` :
+Add this entry to the `installed_plugins` array:
 
 ```json
 {
@@ -165,32 +160,18 @@ Ajouter cette entrée dans le tableau `installed_plugins` :
 }
 ```
 
-> ⚠️ Remplacer `~` par le chemin complet (`/home/user` ou `C:\\Users\\user`) dans `cache_path`.
+> Replace `~` with the full path (`/home/user` or `C:\\Users\\user`) in `cache_path`.
 
-**3. Redémarrer Copilot CLI :**
+**3. Restart Copilot CLI** (`/restart`) and verify with `/skills`.
 
-```
-/restart
-```
-
-**4. Vérifier :**
+#### Usage
 
 ```
-/skills
+Create a presentation from my_document.md
 ```
 
-La skill `md2prez` devrait apparaître dans la liste.
-
-### Utilisation
-
-Une fois installée, demandez simplement :
-
-```
-Crée une présentation de mon_document.md
-```
-
-Copilot CLI invoquera automatiquement la skill qui :
-1. Crée le projet Marp (package.json, theme.css, structure)
-2. Pré-rend les diagrammes Mermaid en PNG via `mmdc`
-3. Génère les slides avec thème custom, tables stylées et callout boxes
-4. Lance le serveur de dev sur `http://localhost:8080` ou build en HTML/PDF
+Copilot CLI will automatically:
+1. Create the Marp project (package.json, theme.css, project structure)
+2. Pre-render Mermaid diagrams to PNG via `mmdc`
+3. Generate slides with custom theme, styled tables, and callout boxes
+4. Start the dev server at `http://localhost:8080` or build to HTML/PDF
