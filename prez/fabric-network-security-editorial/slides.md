@@ -229,9 +229,26 @@ Allow Fabric on the public internet — but only from **declared IP ranges**. No
 
 # Tenant × Workspace Interaction
 
-![w:1050](images/interaction.png)
+<div class="split right-wide">
 
-<p style="margin-top:6px; font-size:0.85em"><strong>Non-obvious:</strong> when tenant public access is <em>restricted</em>, workspace-level PL enables <strong>API access only</strong>. Portal requires tenant-level PL.</p>
+<div>
+
+Two knobs, combined:
+
+- **Tenant** `Allowed` or `Restricted`
+- **Workspace** `None`, `PL`, or `IP Firewall`
+
+<p style="margin-top:10px; font-size:0.85em"><strong>Non-obvious:</strong> when tenant public access is <em>restricted</em>, workspace-level PL enables <strong>API access only</strong>. Portal needs tenant-level PL.</p>
+
+</div>
+
+<div>
+
+![w:560](images/interaction.png)
+
+</div>
+
+</div>
 
 ---
 
@@ -403,9 +420,27 @@ Controlling *where* data goes — not just how it gets out.
 
 # The Full DEP Picture
 
-![w:950](images/depfull.png)
+<div class="split">
 
-<p style="margin-top:10px; font-size:0.9em"><strong>Three layers combined.</strong> Network stops <em>unauthorized paths</em>. DLP stops <em>unauthorized content on authorized paths</em>.</p>
+<div>
+
+![w:540](images/depfull.png)
+
+</div>
+
+<div>
+
+Data Exfiltration Protection isn't a single feature — it's the **convergence of three layers**.
+
+- **Inbound** blocks *bad actors* at the door
+- **Outbound** blocks *bad paths* to the outside
+- **Data** blocks *bad content* even on authorized paths
+
+<p style="margin-top:10px; font-size:0.9em"><strong>Remove any one layer and DEP leaks.</strong> Network alone won't stop an authenticated user emailing a spreadsheet. Labels alone won't stop a rogue notebook posting to an unknown endpoint.</p>
+
+</div>
+
+</div>
 
 ---
 
