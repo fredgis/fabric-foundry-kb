@@ -1,4 +1,4 @@
-# Cloud Architecture Knowledge Base
+# Fabric, Foundry & Databases — Knowledge Base
 
 > **Technical reference guides, architecture deep-dives, and developer tooling for Microsoft Fabric and Azure AI Foundry.**
 
