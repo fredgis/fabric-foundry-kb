@@ -1,4 +1,4 @@
-# Divers
+# Microsoft Fabric & Azure AI — Technical Guides
 
 > **Technical reference guides, architecture deep-dives, and developer tooling for Microsoft Fabric and Azure AI Foundry.**
 
