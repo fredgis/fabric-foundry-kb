@@ -1,3 +1,7 @@
 mermaid-filter.err
 node_modules/
 *.log
+
+prez/**/node_modules/
+prez/**/dist/
+

@@ -25,7 +25,8 @@ The repository also ships two **GitHub Copilot CLI skills** (`md2pdf` and `md2pr
 
 | Presentation | Description |
 |-------------|-------------|
-| [prez/](prez/) | Marp slide deck — Network Security in Microsoft Fabric. 20+ slides with pre-rendered Mermaid diagrams, custom CSS theme, and callout boxes. Run with `cd prez && npm install && npm run dev` |
+| [prez/fabric-network-security-standard/](prez/fabric-network-security-standard/) | Marp slide deck — Network Security in Microsoft Fabric. Standard layout: 20+ slides, pre-rendered Mermaid diagrams, callout boxes. Run with `cd prez/fabric-network-security-standard && npm install && npm run dev` |
+| [prez/fabric-network-security-editorial/](prez/fabric-network-security-editorial/) | Same topic — **editorial redesign**. Magazine-style theme (cards, big stats, chapter markers, asymmetric layouts, dark closing). More visual, less dense. Run with `cd prez/fabric-network-security-editorial && npm install && npm run dev` |
 
 ### Copilot CLI Skills
 

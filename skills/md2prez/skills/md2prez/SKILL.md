@@ -383,14 +383,228 @@ Delete `.mmd` source files after rendering (keep PNGs in git for the presentatio
 Remove-Item "images\*.mmd" -Force -ErrorAction SilentlyContinue
 ```
 
+## Two Theme Styles
+
+Pick based on the audience and level of polish required:
+
+| Style | When to use | Signature elements |
+|-------|-------------|-------------------|
+| **Standard (`fabric`)** | Engineer-focused decks, internal reviews, where density > polish. Shown above. | Bullet lists, callouts, tables, right-side diagrams |
+| **Editorial (`fabric-editorial`)** | External/exec audiences, architecture briefs, "magazine-style" decks. Favors visuals over prose. | Cards grid, big-number stats, numbered steps, chapter markers, dark closing slide |
+
+The standard style is fine for most decks. Reach for the editorial style when the user asks for something more polished, visual, or "less text-heavy".
+
+## Editorial Style
+
+### Principles
+
+- **More graphics, less text.** Whenever a concept has 3+ bullets, consider turning it into a diagram, a cards grid, or a stats block.
+- **One chapter number per major section.** Huge translucent numerals (e.g., `01`, `02`) guide the reader's mental map.
+- **Asymmetric splits.** Two-column layouts with `0.9fr 1.1fr` ratios feel editorial, not corporate.
+- **Dark closing slide** for visual punctuation.
+- **Tight title page:** small "tag" above a big title, muted subtitle.
+
+### Editorial theme.css
+
+```css
+/* @theme fabric-editorial */
+
+@import 'default';
+
+:root {
+  --ink: #0a1929;
+  --muted: #64748b;
+  --brand: #0078d4;
+  --accent: #00b4a6;
+  --warn: #e65100;
+  --danger: #c62828;
+  --success: #2e7d32;
+  --purple: #6f42c1;
+}
+
+section {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 22px;
+  padding: 60px 70px 50px;
+  background: #ffffff;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+
+/* Subtle left accent bar on content slides */
+section::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: linear-gradient(180deg, var(--brand) 0%, var(--accent) 100%);
+}
+
+h1 { font-size: 2em; font-weight: 700; color: var(--ink); margin: 0 0 18px; }
+h2 { font-size: 1.1em; font-weight: 500; color: var(--muted); margin: 0 0 24px; }
+h3 { font-size: 0.95em; font-weight: 600; color: var(--brand); text-transform: uppercase; letter-spacing: 0.06em; margin: 18px 0 8px; }
+
+/* Lead slide */
+section.lead { background: radial-gradient(1200px 600px at 20% 10%, #dbeafe 0%, #fff 60%); padding: 80px 90px; }
+section.lead::before { display: none; }
+section.lead h1 { font-size: 3.2em; line-height: 1.05; letter-spacing: -0.02em; }
+section.lead .tag { display: inline-block; background: var(--ink); color: #fff; padding: 4px 12px; font-size: 0.7em; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; border-radius: 4px; margin-bottom: 18px; }
+
+/* Chapter dividers */
+section.chapter { background: var(--ink); color: #fff; padding: 80px 90px; }
+section.chapter::before { display: none; }
+section.chapter .num { position: absolute; right: 60px; bottom: 10px; font-size: 18em; line-height: 1; font-weight: 900; color: rgba(255,255,255,0.08); }
+section.chapter h1 { color: #fff; font-size: 3em; }
+
+/* Cards grid */
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 12px; }
+.cards.two { grid-template-columns: 1fr 1fr; }
+.card { background: #f8fafc; border-left: 4px solid var(--brand); padding: 16px 18px; border-radius: 0 6px 6px 0; }
+.card.teal   { border-color: var(--accent); }
+.card.red    { border-color: var(--danger); }
+.card.green  { border-color: var(--success); }
+.card.orange { border-color: var(--warn); }
+.card.purple { border-color: var(--purple); }
+.card-num { font-size: 0.65em; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+.card h3 { margin: 0 0 6px; color: var(--ink); text-transform: none; letter-spacing: -0.01em; font-size: 1.05em; }
+.card p { margin: 0; font-size: 0.88em; }
+
+/* Big-number stats */
+.stat { margin: 0 0 18px; }
+.stat .big { font-size: 3.5em; font-weight: 800; color: var(--brand); line-height: 1; }
+.stat .label { font-size: 0.85em; color: var(--muted); margin-top: 4px; }
+
+/* Numbered steps */
+.steps { counter-reset: s; display: flex; flex-direction: column; gap: 10px; }
+.step { counter-increment: s; display: flex; gap: 14px; align-items: flex-start; }
+.step::before { content: counter(s, decimal-leading-zero); font-weight: 800; color: var(--brand); font-size: 1.4em; min-width: 40px; }
+.step-content strong { display: block; margin-bottom: 2px; }
+.step-content span { color: var(--muted); font-size: 0.88em; }
+
+/* Pills (tags) */
+.pill { display: inline-block; background: #e0f2fe; color: var(--brand); padding: 2px 10px; border-radius: 999px; font-size: 0.78em; font-weight: 500; margin: 2px 2px; }
+.pill.green  { background: #dcfce7; color: var(--success); }
+.pill.red    { background: #fee2e2; color: var(--danger); }
+.pill.orange { background: #fff7ed; color: var(--warn); }
+.pill.gray   { background: #f1f5f9; color: var(--muted); }
+
+/* Splits */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.split.right-wide { grid-template-columns: 0.9fr 1.1fr; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+/* Tables (compact, minimal chrome) */
+table { width: 100%; border-collapse: collapse; font-size: 0.78em; margin: 8px 0; }
+th { background: transparent; color: var(--ink); padding: 8px 10px; text-align: left; font-weight: 700; border-bottom: 2px solid var(--ink); }
+td { padding: 6px 10px; border-bottom: 1px solid #e2e8f0; }
+
+/* Blockquotes — inline editorial note */
+blockquote { border-left: 3px solid var(--accent); background: transparent; padding: 2px 0 2px 14px; margin: 12px 0; font-size: 0.88em; color: var(--muted); }
+blockquote strong { color: var(--ink); }
+
+/* Closing slide */
+section.closing { background: var(--ink); color: #fff; padding: 80px 90px; }
+section.closing::before { display: none; }
+section.closing h1 { color: #fff; font-size: 2.8em; line-height: 1.1; }
+section.closing h2 { color: rgba(255,255,255,0.5); font-size: 0.75em; letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* Images */
+img { display: block; margin: 0 auto; border-radius: 4px; }
+strong { color: var(--ink); font-weight: 700; }
+```
+
+### Editorial slide patterns
+
+**Title (lead):**
+```markdown
+<!-- _class: lead -->
+<!-- _paginate: false -->
+<div class="tag">Architecture Brief · Apr 2026</div>
+
+# Big bold<br>title.
+
+## One-line subtitle in muted grey
+
+### author · context
+```
+
+**Chapter divider:**
+```markdown
+<!-- _class: chapter -->
+<div class="num">01</div>
+
+# Chapter Title.
+
+One-line description of this chapter.
+```
+
+**Cards grid:**
+```markdown
+# Three Approaches
+
+<div class="cards">
+
+<div class="card">
+<div class="card-num">OPTION 01</div>
+<h3>Card title</h3>
+<p>Short description of this option.</p>
+<p style="margin-top:8px"><span class="pill">Tag</span> <span class="pill green">GA</span></p>
+</div>
+
+<div class="card teal"> ... </div>
+<div class="card red"> ... </div>
+
+</div>
+```
+
+**Big-number stats:**
+```markdown
+<div class="stat">
+<div class="big">3</div>
+<div class="label">pillars of network defense</div>
+</div>
+```
+
+**Numbered steps:**
+```markdown
+<div class="steps">
+<div class="step"><div class="step-content"><strong>Short title</strong><span>Detail line in muted grey</span></div></div>
+<div class="step"><div class="step-content"><strong>Next step</strong><span>More detail</span></div></div>
+</div>
+```
+
+**Closing slide:**
+```markdown
+<!-- _class: closing -->
+<!-- _paginate: false -->
+
+## Takeaways
+
+# Big<br>closing<br>statement.
+
+<p>A short paragraph summarising the message.</p>
+```
+
+### Avoiding overflow in Marp (editorial)
+
+Marp slides are `1280×720`. With top/bottom chrome and chapter-style padding the usable area is ~600px tall. Diagrams that overflow are the most common visual defect.
+
+**Image sizing rules — editorial:**
+
+| Diagram shape | Max width | Notes |
+|---------------|-----------|-------|
+| Wide `flowchart LR` | `w:1050` | Good for end-to-end flows |
+| Square / balanced | `w:880` to `w:960` | DNS, Zero Trust, decision trees |
+| Tall `flowchart TB` | `w:820` max | Tall diagrams need narrower width to stay vertically short |
+
+**Minimize surrounding text on slides with a big diagram.** Drop the `##` subtitle when the image is the message — a `#` title plus the image is often enough. Keep any explanation to **one short paragraph** below (≤ 2 lines).
+
 ## Slide Design Best Practices
 
 - **Target 20–25 content slides** (excluding dividers and title/closing) for a 30-minute talk
 - **One idea per slide** — avoid overcrowding
+- **Prefer visuals over prose.** If a bullet list would work, a diagram, cards grid, or stats block usually works better.
 - **Tables:** keep to 5–6 rows max; use `font-size: 0.78em` in theme for compact rendering
-- **Diagrams:** place on the right (`bg right:45%`) with text on the left, or centered for full-width
-- **Blockquotes** render as blue callout boxes — use for best practices, warnings, key takeaways
+- **Diagrams:** place on the right (`bg right:45%`) with text on the left, or centered for full-width. In editorial style, full-width and slightly narrower (see rules above).
+- **Blockquotes** render as callout boxes (standard) or inline editorial notes (editorial). Use for best practices, warnings, key takeaways.
 - **No emoji** in headings (rendering can be inconsistent)
-- **Section dividers** between major topics help pace the presentation
+- **Section dividers** between major topics help pace the presentation — in editorial style use chapter numerals.
 - **Bold text** renders in the primary color — use sparingly for emphasis
 - For Linux/macOS, replace `Segoe UI` with `Inter` or `DejaVu Sans` in the theme CSS
