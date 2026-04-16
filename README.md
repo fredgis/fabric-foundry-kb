@@ -1,8 +1,14 @@
 # Divers
 
-Collection de documents techniques et guides de troubleshooting.
+> **Technical reference guides, architecture deep-dives, and developer tooling for Microsoft Fabric and Azure AI Foundry.**
 
-## Contenu
+![Repository Overview](images/repo-overview.png)
+
+This repository is a collection of field-tested technical documents covering **network security**, **data connectivity**, **ML operations**, and **AI agent architectures** on the Microsoft cloud platform. Each guide includes detailed Mermaid diagrams, decision matrices, and actionable configuration steps — built for **architects, platform engineers, and developers** working with Fabric and Azure AI.
+
+It also ships two **GitHub Copilot CLI skills** (`md2pdf` and `md2prez`) that automate document and presentation generation from Markdown.
+
+## Contents
 
 | Document | Description |
 |----------|-------------|
