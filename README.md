@@ -58,11 +58,12 @@ make clean    # Remove generated PDFs
 
 ## Installing Copilot CLI Skills
 
-### md2pdf — Markdown to PDF
+<details>
+<summary><strong>md2pdf — Markdown to PDF</strong></summary>
 
 Automatically generates PDFs from any Markdown file with Mermaid support. Once installed, just ask: *"generate a PDF from this markdown"*.
 
-#### System Requirements
+##### System Requirements
 
 | Tool | Installation |
 |------|-------------|
@@ -70,7 +71,7 @@ Automatically generates PDFs from any Markdown file with Mermaid support. Once i
 | XeLaTeX | [MiKTeX](https://miktex.org/download) (Windows) or `apt install texlive-xetex` (Linux) |
 | mmdc | `npm install -g @mermaid-js/mermaid-cli` |
 
-#### Setup
+##### Setup
 
 **1. Copy the plugin to the Copilot CLI directory:**
 
@@ -105,7 +106,7 @@ Add this entry to the `installed_plugins` array:
 
 **3. Restart Copilot CLI** (`/restart`) and verify with `/skills`.
 
-#### Usage
+##### Usage
 
 ```
 Generate a PDF from my_file.md
@@ -116,20 +117,21 @@ Copilot CLI will automatically:
 2. Generate the PDF via `pandoc + xelatex` with table of contents, numbering, and syntax highlighting
 3. Clean up temporary files
 
----
+</details>
 
-### md2prez — Markdown to Slides
+<details>
+<summary><strong>md2prez — Markdown to Slides</strong></summary>
 
 Automatically generates HTML slide presentations from Markdown via **Marp CLI**, with Mermaid support and custom CSS themes. Once installed, just ask: *"create a presentation from this document"*.
 
-#### System Requirements
+##### System Requirements
 
 | Tool | Installation |
 |------|-------------|
 | @marp-team/marp-cli | `npm install -g @marp-team/marp-cli` or locally via `package.json` |
 | mmdc | `npm install -g @mermaid-js/mermaid-cli` |
 
-#### Setup
+##### Setup
 
 **1. Copy the plugin to the Copilot CLI directory:**
 
@@ -164,7 +166,7 @@ Add this entry to the `installed_plugins` array:
 
 **3. Restart Copilot CLI** (`/restart`) and verify with `/skills`.
 
-#### Usage
+##### Usage
 
 ```
 Create a presentation from my_document.md
@@ -175,3 +177,5 @@ Copilot CLI will automatically:
 2. Pre-render Mermaid diagrams to PNG via `mmdc`
 3. Generate slides with custom theme, styled tables, and callout boxes
 4. Start the dev server at `http://localhost:8080` or build to HTML/PDF
+
+</details>
