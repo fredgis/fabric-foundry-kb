@@ -109,7 +109,7 @@ _PowerPoint client · Static Web App + Functions · Entra OBO · Power BI REST �
 
 # The Taskpane
 
-![h:480](images/IMG1.png)
+![h:460](images/IMG1.png)
 
 _Fluent UI v9 · React 18 · MSAL.js · Office.js — native Microsoft 365 look._
 
@@ -121,13 +121,13 @@ _Fluent UI v9 · React 18 · MSAL.js · Office.js — native Microsoft 365 look.
 
 <div>
 
-![h:430](images/IMG2.png)
+![w:500](images/IMG2.png)
 
 </div>
 
 <div>
 
-![h:430](images/IMG4.png)
+![w:500](images/IMG4.png)
 
 </div>
 
@@ -157,7 +157,7 @@ Inserted next to the chart as a Fluent-styled text box.
 
 <div>
 
-![h:430](images/IMG3.png)
+![w:500](images/IMG3.png)
 
 </div>
 
@@ -209,7 +209,7 @@ A roster of eight specialised agents, supervised by one developer through the Gi
 
 # The Squad
 
-![h:480](images/squad-agents.png)
+![w:1050](images/squad-agents.png)
 
 _Eight specialised agents · per-role model selection · curated context · shared memory._
 
@@ -249,7 +249,7 @@ The rest: features (4.5 h), spec & forge (1 h), code review (0.5 h), deploy (0.5
 
 <div>
 
-![h:430](images/effort-pie.png)
+![w:560](images/effort-pie.png)
 
 </div>
 
@@ -315,13 +315,13 @@ The rest: features (4.5 h), spec & forge (1 h), code review (0.5 h), deploy (0.5
 
 <div>
 
-![h:430](images/DEPLOY1.png)
+![w:400](images/DEPLOY1.png)
 
 </div>
 
 <div>
 
-![h:430](images/DEPLOY2.png)
+![w:400](images/DEPLOY2.png)
 
 </div>
 
@@ -346,7 +346,7 @@ The CLI is not another agent. It's the conductor.
 
 # Copilot CLI × Squad
 
-![h:490](images/cli-squad.png)
+![w:1100](images/cli-squad.png)
 
 _The Squad produces code. The CLI integrates, debugs, iterates — with the developer in the loop._
 
@@ -354,7 +354,7 @@ _The Squad produces code. The CLI integrates, debugs, iterates — with the deve
 
 # Spec Kit · Agent Forge · Agent Store
 
-![h:490](images/toolchain.png)
+![w:1000](images/toolchain.png)
 
 _Spec is the deliverable. Forge engineers context. Store compounds across projects._
 
@@ -388,7 +388,7 @@ _Spec is the deliverable. Forge engineers context. Store compounds across projec
 
 # Fleet vs Squad — scaling the model
 
-![h:480](images/scaling.png)
+![w:1100](images/scaling.png)
 
 _Solo (1 task) → Squad (one project, 5-10 agents) → Fleet (one programme, 50-500 agents)._
 
@@ -438,7 +438,7 @@ What changes when delivery cost drops by an order of magnitude.
 
 # Cost Tiers — Premium vs Standard
 
-![h:480](images/cost-tiers.png)
+![w:1100](images/cost-tiers.png)
 
 _Heavy reasoning on Opus / Sonnet · structural work on Haiku · caching + RAG do the rest._
 
