@@ -17,7 +17,7 @@ footer: 'April 2026'
 
 ## Three pillars. Zero public exposure. One coherent architecture for enterprise-grade data platforms.
 
-### fredgis · github.com/fredgis/Divers
+### fredgis · github.com/fredgis/fabric-foundry-kb/
 
 ---
 
