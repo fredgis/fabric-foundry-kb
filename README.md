@@ -37,6 +37,7 @@ The repository also ships two **GitHub Copilot CLI skills** (`md2pdf` and `md2pr
 |-------|-------------|
 | [skills/md2pdf](skills/md2pdf) | Generate professional PDFs from Markdown with Mermaid diagram support (pandoc + xelatex) |
 | [skills/md2prez](skills/md2prez) | Generate HTML slide presentations from Markdown with Marp CLI, custom CSS themes, and pre-rendered Mermaid diagrams |
+| [skills/drawio2png](skills/drawio2png) | Render `.drawio` files to PNG without clipping. Bypasses the draw.io desktop CLI bbox bug (content beyond x≈1370px gets cropped) by exporting to SVG and rasterising via Puppeteer |
 
 ## Generating PDFs
 
@@ -181,5 +182,77 @@ Copilot CLI will automatically:
 2. Pre-render Mermaid diagrams to PNG via `mmdc`
 3. Generate slides with custom theme, styled tables, and callout boxes
 4. Start the dev server at `http://localhost:8080` or build to HTML/PDF
+
+</details>
+
+<details>
+<summary><strong>drawio2png — draw.io to PNG (clip-free)</strong></summary>
+
+Renders any `.drawio` file to a complete PNG, even when the diagram extends beyond the draw.io desktop CLI's PNG bounding-box bug (≈ x > 1370 px gets silently cropped). Once installed, just ask: *"export this drawio to PNG"* or *"my drawio PNG is clipped, fix it"*.
+
+##### The Bug
+
+The `drawio.exe -x -f png` command silently clips elements whose `x` coordinate exceeds ~1370 px — wide multi-lane architectures lose their right side. SVG export is unaffected. This skill exports SVG, then rasterises it via headless Chromium (Puppeteer) to produce a complete PNG.
+
+##### System Requirements
+
+| Tool | Installation |
+|------|-------------|
+| draw.io Desktop | [Download from GitHub releases](https://github.com/jgraph/drawio-desktop/releases) |
+| Node.js | `winget install OpenJS.NodeJS.LTS` (Windows) or `apt install nodejs` (Linux) |
+| Puppeteer | bundled with `@mermaid-js/mermaid-cli` — `npm install -g @mermaid-js/mermaid-cli` |
+
+##### Setup
+
+**1. Copy the plugin to the Copilot CLI directory:**
+
+```bash
+git clone https://github.com/fredgis/fabric-foundry-kb.git
+cp -r fabric-foundry-kb/skills/drawio2png ~/.copilot/installed-plugins/local/drawio2png
+```
+
+Windows (PowerShell):
+
+```powershell
+git clone https://github.com/fredgis/fabric-foundry-kb.git
+Copy-Item -Recurse "fabric-foundry-kb\skills\drawio2png" "$env:USERPROFILE\.copilot\installed-plugins\local\drawio2png"
+```
+
+**2. Register the plugin in `~/.copilot/config.json`:**
+
+Add this entry to the `installed_plugins` array:
+
+```json
+{
+  "name": "drawio2png",
+  "marketplace": "local",
+  "version": "1.0.0",
+  "installed_at": "2026-04-20T00:00:00.000Z",
+  "enabled": true,
+  "cache_path": "~/.copilot/installed-plugins/local/drawio2png"
+}
+```
+
+> Replace `~` with the full path (`/home/user` or `C:\\Users\\user`) in `cache_path`.
+
+**3. Restart Copilot CLI** (`/restart`) and verify with `/skills`.
+
+##### Usage
+
+```
+Export images/architecture.drawio to PNG
+```
+
+or
+
+```
+The PNG export of my drawio is clipped on the right — fix it
+```
+
+Copilot CLI will automatically:
+1. Export the `.drawio` to SVG via the draw.io Desktop CLI (always complete)
+2. Rasterise the SVG to PNG via Puppeteer at the requested scale (default 2× retina)
+3. Verify dimensions match `viewBox × scale`
+4. Clean up the temporary SVG and renderer script
 
 </details>

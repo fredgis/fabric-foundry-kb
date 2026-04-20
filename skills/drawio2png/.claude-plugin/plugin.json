@@ -1,0 +1,16 @@
+{
+  "name": "drawio2png",
+  "description": "Render draw.io diagrams to PNG via SVG + Puppeteer, bypassing the draw.io desktop CLI bbox-clipping bug for wide diagrams (content beyond x≈1370px)",
+  "version": "1.0.0",
+  "author": {
+    "name": "frgisber"
+  },
+  "keywords": [
+    "drawio",
+    "png",
+    "svg",
+    "puppeteer",
+    "diagram",
+    "architecture"
+  ]
+}
