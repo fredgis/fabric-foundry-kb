@@ -1,0 +1,396 @@
+<mxfile host="app.diagrams.net" modified="2026-04-20T11:46:00.000Z" agent="Copilot" version="24.0.0" type="device">
+  <diagram name="Fabric Network Security" id="fabric-netsec-e2e">
+<mxGraphModel dx="1422" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1100" math="0" shadow="0" adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <mxCell id="title" value="Microsoft Fabric — End-to-End Network Security Architecture" style="text;html=1;align=center;fontSize=20;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="1620" height="36" as="geometry"/>
+    </mxCell>
+    <mxCell id="subtitle" value="Three pillars · Identity-first · Zero Trust · Data Exfiltration Protection" style="text;html=1;align=center;fontSize=13;fontColor=#64748b;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+      <mxGeometry x="40" y="56" width="1620" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="usersGrp" value="USERS &amp; CLIENTS" style="swimlane;startSize=28;fillColor=#ede9fe;strokeColor=#6f42c1;strokeWidth=2;html=1;fontStyle=1;fontColor=#4c1d95;fontSize=12;align=center;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="40" y="100" width="220" height="900" as="geometry"/>
+    </mxCell>
+    <mxCell id="u1" value="Corporate&#10;User" style="shape=mxgraph.bootstrap.user;html=1;fillColor=#7c3aed;strokeColor=#4c1d95;fontColor=#ffffff;fontStyle=1;" vertex="1" parent="usersGrp">
+      <mxGeometry x="70" y="60" width="80" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="u1l" value="Corporate user" style="text;html=1;align=center;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="usersGrp">
+      <mxGeometry x="20" y="145" width="180" height="18" as="geometry"/>
+    </mxCell>
+    <mxCell id="u2" value="" style="shape=mxgraph.bootstrap.user;html=1;fillColor=#7c3aed;strokeColor=#4c1d95;" vertex="1" parent="usersGrp">
+      <mxGeometry x="70" y="200" width="80" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="u2l" value="External&#10;partner" style="text;html=1;align=center;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="usersGrp">
+      <mxGeometry x="20" y="285" width="180" height="32" as="geometry"/>
+    </mxCell>
+    <mxCell id="u3" value="" style="shape=mxgraph.bootstrap.user;html=1;fillColor=#dc2626;strokeColor=#7f1d1d;" vertex="1" parent="usersGrp">
+      <mxGeometry x="70" y="350" width="80" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="u3l" value="Bad actor&#10;(blocked)" style="text;html=1;align=center;fontSize=11;fontStyle=1;fillColor=none;strokeColor=none;fontColor=#991b1b;" vertex="1" parent="usersGrp">
+      <mxGeometry x="20" y="435" width="180" height="32" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="entra" value="ENTRA ID&#10;Identity Provider" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#6f42c1;strokeWidth=2;fontStyle=1;fontColor=#4c1d95;fontSize=11;" vertex="1" parent="usersGrp">
+      <mxGeometry x="20" y="500" width="180" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="ca" value="Conditional Access&#10;· MFA · Device · Risk · Location" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;fontSize=10;" vertex="1" parent="usersGrp">
+      <mxGeometry x="20" y="570" width="180" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="pim" value="PIM &amp; PAW&#10;Just-in-time elevation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ff;strokeColor=#7c3aed;fontSize=10;" vertex="1" parent="usersGrp">
+      <mxGeometry x="20" y="635" width="180" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="tag1" value="LAYER 1 · IDENTITY" style="text;html=1;align=center;fontSize=10;fontStyle=1;fontColor=#6f42c1;fillColor=none;strokeColor=none;" vertex="1" parent="usersGrp">
+      <mxGeometry x="20" y="850" width="180" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="inboundGrp" value="INBOUND PROTECTION · PILLAR 01" style="swimlane;startSize=28;fillColor=#dbeafe;strokeColor=#0078d4;strokeWidth=2;html=1;fontStyle=1;fontColor=#003f6b;fontSize=12;align=center;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="290" y="100" width="260" height="900" as="geometry"/>
+    </mxCell>
+    <mxCell id="ibheader" value="What protects ingress?" style="text;html=1;align=center;fontSize=11;fontStyle=2;fontColor=#475569;fillColor=none;strokeColor=none;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="10" y="35" width="240" height="20" as="geometry"/>
+    </mxCell>
+    <mxCell id="tpl" value="Tenant-level&#10;Private Link" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0078d4;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="20" y="80" width="100" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="tpld" value="All-or-nothing&#10;Spark starter pools off" style="text;html=1;align=center;fontSize=9;fontColor=#64748b;fillColor=none;strokeColor=none;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="20" y="142" width="100" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="wpl" value="Workspace&#10;Private Link&#10;(recommended)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078d4;strokeColor=#003f6b;strokeWidth=2;fontStyle=1;fontColor=#ffffff;fontSize=11;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="140" y="80" width="100" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="wpld" value="Per-workspace scope&#10;Granular isolation" style="text;html=1;align=center;fontSize=9;fontColor=#64748b;fillColor=none;strokeColor=none;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="140" y="142" width="100" height="28" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="ipfw" value="IP Firewall Rules&#10;Allowlist public IPs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0078d4;strokeWidth=2;fontStyle=1;fontSize=11;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="50" y="190" width="160" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="ipfwd" value="Max 100 rules · No PowerBI / DB yet" style="text;html=1;align=center;fontSize=9;fontColor=#64748b;fillColor=none;strokeColor=none;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="20" y="248" width="220" height="16" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="dnsZone" value="Private DNS Zone&#10;privatelink.fabric.microsoft.com" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cffafe;strokeColor=#00b4a6;strokeWidth=2;fontSize=10;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="30" y="285" width="200" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="dnsdesc" value="Required for Private Link to work" style="text;html=1;align=center;fontSize=9;fontStyle=2;fontColor=#c2410c;fillColor=none;strokeColor=none;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="20" y="343" width="220" height="14" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="capacity" value="Fabric Capacity&#10;F SKU · trust boundary" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eff6ff;strokeColor=#1d4ed8;fontSize=10;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="30" y="380" width="200" height="50" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="tag2" value="LAYER 2 · NETWORK INGRESS" style="text;html=1;align=center;fontSize=10;fontStyle=1;fontColor=#0078d4;fillColor=none;strokeColor=none;" vertex="1" parent="inboundGrp">
+      <mxGeometry x="20" y="850" width="220" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="wsGrp" value="FABRIC WORKSPACE · MANAGED VNET" style="swimlane;startSize=28;fillColor=#0f172a;strokeColor=#0078d4;strokeWidth=3;html=1;fontStyle=1;fontColor=#ffffff;fontSize=12;align=center;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="580" y="100" width="370" height="900" as="geometry"/>
+    </mxCell>
+    <mxCell id="wsh" value="Where the data work happens" style="text;html=1;align=center;fontSize=11;fontStyle=2;fontColor=#94a3b8;fillColor=none;strokeColor=none;" vertex="1" parent="wsGrp">
+      <mxGeometry x="10" y="35" width="350" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="wsItems" value="Workspace items" style="text;html=1;align=center;fontSize=10;fontStyle=1;fontColor=#94a3b8;fillColor=none;strokeColor=none;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="70" width="330" height="18" as="geometry"/>
+    </mxCell>
+    <mxCell id="lh" value="Lakehouse" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a5f;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="95" width="100" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="wh" value="Warehouse" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a5f;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="135" y="95" width="100" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="nb" value="Notebooks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a5f;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="250" y="95" width="100" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="pip" value="Pipelines" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a5f;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="135" width="100" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="ev" value="Eventstream" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a5f;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="135" y="135" width="100" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="pbi" value="Power BI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e3a5f;strokeColor=#60a5fa;fontColor=#ffffff;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="250" y="135" width="100" height="35" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="wsId" value="Workspace Identity (Managed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#312e81;strokeColor=#a5b4fc;fontColor=#ffffff;fontStyle=1;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="195" width="330" height="35" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="mvnetBox" value="MANAGED VNET (per workspace, MS-managed)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0c4a6e;strokeColor=#22d3ee;strokeWidth=2;fontColor=#a5f3fc;fontStyle=1;fontSize=11;dashed=1;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="250" width="330" height="200" as="geometry"/>
+    </mxCell>
+    <mxCell id="mvnetlbl" value="Activated on first Spark job · all outbound routed here" style="text;html=1;align=center;fontSize=9;fontStyle=2;fontColor=#67e8f9;fillColor=none;strokeColor=none;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="280" width="330" height="14" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="mpe1" value="MPE · Azure SQL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfeff;strokeColor=#0891b2;fontStyle=1;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="40" y="305" width="140" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="mpe2" value="MPE · ADLS Gen2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfeff;strokeColor=#0891b2;fontStyle=1;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="195" y="305" width="135" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="mpe3" value="MPE · Cosmos DB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfeff;strokeColor=#0891b2;fontStyle=1;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="40" y="345" width="140" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="mpe4" value="MPE · Key Vault" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfeff;strokeColor=#0891b2;fontStyle=1;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="195" y="345" width="135" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="twa" value="Trusted Workspace Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;fontStyle=1;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="40" y="395" width="290" height="35" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="oapBox" value="OUTBOUND ACCESS POLICIES — block-by-default" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7f1d1d;strokeColor=#fca5a5;strokeWidth=3;fontColor=#ffffff;fontStyle=1;fontSize=11;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="475" width="330" height="55" as="geometry"/>
+    </mxCell>
+    <mxCell id="oapsub" value="Only declared MPE / connections allowed · everything else BLOCKED" style="text;html=1;align=center;fontSize=9;fontStyle=2;fontColor=#fecaca;fillColor=none;strokeColor=none;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="530" width="330" height="14" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="cmk" value="Customer Managed Keys (CMK)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#064e3b;strokeColor=#34d399;fontColor=#d1fae5;fontStyle=1;fontSize=10;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="565" width="330" height="35" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="tag3" value="LAYER 3 · WORKLOAD" style="text;html=1;align=center;fontSize=10;fontStyle=1;fontColor=#60a5fa;fillColor=none;strokeColor=none;" vertex="1" parent="wsGrp">
+      <mxGeometry x="20" y="850" width="330" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="outboundGrp" value="OUTBOUND TARGETS · PILLAR 02" style="swimlane;startSize=28;fillColor=#ecfeff;strokeColor=#00b4a6;strokeWidth=2;html=1;fontStyle=1;fontColor=#00695c;fontSize=12;align=center;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="980" y="100" width="380" height="900" as="geometry"/>
+    </mxCell>
+    <mxCell id="obh" value="Where Fabric reads &amp; writes data" style="text;html=1;align=center;fontSize=11;fontStyle=2;fontColor=#475569;fillColor=none;strokeColor=none;" vertex="1" parent="outboundGrp">
+      <mxGeometry x="10" y="35" width="360" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="azPaaS" value="AZURE PAAS (private endpoints)" style="swimlane;startSize=24;fillColor=#dbeafe;strokeColor=#0078d4;strokeWidth=2;html=1;fontStyle=1;fontSize=10;fontColor=#003f6b;align=center;" vertex="1" parent="outboundGrp">
+      <mxGeometry x="20" y="70" width="340" height="220" as="geometry"/>
+    </mxCell>
+    <mxCell id="sqlIcon" value="" style="shape=mxgraph.azure.sql_database;html=1;fillColor=#0078d4;" vertex="1" parent="azPaaS">
+      <mxGeometry x="30" y="40" width="40" height="40" as="geometry"/>
+    </mxCell>
+    <mxCell id="sqllbl" value="Azure SQL DB" style="text;html=1;align=center;fontSize=10;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="azPaaS">
+      <mxGeometry x="0" y="80" width="100" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="adlsIcon" value="" style="shape=mxgraph.azure.data_lake_store;html=1;fillColor=#0078d4;" vertex="1" parent="azPaaS">
+      <mxGeometry x="150" y="40" width="40" height="40" as="geometry"/>
+    </mxCell>
+    <mxCell id="adlslbl" value="ADLS Gen2" style="text;html=1;align=center;fontSize=10;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="azPaaS">
+      <mxGeometry x="120" y="80" width="100" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="cosmosIcon" value="" style="shape=mxgraph.azure.cosmos_db;html=1;fillColor=#0078d4;" vertex="1" parent="azPaaS">
+      <mxGeometry x="270" y="40" width="40" height="40" as="geometry"/>
+    </mxCell>
+    <mxCell id="cosmoslbl" value="Cosmos DB" style="text;html=1;align=center;fontSize=10;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="azPaaS">
+      <mxGeometry x="240" y="80" width="100" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="kvIcon" value="" style="shape=mxgraph.azure.key_vault;html=1;fillColor=#0078d4;" vertex="1" parent="azPaaS">
+      <mxGeometry x="30" y="125" width="40" height="40" as="geometry"/>
+    </mxCell>
+    <mxCell id="kvlbl" value="Key Vault" style="text;html=1;align=center;fontSize=10;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="azPaaS">
+      <mxGeometry x="0" y="165" width="100" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="evhIcon" value="" style="shape=mxgraph.azure.event_hubs;html=1;fillColor=#0078d4;" vertex="1" parent="azPaaS">
+      <mxGeometry x="150" y="125" width="40" height="40" as="geometry"/>
+    </mxCell>
+    <mxCell id="evhlbl" value="Event Hub" style="text;html=1;align=center;fontSize=10;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="azPaaS">
+      <mxGeometry x="120" y="165" width="100" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="synIcon" value="" style="shape=mxgraph.azure.synapse_analytics;html=1;fillColor=#0078d4;" vertex="1" parent="azPaaS">
+      <mxGeometry x="270" y="125" width="40" height="40" as="geometry"/>
+    </mxCell>
+    <mxCell id="synlbl" value="Synapse" style="text;html=1;align=center;fontSize=10;fontStyle=1;fillColor=none;strokeColor=none;" vertex="1" parent="azPaaS">
+      <mxGeometry x="240" y="165" width="100" height="16" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="vnetGw" value="VNET DATA GATEWAY (managed in your VNet)" style="swimlane;startSize=24;fillColor=#fff7ed;strokeColor=#f57c00;strokeWidth=2;html=1;fontStyle=1;fontSize=10;fontColor=#7c2d12;align=center;" vertex="1" parent="outboundGrp">
+      <mxGeometry x="20" y="305" width="340" height="120" as="geometry"/>
+    </mxCell>
+    <mxCell id="vnGwBox" value="Cert auth · Enterprise proxy (GA Apr 2026)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#f57c00;fontSize=10;" vertex="1" parent="vnetGw">
+      <mxGeometry x="20" y="35" width="300" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="vnSrcs" value="SQL on IaaS · ADLS · Private endpoints in your VNet" style="text;html=1;align=center;fontSize=10;fillColor=none;strokeColor=none;fontColor=#9a3412;" vertex="1" parent="vnetGw">
+      <mxGeometry x="20" y="80" width="300" height="30" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="onPremGw" value="ON-PREMISES DATA GATEWAY" style="swimlane;startSize=24;fillColor=#fef3c7;strokeColor=#ca8a04;strokeWidth=2;html=1;fontStyle=1;fontSize=10;fontColor=#713f12;align=center;" vertex="1" parent="outboundGrp">
+      <mxGeometry x="20" y="445" width="340" height="160" as="geometry"/>
+    </mxCell>
+    <mxCell id="opGwBox" value="Agent on-prem · Kerberos SSO · HA cluster" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef9c3;strokeColor=#ca8a04;fontSize=10;" vertex="1" parent="onPremGw">
+      <mxGeometry x="20" y="35" width="300" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="opSrc1" value="SQL Server" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ca8a04;fontSize=10;" vertex="1" parent="onPremGw">
+      <mxGeometry x="20" y="80" width="90" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="opSrc2" value="Oracle" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ca8a04;fontSize=10;" vertex="1" parent="onPremGw">
+      <mxGeometry x="125" y="80" width="90" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="opSrc3" value="SAP / Teradata" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ca8a04;fontSize=10;" vertex="1" parent="onPremGw">
+      <mxGeometry x="230" y="80" width="90" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="opNote" value="Bridge to corporate networks" style="text;html=1;align=center;fontSize=9;fontStyle=2;fillColor=none;strokeColor=none;fontColor=#92400e;" vertex="1" parent="onPremGw">
+      <mxGeometry x="20" y="120" width="300" height="14" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="blockedBox" value="BLOCKED — public storage · personal OneDrive · undeclared SaaS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fee2e2;strokeColor=#c62828;strokeWidth=2;fontStyle=1;fontColor=#7f1d1d;fontSize=10;dashed=1;" vertex="1" parent="outboundGrp">
+      <mxGeometry x="20" y="625" width="340" height="55" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="tag4" value="LAYER 4 · DATA SOURCES" style="text;html=1;align=center;fontSize=10;fontStyle=1;fontColor=#00b4a6;fillColor=none;strokeColor=none;" vertex="1" parent="outboundGrp">
+      <mxGeometry x="20" y="850" width="340" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="opsGrp" value="GOVERNANCE &amp; OPERATIONS · PILLAR 03" style="swimlane;startSize=28;fillColor=#fef2f2;strokeColor=#c62828;strokeWidth=2;html=1;fontStyle=1;fontColor=#7f1d1d;fontSize=12;align=center;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="1390" y="100" width="270" height="900" as="geometry"/>
+    </mxCell>
+    <mxCell id="opsh" value="Visibility, classification &amp; control" style="text;html=1;align=center;fontSize=11;fontStyle=2;fontColor=#475569;fillColor=none;strokeColor=none;" vertex="1" parent="opsGrp">
+      <mxGeometry x="10" y="35" width="250" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="purviewBox" value="MICROSOFT PURVIEW" style="swimlane;startSize=24;fillColor=#dcfce7;strokeColor=#2e7d32;strokeWidth=2;html=1;fontStyle=1;fontSize=10;fontColor=#14532d;align=center;" vertex="1" parent="opsGrp">
+      <mxGeometry x="15" y="70" width="240" height="160" as="geometry"/>
+    </mxCell>
+    <mxCell id="dlp" value="DLP Policies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2e7d32;fontStyle=1;fontSize=10;" vertex="1" parent="purviewBox">
+      <mxGeometry x="15" y="35" width="100" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="labels" value="Sensitivity Labels" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2e7d32;fontStyle=1;fontSize=10;" vertex="1" parent="purviewBox">
+      <mxGeometry x="125" y="35" width="100" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="dataMap" value="Data Map · Lineage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2e7d32;fontStyle=1;fontSize=10;" vertex="1" parent="purviewBox">
+      <mxGeometry x="15" y="80" width="100" height="35" as="geometry"/>
+    </mxCell>
+    <mxCell id="ir" value="Insider Risk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2e7d32;fontStyle=1;fontSize=10;" vertex="1" parent="purviewBox">
+      <mxGeometry x="125" y="80" width="100" height="35" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="monBox" value="MONITORING &amp; SIEM" style="swimlane;startSize=24;fillColor=#fef9c3;strokeColor=#ca8a04;strokeWidth=2;html=1;fontStyle=1;fontSize=10;fontColor=#713f12;align=center;" vertex="1" parent="opsGrp">
+      <mxGeometry x="15" y="245" width="240" height="200" as="geometry"/>
+    </mxCell>
+    <mxCell id="logA" value="Log Analytics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ca8a04;fontSize=10;" vertex="1" parent="monBox">
+      <mxGeometry x="15" y="35" width="210" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="netW" value="Network Watcher · Flow logs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ca8a04;fontSize=10;" vertex="1" parent="monBox">
+      <mxGeometry x="15" y="75" width="210" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="sentinel" value="Microsoft Sentinel (SIEM)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ca8a04;fontSize=10;" vertex="1" parent="monBox">
+      <mxGeometry x="15" y="115" width="210" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="azFw" value="Azure Firewall · egress logging" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ca8a04;fontSize=10;" vertex="1" parent="monBox">
+      <mxGeometry x="15" y="155" width="210" height="30" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="contentBox" value="CONTENT CONTROLS" style="swimlane;startSize=24;fillColor=#fef3c7;strokeColor=#e65100;strokeWidth=2;html=1;fontStyle=1;fontSize=10;fontColor=#7c2d12;align=center;" vertex="1" parent="opsGrp">
+      <mxGeometry x="15" y="460" width="240" height="160" as="geometry"/>
+    </mxCell>
+    <mxCell id="exp" value="Power BI Export Restrictions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#e65100;fontSize=10;" vertex="1" parent="contentBox">
+      <mxGeometry x="15" y="35" width="210" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="endpointDLP" value="Endpoint DLP (Intune)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#e65100;fontSize=10;" vertex="1" parent="contentBox">
+      <mxGeometry x="15" y="75" width="210" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="audit" value="Quarterly audit · Rotate IPs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#e65100;fontSize=10;" vertex="1" parent="contentBox">
+      <mxGeometry x="15" y="115" width="210" height="30" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="depBox" value="DEP = Inbound + Outbound + Data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbbf24;strokeColor=#92400e;strokeWidth=3;fontStyle=1;fontSize=11;fontColor=#451a03;" vertex="1" parent="opsGrp">
+      <mxGeometry x="15" y="640" width="240" height="55" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="tag5" value="LAYER 5 · DATA &amp; OBSERVABILITY" style="text;html=1;align=center;fontSize=10;fontStyle=1;fontColor=#c62828;fillColor=none;strokeColor=none;" vertex="1" parent="opsGrp">
+      <mxGeometry x="15" y="850" width="240" height="20" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_u_ca" edge="1" parent="1" source="u1" target="ca" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#7c3aed;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_u3_ca" edge="1" parent="1" source="u3" target="ca" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#dc2626;strokeWidth=2;dashed=1;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_ca_wpl" edge="1" parent="1" source="ca" target="wpl" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#0078d4;strokeWidth=3;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_ca_ipfw" edge="1" parent="1" source="ca" target="ipfw" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#0078d4;strokeWidth=2;endArrow=classic;dashed=1;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_wpl_lh" edge="1" parent="1" source="wpl" target="lh" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#22d3ee;strokeWidth=3;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_ipfw_pip" edge="1" parent="1" source="ipfw" target="pip" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#22d3ee;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_dns_wpl" value="resolves" edge="1" parent="1" source="dnsZone" target="wpl" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#00b4a6;strokeWidth=2;endArrow=open;dashed=1;fontSize=9;fontColor=#0f766e;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_oap_mpe1" edge="1" parent="1" source="oapBox" target="mpe1" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#7f1d1d;strokeWidth=2;endArrow=classic;exitX=0.3;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_mpe1_sql" edge="1" parent="1" source="mpe1" target="sqlIcon" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#0891b2;strokeWidth=3;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_mpe2_adls" edge="1" parent="1" source="mpe2" target="adlsIcon" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#0891b2;strokeWidth=3;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_mpe3_cosmos" edge="1" parent="1" source="mpe3" target="cosmosIcon" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#0891b2;strokeWidth=3;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_mpe4_kv" edge="1" parent="1" source="mpe4" target="kvIcon" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#0891b2;strokeWidth=3;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_twa_adls" value="TWA" edge="1" parent="1" source="twa" target="adlslbl" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#ca8a04;strokeWidth=2;endArrow=classic;dashed=1;fontSize=9;fontColor=#a16207;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_pip_vngw" edge="1" parent="1" source="pip" target="vnGwBox" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#f57c00;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_pip_opgw" edge="1" parent="1" source="pip" target="opGwBox" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#ca8a04;strokeWidth=2;endArrow=classic;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_oap_blocked" value="blocked" edge="1" parent="1" source="oapBox" target="blockedBox" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#c62828;strokeWidth=3;endArrow=classic;dashed=1;fontStyle=1;fontColor=#991b1b;fontSize=10;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="e_lh_purview" value="audit" edge="1" parent="1" source="lh" target="purviewBox" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#2e7d32;strokeWidth=2;endArrow=open;dashed=1;fontSize=9;fontColor=#166534;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_pbi_dlp" value="DLP scan" edge="1" parent="1" source="pbi" target="dlp" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#2e7d32;strokeWidth=2;endArrow=open;dashed=1;fontSize=9;fontColor=#166534;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_ws_log" value="diagnostics" edge="1" parent="1" source="wsId" target="logA" style="edgeStyle=orthogonalEdgeStyle;html=1;rounded=1;strokeColor=#ca8a04;strokeWidth=2;endArrow=open;dashed=1;fontSize=9;fontColor=#a16207;">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="legendBox" value="LEGEND" style="swimlane;startSize=22;fillColor=#f8fafc;strokeColor=#94a3b8;strokeWidth=1;html=1;fontStyle=1;fontSize=10;fontColor=#334155;align=center;" vertex="1" parent="1">
+      <mxGeometry x="40" y="1010" width="1620" height="70" as="geometry"/>
+    </mxCell>
+    <mxCell id="lg1" value="Identity flow" style="text;html=1;align=left;fontSize=10;fontColor=#7c3aed;fillColor=none;strokeColor=none;fontStyle=1;" vertex="1" parent="legendBox">
+      <mxGeometry x="20" y="30" width="180" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lg2" value="Network ingress (PL / IPFW)" style="text;html=1;align=left;fontSize=10;fontColor=#0078d4;fillColor=none;strokeColor=none;fontStyle=1;" vertex="1" parent="legendBox">
+      <mxGeometry x="220" y="30" width="220" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lg3" value="Private outbound (MPE / TWA)" style="text;html=1;align=left;fontSize=10;fontColor=#0891b2;fillColor=none;strokeColor=none;fontStyle=1;" vertex="1" parent="legendBox">
+      <mxGeometry x="460" y="30" width="240" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lg4" value="Gateway (VNet / On-Prem)" style="text;html=1;align=left;fontSize=10;fontColor=#f57c00;fillColor=none;strokeColor=none;fontStyle=1;" vertex="1" parent="legendBox">
+      <mxGeometry x="720" y="30" width="220" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lg5" value="Blocked / DLP / Diagnostics (dashed)" style="text;html=1;align=left;fontSize=10;fontColor=#c62828;fillColor=none;strokeColor=none;fontStyle=1;" vertex="1" parent="legendBox">
+      <mxGeometry x="960" y="30" width="260" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lg6" value="Source: github.com/fredgis/Divers/markdown/Fabric_Network_Security.md" style="text;html=1;align=right;fontSize=9;fontColor=#64748b;fillColor=none;strokeColor=none;" vertex="1" parent="legendBox">
+      <mxGeometry x="1230" y="30" width="380" height="16" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>
+  </diagram>
+</mxfile>
