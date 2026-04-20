@@ -103,9 +103,9 @@ The goal: **layered containment** that assumes breach at every tier.
 
 # Reference Architecture
 
-![w:1050](images/architecture.png)
+![h:560](images/architecture.png)
 
-_Five layers · identity → inbound → workspace + Managed VNet → outbound targets → governance. Editable source: `images/Fabric_Network_Security_Architecture.drawio`._
+_Five layers · identity → inbound → workspace + Managed VNet → outbound targets → governance._
 
 ---
 
