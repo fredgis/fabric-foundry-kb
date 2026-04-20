@@ -62,7 +62,7 @@ Fabric exposes **eight** distinct patterns — picking wisely avoids re-platform
 
 # Reference Architecture
 
-![h:560](images/architecture.png)
+![h:490](images/architecture.png)
 
 _Five layers · sources → connectivity → methods → Fabric storage → consumption._
 

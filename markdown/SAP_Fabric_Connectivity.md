@@ -82,7 +82,7 @@ graph TD
 
 The diagram below consolidates all **eight integration patterns** across five layers — sources, connectivity, methods, Fabric storage, and consumption.
 
-![End-to-end SAP × Fabric connectivity architecture](../images/SAP_Fabric_Connectivity_Architecture.png)
+![End-to-end SAP × Fabric connectivity architecture](../images/SAP_Fabric_Connectivity_Architecture.png){width=100%}
 
 > Editable source: [`images/SAP_Fabric_Connectivity_Architecture.drawio`](../images/SAP_Fabric_Connectivity_Architecture.drawio) — open with [draw.io](https://app.diagrams.net) or the desktop app.
 

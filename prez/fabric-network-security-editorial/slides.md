@@ -103,7 +103,7 @@ The goal: **layered containment** that assumes breach at every tier.
 
 # Reference Architecture
 
-![h:560](images/architecture.png)
+![h:490](images/architecture.png)
 
 _Five layers · identity → inbound → workspace + Managed VNet → outbound targets → governance._
 
