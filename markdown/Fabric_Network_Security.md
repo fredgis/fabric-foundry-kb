@@ -105,7 +105,7 @@ flowchart TB
 
 The diagram below consolidates the full Fabric network-security approach across five layers — identity, inbound protection, the Fabric workspace and its Managed VNet, outbound targets, and governance & operations. It is the visual companion to the rest of this document.
 
-![End-to-end Fabric Network Security architecture](../images/Fabric_Network_Security_Architecture.png){width=100%}
+![End-to-end Fabric Network Security architecture](../images/Fabric_Network_Security_Architecture.png)
 
 > Editable source: [`images/Fabric_Network_Security_Architecture.drawio`](../images/Fabric_Network_Security_Architecture.drawio) — open with [draw.io](https://app.diagrams.net) or the desktop app.
 
