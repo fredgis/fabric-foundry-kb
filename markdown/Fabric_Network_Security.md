@@ -101,6 +101,14 @@ flowchart TB
     style OnPrem fill:#ffe0b2,stroke:#e65100,color:#000
 ```
 
+### End-to-End Reference Architecture
+
+The diagram below consolidates the full Fabric network-security approach across five layers — identity, inbound protection, the Fabric workspace and its Managed VNet, outbound targets, and governance & operations. It is the visual companion to the rest of this document.
+
+![End-to-end Fabric Network Security architecture](../images/Fabric_Network_Security_Architecture.png)
+
+> Editable source: [`images/Fabric_Network_Security_Architecture.drawio`](../images/Fabric_Network_Security_Architecture.drawio) — open with [draw.io](https://app.diagrams.net) or the desktop app.
+
 ## Secure by Default
 
 Microsoft Fabric is **secure by default** without any additional configuration:
