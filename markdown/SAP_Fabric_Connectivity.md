@@ -78,6 +78,14 @@ graph TD
     class F3,F4 fabricEnd
 ```
 
+### End-to-End Reference Architecture
+
+The diagram below consolidates all **eight integration patterns** across five layers — sources, connectivity, methods, Fabric storage, and consumption.
+
+![End-to-end SAP × Fabric connectivity architecture](../images/SAP_Fabric_Connectivity_Architecture.png)
+
+> Editable source: [`images/SAP_Fabric_Connectivity_Architecture.drawio`](../images/SAP_Fabric_Connectivity_Architecture.drawio) — open with [draw.io](https://app.diagrams.net) or the desktop app.
+
 \newpage
 \tableofcontents
 \newpage
