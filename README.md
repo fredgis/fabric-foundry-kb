@@ -20,6 +20,7 @@ The repository also ships two **GitHub Copilot CLI skills** (`md2pdf` and `md2pr
 | [Foundry_Agents_MCP_Tools](markdown/Foundry_Agents_MCP_Tools.md) | [PDF](pdf/Foundry_Agents_MCP_Tools.pdf) | Azure AI Foundry Agents & MCP Tools — Prompt Agent vs Hosted Agent comparison with MongoDB MCP examples, architecture diagrams, and deployment guide |
 | [Foundry_Agent_Monitoring_APIM](markdown/Foundry_Agent_Monitoring_APIM.md) | [PDF](pdf/Foundry_Agent_Monitoring_APIM.pdf) | Monitoring Foundry agents via APIM AI Gateway — per-user/per-agent token and cost tracking with Application Insights, KQL queries, dashboards, and alerts |
 | [SAP_Fabric_Connectivity](markdown/SAP_Fabric_Connectivity.md) | [PDF](pdf/SAP_Fabric_Connectivity.pdf) | SAP connectivity in Microsoft Fabric — all connection methods (8 connectors, Mirroring GA, Copy Job CDC, decision guide) |
+| [FromSItoSystemAgency](markdown/FromSItoSystemAgency.md) | [PDF](pdf/FromSItoSystemAgency.pdf) | From SI to System Agency — Fabric Storyboard Copilot case study: a PowerPoint × Microsoft Fabric add-in built in 13.3 hours by one developer with a Squad of 8 Copilot agents (vs 43 man-days estimated traditionally). Architecture, methodology, cost model, and the shift from selling man-days to selling outcomes |
 
 ### Presentations
 
@@ -28,6 +29,7 @@ The repository also ships two **GitHub Copilot CLI skills** (`md2pdf` and `md2pr
 | [prez/fabric-network-security-standard/](prez/fabric-network-security-standard/) | Marp slide deck — Network Security in Microsoft Fabric. Standard layout: 20+ slides, pre-rendered Mermaid diagrams, callout boxes. Run with `cd prez/fabric-network-security-standard && npm install && npm run dev` |
 | [prez/fabric-network-security-editorial/](prez/fabric-network-security-editorial/) | Same topic — **editorial redesign**. Magazine-style theme (cards, big stats, chapter markers, asymmetric layouts, dark closing). More visual, less dense. Run with `cd prez/fabric-network-security-editorial && npm install && npm run dev` |
 | [prez/sap-fabric-connectivity-editorial/](prez/sap-fabric-connectivity-editorial/) | **SAP × Microsoft Fabric** — editorial deck covering all 8 integration patterns (batch, mirroring, CDC, federation, events, BDC Connect). Same magazine-style theme. Run with `cd prez/sap-fabric-connectivity-editorial && npm install && npm run dev` |
+| [prez/from-si-to-system-agency-editorial/](prez/from-si-to-system-agency-editorial/) | **From SI to System Agency** — case study deck for the Fabric Storyboard Copilot project (PowerPoint × Microsoft Fabric add-in built in 13.3 h with a Squad of 8 agents). Covers project, methodology (Spec Kit · Agent Forge · Squad · Copilot CLI · Agent Store), cost model, and the SI→Agency thesis. Run with `cd prez/from-si-to-system-agency-editorial && npm install && npm run dev` |
 
 ### Copilot CLI Skills
 
