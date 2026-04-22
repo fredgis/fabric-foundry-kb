@@ -8,26 +8,6 @@ date: "2026"
 
 ---
 
-## Table of Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Security & Governance](#security--governance)
-- [Pattern 1 — Multi-Endpoint Exposure (Named Backends)](#pattern-1--multi-endpoint-exposure-named-backends)
-- [Pattern 2 — Backend Pool with Load Balancing & Circuit Breaker](#pattern-2--backend-pool-with-load-balancing--circuit-breaker)
-- [Pattern 3 — Semantic Routing (Preview)](#pattern-3--semantic-routing-preview)
-- [Centralized Bicep IaC for Multi-Foundry](#centralized-bicep-iac-for-multi-foundry)
-- [Quota Flow — How APIM Knows a Backend Is Saturated](#quota-flow--how-apim-knows-a-backend-is-saturated)
-- [Mid-Chat Throttling — What Happens During a Conversation](#mid-chat-throttling--what-happens-during-a-conversation)
-- [Agent-to-Agent Throttling Patterns](#agent-to-agent-throttling-patterns)
-- [Test & Simulation — Validating the Circuit Breaker](#test--simulation--validating-the-circuit-breaker)
-- [Observability & Operations](#observability--operations)
-- [Cost & FinOps](#cost--finops)
-- [Decision Matrix](#decision-matrix)
-- [References](#references)
-
----
-
 ## Overview
 
 The companion document [Foundry_Agent_Monitoring_APIM](Foundry_Agent_Monitoring_APIM.md) describes how a **single** Foundry resource can be exposed via APIM for per-user token tracking. This guide answers the next question: **what happens when one Foundry instance is no longer enough?**
