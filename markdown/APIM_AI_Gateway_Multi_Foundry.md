@@ -12,6 +12,7 @@ date: "2026"
 
 - [Overview](#overview)
 - [Architecture](#architecture)
+- [Security & Governance](#security--governance)
 - [Pattern 1 — Multi-Endpoint Exposure (Named Backends)](#pattern-1--multi-endpoint-exposure-named-backends)
 - [Pattern 2 — Backend Pool with Load Balancing & Circuit Breaker](#pattern-2--backend-pool-with-load-balancing--circuit-breaker)
 - [Pattern 3 — Semantic Routing (Preview)](#pattern-3--semantic-routing-preview)
@@ -20,6 +21,8 @@ date: "2026"
 - [Mid-Chat Throttling — What Happens During a Conversation](#mid-chat-throttling--what-happens-during-a-conversation)
 - [Agent-to-Agent Throttling Patterns](#agent-to-agent-throttling-patterns)
 - [Test & Simulation — Validating the Circuit Breaker](#test--simulation--validating-the-circuit-breaker)
+- [Observability & Operations](#observability--operations)
+- [Cost & FinOps](#cost--finops)
 - [Decision Matrix](#decision-matrix)
 - [References](#references)
 
@@ -112,6 +115,96 @@ graph TB
 ```
 
 **Key idea** — clients see one URL. APIM owns the routing logic, the keys, the metrics, and the resilience. Foundry resources can be added or removed without changing client code.
+
+---
+
+## Security & Governance
+
+A multi-Foundry gateway is also a **single point of policy enforcement**. Centralizing security and governance there avoids re-implementing them in every client.
+
+### Authentication — kill the API keys
+
+```mermaid
+flowchart LR
+    C[Client App<br/>Managed Identity / OAuth] -->|Bearer JWT| GW[APIM]
+    GW -->|validate-jwt| AAD[Entra ID]
+    GW -->|MI token| F[Foundry<br/>Cognitive Services User]
+
+    style GW fill:#0078D4,color:#fff
+    style AAD fill:#2D7DD2,color:#fff
+    style F fill:#107C10,color:#fff
+```
+
+| Hop | Recommended | Avoid |
+|-----|-------------|-------|
+| Client → APIM | OAuth2 / OIDC bearer token (Entra ID) — validated by `<validate-jwt>` | Long-lived `Ocp-Apim-Subscription-Key` in source code |
+| APIM → Foundry | System-assigned **Managed Identity** + RBAC `Cognitive Services User` | Foundry API keys stored in named-values |
+| Service-to-service | Workload identity federation (GitHub / Argo / AKS) | Service principal client secret |
+
+Inbound policy:
+
+```xml
+<inbound>
+  <base />
+  <validate-jwt header-name="Authorization" failed-validation-httpcode="401">
+    <openid-config url="https://login.microsoftonline.com/{{tenant-id}}/v2.0/.well-known/openid-configuration" />
+    <required-claims>
+      <claim name="aud"><value>{{api-app-id}}</value></claim>
+    </required-claims>
+  </validate-jwt>
+  <set-backend-service backend-id="foundry-pool" />
+  <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+</inbound>
+```
+
+### Content Safety — filter prompts and completions
+
+Add the [`llm-content-safety`](https://learn.microsoft.com/azure/api-management/llm-content-safety-policy) policy to forward every prompt (and optionally completion) to **Azure AI Content Safety** before it reaches the model. Requests that exceed the configured severity thresholds are rejected at the gateway with `403`, never billed to Foundry.
+
+```xml
+<inbound>
+  <base />
+  <llm-content-safety
+      backend-id="content-safety"
+      shield-prompt="true">
+    <categories>
+      <category name="Hate"     threshold="4" />
+      <category name="Violence" threshold="4" />
+      <category name="Sexual"   threshold="4" />
+      <category name="SelfHarm" threshold="4" />
+    </categories>
+  </llm-content-safety>
+</inbound>
+```
+
+> **Prompt-shield** also catches indirect prompt injection (poisoned RAG documents, untrusted tool outputs). Recommended on any agent that can call tools or fetch external content.
+
+### Governance — quotas, products, attribution
+
+APIM **Products** are the unit of governance. Each consuming team subscribes to a Product, which carries its own subscription key, quota, and allowed APIs.
+
+```xml
+<inbound>
+  <base />
+  <llm-token-limit
+      counter-key="@(context.Subscription.Id)"
+      tokens-per-minute="60000"
+      tokens-per-day="2000000"
+      estimate-prompt-tokens="true"
+      tokens-consumed-header-name="x-tokens-consumed"
+      remaining-tokens-header-name="x-tokens-remaining" />
+</inbound>
+```
+
+| Lever | What it gives you |
+|-------|-------------------|
+| `llm-token-limit` per `context.Subscription.Id` | Hard TPM/TPD ceiling per team |
+| Per-Product policy | Different quotas for `team-marketing` vs `team-research` |
+| `azure-openai-emit-token-metric` with `user-id` dimension | Per-user attribution in App Insights |
+| APIM Developer Portal | Self-service onboarding — teams request access, get a key, view their quota |
+| Subscription approval workflow | Manual gate for sensitive Products (e.g. legal, HR) |
+
+> **Cross-link** — per-user / per-agent attribution mechanics (KQL queries, dashboards) are detailed in [Foundry_Agent_Monitoring_APIM](Foundry_Agent_Monitoring_APIM.md).
 
 ---
 
@@ -700,6 +793,154 @@ az rest --method POST --url \
 
 ---
 
+## Observability & Operations
+
+What you cannot measure, you cannot govern. APIM emits four signal categories that, combined, give Ops teams full visibility into the AI Gateway.
+
+```mermaid
+flowchart LR
+    APIM[APIM AI Gateway] -->|requests / latency / status| GMET[Gateway Metrics]
+    APIM -->|prompt + completion| LLOG[LLM Logs<br/>Log Analytics]
+    APIM -->|emit-token-metric| AI[App Insights<br/>customMetrics]
+    APIM -->|backend health| HEALTH[Backend State<br/>circuit breaker]
+
+    GMET --> WB[Workbook<br/>Token Dashboard]
+    LLOG --> WB
+    AI   --> WB
+    HEALTH --> ALERT[Alerts<br/>quota / errors / latency]
+    WB --> ALERT
+
+    style APIM fill:#0078D4,color:#fff
+    style WB fill:#107C10,color:#fff
+    style ALERT fill:#D13438,color:#fff
+```
+
+### What to enable
+
+| Signal | How | Use |
+|--------|-----|-----|
+| **LLM logs** (full prompt + completion) | APIM diagnostic setting → `LLMLogs` table in Log Analytics | Audit, replay, quality analysis, internal billing |
+| **Token metrics** | `azure-openai-emit-token-metric` policy — emits `prompt_tokens`, `completion_tokens`, `total_tokens` to App Insights with dimensions (subscription, user, model, region) | Per-team / per-user usage breakdown |
+| **Gateway logs** | `ApiManagementGatewayLogs` — request/response code, backend id, duration | SLA monitoring, error-rate dashboards |
+| **Backend health** | Backend resource state (`available` / `circuit-open`) via Azure Monitor | Page on-call when a region trips |
+| **AI Foundry traces** | Foundry → App Insights connection (see companion doc) | Per-agent token + tool usage |
+
+Enable LLM logging on the API:
+
+```xml
+<inbound>
+  <base />
+  <llm-emit-token-metric namespace="ai-gateway">
+    <dimension name="subscription-id" value="@(context.Subscription.Id)" />
+    <dimension name="api-id"          value="@(context.Api.Id)" />
+    <dimension name="user-id"         value="@(context.User.Id ?? "anon")" />
+    <dimension name="model"           value="@((string)context.Variables["model"])" />
+  </llm-emit-token-metric>
+</inbound>
+```
+
+### Built-in workbook & alerts
+
+APIM ships a **GenAI APIs dashboard** (Azure portal → APIM → Monitoring → Workbooks → *AI Gateway*) showing token consumption trends, top consumers, error rates, latency p50/p95/p99 — out of the box.
+
+Recommended alerts (Azure Monitor):
+
+| Trigger | Threshold |
+|---------|-----------|
+| Subscription ≥ 90 % of daily token quota | per `subscription-id` dimension |
+| Backend error rate > 5 % over 5 min | per `BackendId` |
+| Circuit breaker opened | any backend transitions to `circuit-open` |
+| p95 latency > 8 s over 5 min | per `Operation` |
+| Cost burn-rate > €X / hour | computed metric (tokens × price) |
+
+> **Cross-link** — KQL queries, retention strategy and dashboard JSON are in [Foundry_Agent_Monitoring_APIM](Foundry_Agent_Monitoring_APIM.md). This section adds the **multi-backend dimensions** (`BackendId`, `region`) that single-Foundry monitoring doesn't need.
+
+---
+
+## Cost & FinOps
+
+The AI Gateway adds two cost lines (APIM units + log storage) but unlocks several **savings levers** that usually pay for themselves.
+
+### Cost decomposition
+
+| Item | Order of magnitude | Lever |
+|------|--------------------|-------|
+| **APIM service** (Standard v2 / Premium) | from a few hundred €/month per unit, scaled by RPS | Pick the right tier — see below |
+| **Log Analytics ingestion** | ~ €2.30 / GB ingested | Sample LLM logs (10 % in prod), shorten retention |
+| **App Insights metrics** | minimal — custom metrics are cheap | n/a |
+| **Foundry tokens** | the dominant line | **Semantic cache + quotas** |
+| **Egress + Private Link** | low | Co-locate APIM and Foundry in the same region |
+
+### Levers — how the gateway lowers your bill
+
+#### 1. Semantic cache — 30-50 % token savings on FAQ workloads
+
+```xml
+<inbound>
+  <base />
+  <llm-semantic-cache-lookup
+      score-threshold="0.05"
+      embeddings-backend-id="text-embedding-3-small">
+    <vary-by>@(context.Subscription.Id)</vary-by>
+  </llm-semantic-cache-lookup>
+</inbound>
+<outbound>
+  <base />
+  <llm-semantic-cache-store duration="3600" />
+</outbound>
+```
+
+A "what's the leave policy?" prompt asked 50 ways a day → only the first call hits the model. Pricing: a cached hit costs ~ one cheap embedding call (`text-embedding-3-small` ≈ $0.02 / 1M tokens) instead of a `gpt-4o` round-trip (~ $5 / 1M input + $15 / 1M output). Break-even ≈ 1 cache hit per 250 misses.
+
+#### 2. Quotas — turn surprise bills into predictable ones
+
+Per-team `llm-token-limit` (covered in *Security & Governance*) caps how much each Product can spend, which directly maps to a monthly budget cap.
+
+#### 3. Route cheap → expensive
+
+Use Pattern 1 or Pattern 3 to send simple prompts to `gpt-4o-mini` (cost factor ~15× lower than `gpt-4o`) and reserve frontier models for complex requests. Even a 70/30 split typically halves the bill.
+
+#### 4. Provisioned Throughput Units (PTU) first
+
+Mix priorities so that a flat-fee **PTU deployment** is consumed first (`priority: 1, weight: 10`), with pay-as-you-go regions as overflow (`priority: 2`). This drives PTU utilization to ~95 % — the only way PTUs are cheaper than PAYG.
+
+```bicep
+{ id: foundryPTU.id,    weight: 10, priority: 1 }   // flat fee, use first
+{ id: foundryPaygWE.id, weight: 1,  priority: 2 }   // overflow
+{ id: foundryPaygNE.id, weight: 1,  priority: 2 }
+```
+
+#### 5. APIM tier sizing
+
+| Tier | When |
+|------|------|
+| **Developer** | dev / sandbox only — no SLA |
+| **Standard v2** | most production AI Gateway workloads up to ~ 1 000 RPS, supports VNet integration |
+| **Premium** | required for multi-region APIM, availability zones, > 1 000 RPS, large enterprises |
+
+Avoid over-provisioning — APIM scales horizontally with **gateway units**, but every extra unit is €€€. Start at 1 unit, watch the *Capacity* metric, scale only when it crosses ~ 60 %.
+
+### Cost monitoring
+
+Add a computed metric in App Insights workbook:
+
+```kusto
+customMetrics
+| where name == "total_tokens"
+| extend price_per_1k =
+      case(model == "gpt-4o",      0.005,
+           model == "gpt-4o-mini", 0.00015,
+           model startswith "text-embedding", 0.00002,
+           0.0)
+| extend cost_eur = (toreal(value) / 1000.0) * price_per_1k
+| summarize cost = sum(cost_eur) by bin(timestamp, 1h), tostring(customDimensions.["subscription-id"])
+| render timechart
+```
+
+Combined with an alert at 80 % of monthly budget, you get a hard FinOps guardrail.
+
+---
+
 ## Decision Matrix
 
 | Question | Recommended pattern |
@@ -726,6 +967,8 @@ az rest --method POST --url \
 - [`azure-openai-emit-token-metric` policy](https://learn.microsoft.com/azure/api-management/azure-openai-emit-token-metric-policy)
 - [`llm-semantic-cache-lookup` policy](https://learn.microsoft.com/azure/api-management/llm-semantic-cache-lookup-policy)
 - [`llm-semantic-routing` policy (preview)](https://learn.microsoft.com/azure/api-management/llm-semantic-routing-policy)
+- [`llm-content-safety` policy](https://learn.microsoft.com/azure/api-management/llm-content-safety-policy) — prompt shield + content moderation at the gateway
+- [Azure AI Content Safety](https://learn.microsoft.com/azure/ai-services/content-safety/overview) — categories, severity thresholds, prompt-shield
 - [Authenticate APIM to Azure OpenAI with managed identity](https://learn.microsoft.com/azure/api-management/api-management-authenticate-authorize-azure-openai)
 - [ARM/Bicep template — `service/backends`](https://learn.microsoft.com/azure/templates/microsoft.apimanagement/service/backends)
 - [Bicep loops](https://learn.microsoft.com/azure/azure-resource-manager/bicep/loops)
