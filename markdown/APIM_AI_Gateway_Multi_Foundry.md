@@ -19,6 +19,7 @@ date: "2026"
 - [Quota Flow — How APIM Knows a Backend Is Saturated](#quota-flow--how-apim-knows-a-backend-is-saturated)
 - [Mid-Chat Throttling — What Happens During a Conversation](#mid-chat-throttling--what-happens-during-a-conversation)
 - [Agent-to-Agent Throttling Patterns](#agent-to-agent-throttling-patterns)
+- [Test & Simulation — Validating the Circuit Breaker](#test--simulation--validating-the-circuit-breaker)
 - [Decision Matrix](#decision-matrix)
 - [References](#references)
 
@@ -549,6 +550,156 @@ The user gets a slightly less polished answer, but the system **never returns an
 
 ---
 
+## Test & Simulation — Validating the Circuit Breaker
+
+Before going to production, you must **prove** that the failover actually triggers. Real `429`s from Azure OpenAI are unpredictable and expensive to reproduce — instead, **inject** synthetic errors at the gateway, the backend, or the policy layer.
+
+### Three injection levels
+
+```mermaid
+flowchart LR
+    L[Load Generator<br/>k6 / Locust] --> APIM
+    APIM -->|Level 1<br/>policy fault| FAULT[return-response<br/>code=429]
+    APIM -->|Level 2<br/>fake backend| MOCK[Mock backend<br/>always 503]
+    APIM -->|Level 3<br/>real backend| F[Foundry<br/>tiny TPM quota]
+
+    style APIM fill:#0078D4,color:#fff
+    style FAULT fill:#D13438,color:#fff
+    style MOCK fill:#FF8C00,color:#fff
+    style F fill:#107C10,color:#fff
+```
+
+| Level | Injection point | Pros | Cons |
+|-------|-----------------|------|------|
+| **1 — Policy fault** | APIM `<return-response>` on a target backend | Instant, free, deterministic | Doesn't exercise the real network path |
+| **2 — Mock backend** | Dedicated APIM backend that always returns `503` / `429` | Realistic transport, controllable | Adds a fake backend resource |
+| **3 — Real throttling** | Provision a Foundry deployment with **tiny TPM** (e.g. 1k) and hammer it | Truest test | Slowest, costs real tokens |
+
+### Level 1 — Inject 429 via APIM policy
+
+Add a temporary `<choose>` block on one backend in the pool — toggled by an `x-fault` header so prod traffic is unaffected:
+
+```xml
+<inbound>
+  <base />
+  <choose>
+    <when condition="@(context.Request.Headers.GetValueOrDefault("x-fault","")=="429" 
+                    && context.Request.Url.Host.Contains("foundry-we"))">
+      <return-response>
+        <set-status code="429" reason="Too Many Requests" />
+        <set-header name="retry-after" exists-action="override">
+          <value>10</value>
+        </set-header>
+        <set-body>{"error":{"code":"throttle","message":"injected"}}</set-body>
+      </return-response>
+    </when>
+  </choose>
+  <set-backend-service backend-id="foundry-pool" />
+</inbound>
+```
+
+### Level 2 — Mock backend "always 429"
+
+```bicep
+resource backendChaos 'Microsoft.ApiManagement/service/backends@2024-05-01' = {
+  name: 'be-chaos-429'
+  parent: apim
+  properties: {
+    url: 'https://httpstat.us/429'
+    protocol: 'http'
+  }
+}
+
+resource poolChaos 'Microsoft.ApiManagement/service/backends@2024-05-01' = {
+  name: 'foundry-pool-chaos'
+  parent: apim
+  properties: {
+    type: 'Pool'
+    pool: {
+      services: [
+        { id: backendChaos.id, weight: 1, priority: 1 }
+        { id: foundryWE.id,    weight: 1, priority: 2 }
+      ]
+    }
+  }
+}
+```
+
+Switch one API operation to `foundry-pool-chaos` — every call hits the broken backend first, the circuit opens, and traffic flips to the priority-2 real Foundry. Watch the tripping happen live.
+
+### Validation script (k6 + jq)
+
+The same script proves three things in one run: (1) the circuit opens after N failures, (2) the cooldown lasts T seconds, (3) end-to-end latency stays acceptable during failover.
+
+```javascript
+// chaos.js — run with: k6 run chaos.js
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+const APIM_URL = __ENV.APIM_URL;        // https://apim.../chat/completions
+const APIM_KEY = __ENV.APIM_KEY;
+
+export const options = {
+  scenarios: {
+    inject_429: {
+      executor: 'constant-arrival-rate',
+      rate: 20, timeUnit: '1s', duration: '90s',
+      preAllocatedVUs: 30,
+    },
+  },
+  thresholds: {
+    'checks{tag:failover}':  ['rate>0.95'],   // ≥95% requests succeed despite injection
+    'http_req_duration{tag:failover}': ['p(95)<3000'],
+  },
+};
+
+export default function () {
+  const res = http.post(APIM_URL,
+    JSON.stringify({ messages: [{ role: 'user', content: 'ping' }], max_tokens: 5 }),
+    { headers: {
+        'Ocp-Apim-Subscription-Key': APIM_KEY,
+        'Content-Type': 'application/json',
+        'x-fault': '429',                       // triggers the injected fault
+      },
+      tags: { tag: 'failover' },
+    });
+
+  check(res, {
+    'status is 200': (r) => r.status === 200,
+    'served by failover backend': (r) => r.headers['X-Apim-Backend'] !== 'foundry-we',
+  });
+  sleep(0.05);
+}
+```
+
+Expected outcome (read in Application Insights, KQL):
+
+```kusto
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(5m)
+| summarize
+    requests   = count(),
+    success    = countif(ResponseCode == 200),
+    throttled  = countif(ResponseCode == 429),
+    failover   = countif(BackendId != "be-foundry-we" and ResponseCode == 200)
+  by bin(TimeGenerated, 10s)
+| render timechart
+```
+
+You should see: a burst of `429` for ~3 seconds, the circuit breaker opens, the `failover` count climbs and `success` stays > 95%.
+
+### Reset between runs
+
+```bash
+# Force-close the circuit by clearing the breaker state via Azure CLI
+az rest --method POST --url \
+  "https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ApiManagement/service/$APIM/backends/be-foundry-we/reconnect?api-version=2024-05-01"
+```
+
+> **Tip — chaos toolkits** — the [Azure Chaos Studio](https://learn.microsoft.com/azure/chaos-studio/) supports network faults on APIM and can pause an outbound NSG rule to simulate a regional outage end-to-end, beyond what `<return-response>` covers.
+
+---
+
 ## Decision Matrix
 
 | Question | Recommended pattern |
@@ -581,6 +732,38 @@ The user gets a slightly less polished answer, but the system **never returns an
 - [Built-in role — Cognitive Services User](https://learn.microsoft.com/azure/role-based-access-control/built-in-roles/ai-machine-learning#cognitive-services-user)
 - [Azure AI Foundry RBAC](https://learn.microsoft.com/azure/ai-foundry/concepts/rbac-azure-ai-foundry)
 - [Foundry quotas, limits & regions](https://learn.microsoft.com/azure/foundry/agents/concepts/limits-quotas-regions)
+
+### AI Gateway design patterns
+
+- [Designing your AI Gateway with APIM](https://techcommunity.microsoft.com/blog/azurearchitectureblog/designing-your-ai-gateway-with-azure-api-management/4292941) — Tech Community reference design
+- [Smart load-balancing for OpenAI endpoints with APIM](https://techcommunity.microsoft.com/blog/azurearchitectureblog/smart-load-balancing-for-openai-endpoints-and-azure-api-management/4173395) — original pattern that pre-dated the Pool feature
+- [GenAI Gateway capabilities — overview](https://learn.microsoft.com/azure/api-management/genai-gateway-capabilities)
+- [Azure AI Gateway architecture (CAF)](https://learn.microsoft.com/azure/cloud-adoption-framework/scenarios/ai/architectures/api-management) — Cloud Adoption Framework reference
+
+### Network injection & private connectivity
+
+- [Use a virtual network with API Management](https://learn.microsoft.com/azure/api-management/virtual-network-concepts) — Internal vs External VNet modes
+- [Inject APIM into a VNet — internal mode](https://learn.microsoft.com/azure/api-management/api-management-using-with-internal-vnet)
+- [Connect privately to API Management with Private Link](https://learn.microsoft.com/azure/api-management/private-endpoint) — inbound private endpoint
+- [Configure outbound access through Private Endpoint](https://learn.microsoft.com/azure/api-management/how-to-configure-outbound-private-endpoints) — APIM → Foundry over a private link
+- [APIM v2 networking model (stv2)](https://learn.microsoft.com/azure/api-management/migrate-stv1-to-stv2) — required for newest features
+- [Foundry / AI Services with Private Endpoint](https://learn.microsoft.com/azure/ai-services/cognitive-services-virtual-networks) — locking down the Foundry side
+- [DNS for Private Link in Hub-Spoke](https://learn.microsoft.com/azure/private-link/private-endpoint-dns) — the common pitfall
+
+### Security best practices
+
+- [APIM security baseline (Microsoft Cloud Security Benchmark)](https://learn.microsoft.com/security/benchmark/azure/baselines/api-management-security-baseline)
+- [Mitigate OWASP API Top-10 with APIM](https://learn.microsoft.com/azure/api-management/mitigate-owasp-api-threats)
+- [Landing Zone accelerator for APIM](https://learn.microsoft.com/azure/cloud-adoption-framework/scenarios/app-platform/api-management/landing-zone-accelerator)
+- [Defender for APIs](https://learn.microsoft.com/azure/defender-for-cloud/defender-for-apis-introduction) — runtime threat detection
+- [Validate JWT in APIM policies](https://learn.microsoft.com/azure/api-management/validate-jwt-policy)
+- [Managed identities in APIM](https://learn.microsoft.com/azure/api-management/api-management-howto-use-managed-service-identity) — no keys for backends
+
+### Resilience & chaos testing
+
+- [Azure Chaos Studio](https://learn.microsoft.com/azure/chaos-studio/) — fault injection service
+- [Resilience patterns for AI workloads](https://learn.microsoft.com/azure/architecture/ai-ml/guide/manage-azure-openai-quota) — quota & failover guidance
+- [k6 — load testing toolkit](https://k6.io/docs/) — used in the Test & Simulation chapter
 
 ### Sample repositories
 
