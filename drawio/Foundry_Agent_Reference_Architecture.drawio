@@ -1,202 +1,267 @@
-<mxfile host="app.diagrams.net" modified="2026-04-23T12:00:00.000Z" agent="copilot-cli" version="24.0.0">
+<mxfile host="app.diagrams.net" modified="2026-04-23T13:30:00.000Z" agent="copilot-cli" version="24.0.0">
   <diagram name="Foundry Agent Reference Architecture" id="foundry-agent-arch">
-    <mxGraphModel dx="2400" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1100" math="0" shadow="0" adaptiveColors="auto">
+    <mxGraphModel dx="2400" dy="1400" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1240" math="0" shadow="0" adaptiveColors="auto">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="title" value="Microsoft Foundry — Hosted Agents Reference Architecture" style="text;html=1;align=center;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#0078D4;" vertex="1" parent="1">
-          <mxGeometry x="40" y="10" width="1620" height="40" as="geometry" />
+        <mxCell id="title" value="Microsoft Foundry — End-to-End Agent Reference Architecture" style="text;html=1;align=center;verticalAlign=middle;fontSize=20;fontStyle=1;fontColor=#0078D4;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="1720" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="Industrialization on Microsoft Foundry · Hosted Agents · Toolbox · Memory · Observability" style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fontColor=#5B5B5B;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="40" y="46" width="1720" height="22" as="geometry" />
         </mxCell>
 
-        <mxCell id="lane_channels" value="Channels" style="swimlane;horizontal=0;startSize=110;fillColor=#EFF6FC;strokeColor=#0078D4;fontStyle=1;fontSize=14;html=1;" vertex="1" parent="1">
-          <mxGeometry x="0" y="60" width="1700" height="160" as="geometry" />
+        <!-- ============== LAYER 1 — CHANNELS ============== -->
+        <mxCell id="L1" value="1 · Channels &amp; Consumers" style="swimlane;horizontal=1;startSize=24;fillColor=#EFF6FC;strokeColor=#0078D4;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="80" width="1480" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="ch_teams" value="Microsoft Teams" style="shape=mxgraph.office.communications.microsoft_teams;html=1;fillColor=#5059C9;strokeColor=#3A4199;fontColor=#fff;align=center;verticalAlign=top;spacingTop=70;" vertex="1" parent="lane_channels">
-          <mxGeometry x="160" y="30" width="80" height="100" as="geometry" />
+        <mxCell id="ch_teams" value="Microsoft Teams" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#5059C9;strokeColor=#3A4199;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L1">
+          <mxGeometry x="40" y="55" width="220" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ch_m365" value="M365 Copilot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7B83EB;strokeColor=#3A4199;fontColor=#fff;fontStyle=1;" vertex="1" parent="lane_channels">
-          <mxGeometry x="320" y="50" width="160" height="60" as="geometry" />
+        <mxCell id="ch_m365" value="M365 Copilot" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7B83EB;strokeColor=#3A4199;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L1">
+          <mxGeometry x="290" y="55" width="220" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ch_app" value="Custom Web / Mobile App" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontStyle=1;" vertex="1" parent="lane_channels">
-          <mxGeometry x="540" y="50" width="200" height="60" as="geometry" />
+        <mxCell id="ch_app" value="Custom Web / Mobile App" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L1">
+          <mxGeometry x="540" y="55" width="220" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ch_gh" value="GitHub Copilot · Claude Code · MCP IDEs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#24292E;strokeColor=#000;fontColor=#fff;fontStyle=1;" vertex="1" parent="lane_channels">
-          <mxGeometry x="800" y="50" width="280" height="60" as="geometry" />
+        <mxCell id="ch_gh" value="GitHub Copilot · Claude Code · MCP IDEs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#24292E;strokeColor=#000000;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L1">
+          <mxGeometry x="790" y="55" width="280" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ch_a2a" value="Other Agents (A2A protocol)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;fontStyle=1;" vertex="1" parent="lane_channels">
-          <mxGeometry x="1140" y="50" width="240" height="60" as="geometry" />
-        </mxCell>
-
-        <mxCell id="lane_control" value="Foundry Control Plane" style="swimlane;horizontal=0;startSize=110;fillColor=#FFF4CE;strokeColor=#D4A017;fontStyle=1;fontSize=14;html=1;" vertex="1" parent="1">
-          <mxGeometry x="0" y="240" width="1700" height="170" as="geometry" />
-        </mxCell>
-        <mxCell id="cp_proj" value="&lt;b&gt;Foundry Project&lt;/b&gt;&lt;br/&gt;Project Managed Identity&lt;br/&gt;RBAC · DLP · RAI policies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;" vertex="1" parent="lane_control">
-          <mxGeometry x="160" y="40" width="220" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="cp_reg" value="&lt;b&gt;Agent Registry&lt;/b&gt;&lt;br/&gt;Versions &amp; stable endpoints&lt;br/&gt;Weighted canary rollout" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;" vertex="1" parent="lane_control">
-          <mxGeometry x="430" y="40" width="220" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="cp_tbx" value="&lt;b&gt;Toolbox Catalog&lt;/b&gt;&lt;br/&gt;Versioned MCP endpoints&lt;br/&gt;Centralized auth &amp; tracing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;" vertex="1" parent="lane_control">
-          <mxGeometry x="700" y="40" width="220" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="cp_mem" value="&lt;b&gt;Memory Store&lt;/b&gt;&lt;br/&gt;Long-term, scoped per user&lt;br/&gt;CRUD API for data rights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#107C10;strokeColor=#054A05;fontColor=#fff;" vertex="1" parent="lane_control">
-          <mxGeometry x="970" y="40" width="220" height="100" as="geometry" />
-        </mxCell>
-        <mxCell id="cp_eval" value="&lt;b&gt;Continuous Eval +&lt;br/&gt;Red Teaming Agent&lt;/b&gt;&lt;br/&gt;Promotion gating" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFB900;strokeColor=#7A5800;fontColor=#3A3A3A;" vertex="1" parent="lane_control">
-          <mxGeometry x="1240" y="40" width="220" height="100" as="geometry" />
+        <mxCell id="ch_a2a" value="Other Agents (A2A protocol)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L1">
+          <mxGeometry x="1100" y="55" width="280" height="60" as="geometry" />
         </mxCell>
 
-        <mxCell id="lane_data" value="Foundry Data Plane — Hosted Agents (per-session VM-isolated sandboxes)" style="swimlane;horizontal=0;startSize=110;fillColor=#E6F4EA;strokeColor=#107C10;fontStyle=1;fontSize=14;html=1;" vertex="1" parent="1">
-          <mxGeometry x="0" y="430" width="1700" height="220" as="geometry" />
+        <!-- ============== LAYER 2 — INGRESS / EDGE ============== -->
+        <mxCell id="L2" value="2 · Edge &amp; Ingress" style="swimlane;horizontal=1;startSize=24;fillColor=#FFF4CE;strokeColor=#A88B00;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="240" width="1480" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="afd" value="Azure Front Door&#10;(WAF · TLS · CDN)" style="shape=mxgraph.azure.front_door_service;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;" vertex="1" parent="L2">
+          <mxGeometry x="120" y="40" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="apim" value="Azure API Management&#10;AI Gateway · OAuth · Quotas · Caching" style="shape=mxgraph.azure.api_management_services;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;fontStyle=1;" vertex="1" parent="L2">
+          <mxGeometry x="640" y="40" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="entra" value="Microsoft Entra&#10;OBO · Managed Identity" style="shape=mxgraph.azure.azure_active_directory;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;" vertex="1" parent="L2">
+          <mxGeometry x="1240" y="40" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="cs" value="Azure AI Content Safety&#10;Prompt Shields · PII" style="shape=mxgraph.azure.cognitive_services;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;fillColor=#A4262C;strokeColor=#5B1418;" vertex="1" parent="L2">
+          <mxGeometry x="380" y="40" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ratelimit" value="Token Limits&#10;Semantic Cache" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE399;strokeColor=#A88B00;fontStyle=1;fontSize=10;" vertex="1" parent="L2">
+          <mxGeometry x="900" y="55" width="180" height="50" as="geometry" />
         </mxCell>
 
-        <mxCell id="dp_acr" value="&lt;b&gt;Azure Container Registry&lt;/b&gt;&lt;br/&gt;Agent images" style="sketch=0;points=[[0,0,0],[1,0,0],[0,1,0],[1,1,0]];outlineConnect=0;fontColor=#FFFFFF;gradientColor=none;fillColor=#0078D4;strokeColor=#005A9E;shape=mxgraph.azure2.container_registries;html=1;align=center;verticalAlign=top;spacingTop=80;" vertex="1" parent="lane_data">
-          <mxGeometry x="160" y="30" width="120" height="130" as="geometry" />
+        <!-- ============== LAYER 3 — FOUNDRY CONTROL PLANE ============== -->
+        <mxCell id="L3" value="3 · Microsoft Foundry — Control Plane (Project)" style="swimlane;horizontal=1;startSize=24;fillColor=#E8F5E8;strokeColor=#107C10;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="400" width="1480" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="fproj" value="Foundry Project&#10;(Project MI · RBAC · Connections)" style="shape=mxgraph.azure.cognitive_services;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;fontStyle=1;fillColor=#107C10;strokeColor=#054A05;" vertex="1" parent="L3">
+          <mxGeometry x="80" y="60" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="versions" value="Agent Versions&#10;Stable Endpoint · Canary · Weighted Rollout" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#107C10;strokeColor=#054A05;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L3">
+          <mxGeometry x="280" y="65" width="270" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="toolbox" value="Toolbox&#10;Versioned MCP endpoint · Auth pass-through" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9673A6;strokeColor=#3B1C5A;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L3">
+          <mxGeometry x="600" y="65" width="270" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="memory" value="Memory Store&#10;Short-term · Long-term · Per-user scope" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#005A9E;strokeColor=#002B4A;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L3">
+          <mxGeometry x="920" y="65" width="270" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="evals" value="Evaluations &amp; Red Team&#10;Coherence · Groundedness · Safety" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D83B01;strokeColor=#6E1D00;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L3">
+          <mxGeometry x="1240" y="65" width="220" height="70" as="geometry" />
         </mxCell>
 
-        <mxCell id="dp_s1" value="&lt;b&gt;Sandbox · Session A&lt;/b&gt;&lt;br/&gt;$HOME persisted&lt;br/&gt;Scale-to-zero" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#107C10;strokeColor=#054A05;fontColor=#fff;" vertex="1" parent="lane_data">
-          <mxGeometry x="340" y="30" width="200" height="100" as="geometry" />
+        <!-- ============== LAYER 4 — HOSTED AGENT RUNTIME (BYO VNet) ============== -->
+        <mxCell id="L4" value="4 · Hosted Agent Runtime — BYO VNet" style="swimlane;horizontal=1;startSize=24;fillColor=#FAF3FF;strokeColor=#5C2D91;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="600" width="1480" height="200" as="geometry" />
         </mxCell>
-        <mxCell id="dp_s2" value="&lt;b&gt;Sandbox · Session B&lt;/b&gt;&lt;br/&gt;$HOME persisted&lt;br/&gt;Scale-to-zero" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#107C10;strokeColor=#054A05;fontColor=#fff;" vertex="1" parent="lane_data">
-          <mxGeometry x="560" y="30" width="200" height="100" as="geometry" />
+        <mxCell id="vnet" value="Customer VNet (Private Subnet)" style="shape=mxgraph.azure.virtual_networks;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;fontStyle=1;" vertex="1" parent="L4">
+          <mxGeometry x="60" y="60" width="80" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="dp_s3" value="&lt;b&gt;Sandbox · Session C&lt;/b&gt;&lt;br/&gt;$HOME persisted&lt;br/&gt;Scale-to-zero" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#107C10;strokeColor=#054A05;fontColor=#fff;" vertex="1" parent="lane_data">
-          <mxGeometry x="780" y="30" width="200" height="100" as="geometry" />
+        <mxCell id="sandbox_pool" value="VM-Isolated Sandbox Pool · Scale-to-zero · Persistent FS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#5C2D91;dashed=1;fontStyle=1;fontSize=11;align=center;verticalAlign=top;spacingTop=8;fontColor=#5C2D91;" vertex="1" parent="L4">
+          <mxGeometry x="220" y="40" width="900" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="dp_id" value="&lt;b&gt;Entra Agent ID&lt;/b&gt;&lt;br/&gt;Per-agent + OBO&lt;br/&gt;Continuous audit trail" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A4262C;strokeColor=#5B1418;fontColor=#fff;" vertex="1" parent="lane_data">
-          <mxGeometry x="1010" y="30" width="200" height="100" as="geometry" />
+        <mxCell id="sb1" value="Session A&#10;(Per-user sandbox)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#5C2D91;strokeColor=#2A1145;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="L4">
+          <mxGeometry x="240" y="80" width="160" height="60" as="geometry" />
         </mxCell>
-
-        <mxCell id="dp_proto" value="&lt;b&gt;Protocols&lt;/b&gt; — Responses · Invocations · Activity (Teams/M365) · A2A — combinable per agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#107C10;fontColor=#054A05;fontStyle=1;" vertex="1" parent="lane_data">
-          <mxGeometry x="160" y="170" width="1380" height="30" as="geometry" />
+        <mxCell id="sb2" value="Session B&#10;(Per-user sandbox)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#5C2D91;strokeColor=#2A1145;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="L4">
+          <mxGeometry x="420" y="80" width="160" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="dp_vnet" value="&lt;b&gt;BYO VNet&lt;/b&gt;&lt;br/&gt;Outbound via your network" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A4262C;strokeColor=#5B1418;fontColor=#fff;" vertex="1" parent="lane_data">
-          <mxGeometry x="1240" y="30" width="220" height="100" as="geometry" />
+        <mxCell id="sb3" value="Session N&#10;(Per-user sandbox)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#5C2D91;strokeColor=#2A1145;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="L4">
+          <mxGeometry x="600" y="80" width="160" height="60" as="geometry" />
         </mxCell>
-
-        <mxCell id="lane_tools" value="Tools fronted by Toolbox (single MCP endpoint per toolbox)" style="swimlane;horizontal=0;startSize=110;fillColor=#F3EAFB;strokeColor=#8764B8;fontStyle=1;fontSize=14;html=1;" vertex="1" parent="1">
-          <mxGeometry x="0" y="670" width="850" height="200" as="geometry" />
+        <mxCell id="harness" value="Agent Harness&#10;Shell · Files · Code Interpreter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="L4">
+          <mxGeometry x="800" y="80" width="200" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="tl_ws" value="Web Search&lt;br/&gt;(Bing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;" vertex="1" parent="lane_tools">
-          <mxGeometry x="160" y="30" width="140" height="60" as="geometry" />
+        <mxCell id="connected" value="Connected Agents&#10;A2A orchestration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B146C2;strokeColor=#5B1A66;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="L4">
+          <mxGeometry x="1180" y="80" width="240" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="tl_ais" value="Azure AI Search&lt;br/&gt;index" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;" vertex="1" parent="lane_tools">
-          <mxGeometry x="320" y="30" width="140" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="tl_ci" value="Code Interpreter&lt;br/&gt;+ File Search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;" vertex="1" parent="lane_tools">
-          <mxGeometry x="480" y="30" width="160" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="tl_mcp" value="Internal&lt;br/&gt;MCP servers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;" vertex="1" parent="lane_tools">
-          <mxGeometry x="660" y="30" width="160" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="tl_oapi" value="OpenAPI services&lt;br/&gt;(ServiceNow, SAP…)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;" vertex="1" parent="lane_tools">
-          <mxGeometry x="160" y="110" width="200" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="tl_a2a" value="A2A&lt;br/&gt;Other agents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8764B8;strokeColor=#3B1C5A;fontColor=#fff;" vertex="1" parent="lane_tools">
-          <mxGeometry x="380" y="110" width="160" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="tl_oauth" value="OAuth identity passthrough · Entra Agent Identity" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8764B8;fontColor=#3B1C5A;fontStyle=2;" vertex="1" parent="lane_tools">
-          <mxGeometry x="560" y="110" width="260" height="60" as="geometry" />
+        <mxCell id="agent_id" value="Entra Agent ID + OBO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE399;strokeColor=#A88B00;fontStyle=1;fontSize=10;" vertex="1" parent="L4">
+          <mxGeometry x="1180" y="150" width="240" height="24" as="geometry" />
         </mxCell>
 
-        <mxCell id="lane_iq" value="Enterprise Context (IQ)" style="swimlane;horizontal=0;startSize=110;fillColor=#FBE9E7;strokeColor=#D83B01;fontStyle=1;fontSize=14;html=1;" vertex="1" parent="1">
-          <mxGeometry x="870" y="670" width="430" height="200" as="geometry" />
-        </mxCell>
-        <mxCell id="iq_work" value="&lt;b&gt;Work IQ&lt;/b&gt;&lt;br/&gt;M365 data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D83B01;strokeColor=#6E1D00;fontColor=#fff;" vertex="1" parent="lane_iq">
-          <mxGeometry x="160" y="40" width="240" height="40" as="geometry" />
-        </mxCell>
-        <mxCell id="iq_fab" value="&lt;b&gt;Fabric IQ&lt;/b&gt;&lt;br/&gt;Business data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D83B01;strokeColor=#6E1D00;fontColor=#fff;" vertex="1" parent="lane_iq">
-          <mxGeometry x="160" y="90" width="240" height="40" as="geometry" />
-        </mxCell>
-        <mxCell id="iq_fnd" value="&lt;b&gt;Foundry IQ&lt;/b&gt;&lt;br/&gt;Curated knowledge &amp; search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D83B01;strokeColor=#6E1D00;fontColor=#fff;" vertex="1" parent="lane_iq">
-          <mxGeometry x="160" y="140" width="240" height="40" as="geometry" />
+        <!-- ============== LAYER 5 — MODELS · TOOLS · DATA ============== -->
+        <mxCell id="L5" value="5 · Models, Tools &amp; Enterprise Context (Private Endpoints)" style="swimlane;horizontal=1;startSize=24;fillColor=#FFF0E6;strokeColor=#D83B01;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="820" width="1480" height="240" as="geometry" />
         </mxCell>
 
-        <mxCell id="lane_ops" value="Security &amp; Observability (Azure Monitor, App Insights, Key Vault, Content Safety)" style="swimlane;horizontal=0;startSize=110;fillColor=#FFF8E1;strokeColor=#FFB900;fontStyle=1;fontSize=14;html=1;" vertex="1" parent="1">
-          <mxGeometry x="1320" y="670" width="380" height="200" as="geometry" />
+        <mxCell id="grp_models" value="AI Models" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEDDB;strokeColor=#D83B01;fontStyle=1;fontSize=11;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="L5">
+          <mxGeometry x="40" y="40" width="320" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="ops_ot" value="OpenTelemetry tracing&lt;br/&gt;(end-to-end)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFB900;strokeColor=#7A5800;fontColor=#3A3A3A;fontStyle=1;" vertex="1" parent="lane_ops">
-          <mxGeometry x="40" y="30" width="220" height="40" as="geometry" />
+        <mxCell id="m_oai" value="Azure OpenAI&#10;GPT-5 · o-series · GPT-4.1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#107C10;strokeColor=#054A05;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="60" y="80" width="280" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="ops_ai" value="Azure Monitor + App Insights" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFB900;strokeColor=#7A5800;fontColor=#3A3A3A;fontStyle=1;" vertex="1" parent="lane_ops">
-          <mxGeometry x="40" y="80" width="220" height="40" as="geometry" />
+        <mxCell id="m_oss" value="Open Models&#10;Llama · Mistral · Phi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="60" y="130" width="280" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="ops_kv" value="Key Vault connection&lt;br/&gt;(no secrets in image)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A4262C;strokeColor=#5B1418;fontColor=#fff;" vertex="1" parent="lane_ops">
-          <mxGeometry x="40" y="130" width="220" height="40" as="geometry" />
-        </mxCell>
-
-        <mxCell id="e1" edge="1" source="ch_teams" target="cp_reg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e2" edge="1" source="ch_m365" target="cp_reg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e3" edge="1" source="ch_app" target="cp_reg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e4" edge="1" source="ch_gh" target="cp_tbx" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8764B8;strokeWidth=2;dashed=1;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e5" edge="1" source="ch_a2a" target="cp_reg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8764B8;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="m_anth" value="Anthropic · Google · Cohere · …" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#5C2D91;strokeColor=#2A1145;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="60" y="180" width="280" height="30" as="geometry" />
         </mxCell>
 
-        <mxCell id="e10" edge="1" source="cp_reg" target="dp_s1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#107C10;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="grp_fiq" value="Foundry IQ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEDDB;strokeColor=#D83B01;fontStyle=1;fontSize=11;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="L5">
+          <mxGeometry x="380" y="40" width="320" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="e11" edge="1" source="cp_reg" target="dp_s2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#107C10;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="aisearch" value="Azure AI Search" style="shape=mxgraph.azure.azure_search;html=1;align=center;verticalAlign=top;spacingTop=70;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="430" y="80" width="80" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="e12" edge="1" source="cp_reg" target="dp_s3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#107C10;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="filesearch" value="Foundry File Search&#10;(curated knowledge)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D83B01;strokeColor=#6E1D00;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="530" y="100" width="160" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="e13" edge="1" source="dp_acr" target="dp_s1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#005A9E;strokeWidth=2;dashed=1;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e14" edge="1" source="dp_s1" target="dp_id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A4262C;strokeWidth=2;dashed=1;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e15" edge="1" source="dp_s2" target="dp_id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#A4262C;strokeWidth=2;dashed=1;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="bing" value="Web Search (Bing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="430" y="180" width="260" height="30" as="geometry" />
         </mxCell>
 
-        <mxCell id="e20" edge="1" source="dp_s1" target="cp_tbx" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8764B8;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="grp_biq" value="Fabric IQ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEDDB;strokeColor=#D83B01;fontStyle=1;fontSize=11;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="L5">
+          <mxGeometry x="720" y="40" width="320" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="e21" edge="1" source="dp_s2" target="cp_mem" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#107C10;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="onelake" value="Microsoft Fabric&#10;OneLake · Lakehouse · KQL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#117865;strokeColor=#0B4D40;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="740" y="80" width="280" height="50" as="geometry" />
         </mxCell>
-
-        <mxCell id="e30" edge="1" source="cp_tbx" target="tl_ws" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8764B8;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="semantic" value="Semantic Models · Power BI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2C811;strokeColor=#7A6500;fontStyle=1;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="740" y="140" width="280" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="e31" edge="1" source="cp_tbx" target="tl_ais" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8764B8;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e32" edge="1" source="cp_tbx" target="tl_mcp" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8764B8;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e33" edge="1" source="cp_tbx" target="tl_oapi" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#8764B8;strokeWidth=2;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="mcp_fabric" value="MCP Server (OBO) · OneLake APIs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9673A6;strokeColor=#3B1C5A;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="740" y="180" width="280" height="30" as="geometry" />
         </mxCell>
 
-        <mxCell id="e40" edge="1" source="dp_s1" target="iq_work" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D83B01;strokeWidth=2;" parent="1">
+        <mxCell id="grp_wiq" value="Work IQ &amp; Tools" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEDDB;strokeColor=#D83B01;fontStyle=1;fontSize=11;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="L5">
+          <mxGeometry x="1060" y="40" width="380" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="m365" value="Microsoft 365 Graph&#10;Mail · Files · Chats · Calendar" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7B83EB;strokeColor=#3A4199;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="1080" y="80" width="340" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="github_mcp" value="GitHub · Azure DevOps · Jira (MCP)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#24292E;strokeColor=#000000;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="1080" y="140" width="340" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="openapi" value="OpenAPI / Functions / Logic Apps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="1080" y="180" width="340" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============== RIGHT SIDE PANEL — CROSS-CUTTING ============== -->
+        <mxCell id="SP" value="Cross-Cutting · Security &amp; Observability" style="swimlane;horizontal=1;startSize=24;fillColor=#FDECEA;strokeColor=#A4262C;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1520" y="240" width="260" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="kv" value="Azure Key Vault" style="shape=mxgraph.azure.key_vaults;html=1;align=center;verticalAlign=top;spacingTop=70;fontSize=10;" vertex="1" parent="SP">
+          <mxGeometry x="90" y="50" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="purview" value="Microsoft Purview&#10;DLP · Lineage · Audit" style="shape=mxgraph.azure.purview_accounts;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=10;" vertex="1" parent="SP">
+          <mxGeometry x="90" y="170" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="appins" value="Application Insights&#10;OpenTelemetry traces" style="shape=mxgraph.azure.application_insights;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=10;" vertex="1" parent="SP">
+          <mxGeometry x="90" y="290" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="loga" value="Log Analytics&#10;Workspace" style="shape=mxgraph.azure.log_analytics_workspaces;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=10;" vertex="1" parent="SP">
+          <mxGeometry x="90" y="420" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="monitor" value="Azure Monitor&#10;Alerts · Dashboards" style="shape=mxgraph.azure.monitor;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=10;" vertex="1" parent="SP">
+          <mxGeometry x="90" y="540" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="costmgmt" value="Cost Management&#10;Tag-based showback" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFB900;strokeColor=#7A5800;fontStyle=1;fontSize=10;" vertex="1" parent="SP">
+          <mxGeometry x="40" y="660" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="defender" value="Defender for Cloud&#10;Posture · Threats" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A4262C;strokeColor=#5B1418;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="SP">
+          <mxGeometry x="40" y="730" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ============== CONNECTORS — CLEAN VERTICAL TRUNK ============== -->
+        <!-- Channels merge funnel into APIM -->
+        <mxCell id="e_ch1" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#0078D4;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ch_teams" target="apim">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e41" edge="1" source="dp_s2" target="iq_fab" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D83B01;strokeWidth=2;" parent="1">
+        <mxCell id="e_ch2" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#0078D4;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ch_m365" target="apim">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ch3" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#0078D4;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ch_app" target="apim">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ch4" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#0078D4;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ch_gh" target="apim">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_ch5" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#0078D4;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ch_a2a" target="apim">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="e50" edge="1" source="dp_s3" target="ops_ot" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FFB900;strokeWidth=2;dashed=1;" parent="1">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e51" edge="1" source="cp_tbx" target="ops_ot" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FFB900;strokeWidth=2;dashed=1;" parent="1">
+        <!-- APIM -> Foundry Project (single trunk) -->
+        <mxCell id="e_apim_proj" value="HTTPS · OAuth2 / MI" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#107C10;strokeWidth=3;fontSize=10;fontStyle=1;fontColor=#054A05;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="apim" target="fproj">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&lt;br/&gt;━ Solid: data flow &nbsp;|&nbsp; ┄ Dashed: control / identity&lt;br/&gt;Blue: control plane &nbsp;|&nbsp; Green: agent runtime &nbsp;|&nbsp; Purple: tools &nbsp;|&nbsp; Red: identity/security &nbsp;|&nbsp; Yellow: governance/observability" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fillColor=#FFFFFF;strokeColor=#999999;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="900" width="1620" height="60" as="geometry" />
+        <!-- Foundry Project -> Hosted Agent Runtime (single trunk) -->
+        <mxCell id="e_proj_runtime" value="Invoke agent endpoint" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#5C2D91;strokeWidth=3;fontSize=10;fontStyle=1;fontColor=#2A1145;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="versions" target="sandbox_pool">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Toolbox feeds the runtime (sibling-to-sibling, lighter) -->
+        <mxCell id="e_toolbox_runtime" value="MCP tool calls" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#9673A6;strokeWidth=2;dashed=1;fontSize=10;fontColor=#3B1C5A;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="toolbox" target="harness">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Memory feeds the runtime -->
+        <mxCell id="e_memory_runtime" value="Read / write memories" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#005A9E;strokeWidth=2;dashed=1;fontSize=10;fontColor=#002B4A;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="memory" target="connected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Hosted Runtime -> Layer 5 fan-out (4 clean arrows, no crossings) -->
+        <mxCell id="e_run_models" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#107C10;strokeWidth=2;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="L4" target="grp_models">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_run_fiq" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#D83B01;strokeWidth=2;exitX=0.4;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="L4" target="grp_fiq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_run_biq" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#117865;strokeWidth=2;exitX=0.6;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="L4" target="grp_biq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_run_wiq" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#5059C9;strokeWidth=2;exitX=0.8;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="L4" target="grp_wiq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Cross-cutting telemetry: single dashed trunk into observability panel -->
+        <mxCell id="e_telemetry" value="Traces · Logs · Metrics" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#A4262C;strokeWidth=2;dashed=1;fontSize=10;fontStyle=2;fontColor=#5B1418;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="L4" target="SP">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_telemetry2" value="Project telemetry" style="endArrow=classic;html=1;rounded=1;edgeStyle=orthogonalEdgeStyle;strokeColor=#A4262C;strokeWidth=2;dashed=1;fontSize=10;fontStyle=2;fontColor=#5B1418;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;" edge="1" parent="1" source="L3" target="SP">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="Legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#888;fontStyle=1;fontSize=11;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;" vertex="1" parent="1">
+          <mxGeometry x="20" y="1080" width="1480" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="lg1" value="━━ Solid arrow = synchronous request flow (HTTPS / API call)" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#333;" vertex="1" parent="legend">
+          <mxGeometry x="20" y="30" width="380" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2" value="┄┄ Dashed arrow = asynchronous / pub-sub / telemetry" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#333;" vertex="1" parent="legend">
+          <mxGeometry x="20" y="52" width="380" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3" value="🟦 Channels   🟨 Edge / Identity   🟩 Foundry Control Plane   🟪 Hosted Runtime   🟧 Models &amp; Data   🟥 Cross-cutting Sec/Obs" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#333;" vertex="1" parent="legend">
+          <mxGeometry x="20" y="74" width="900" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg4" value="All inter-zone traffic flows over Azure Private Endpoints (Private Link). No public model endpoints; all auth via Microsoft Entra (Managed Identity / OBO)." style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#555;fontStyle=2;" vertex="1" parent="legend">
+          <mxGeometry x="20" y="96" width="1440" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg5" value="Reference architecture for industrializing agents on Microsoft Foundry · Hosted Agents (Public Preview) · Toolbox (Public Preview) · Memory (Public Preview)" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#555;fontStyle=2;" vertex="1" parent="legend">
+          <mxGeometry x="20" y="116" width="1440" height="18" as="geometry" />
         </mxCell>
 
       </root>
