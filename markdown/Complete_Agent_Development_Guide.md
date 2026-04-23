@@ -882,7 +882,271 @@ A successful agent platform involves more roles than the agent developer alone. 
 
 ---
 
-## 15. References
+---
+
+## 15. Service Limits & Quotas
+
+These caps shape capacity planning and protect your tenant from runaway agents. Always check the latest figures in the official quotas page before sizing — Foundry is evolving fast and limits are raised regularly.
+
+| Dimension | Default ceiling (preview) | Notes / mitigation |
+|---|---|---|
+| Concurrent hosted-agent **sessions** per project | Soft quota — request increase via Azure support | Use isolation keys to namespace per-tenant traffic |
+| **Cold-start sandboxes** burst | Predictable but throttled per project | Pre-warm with a synthetic ping during business hours |
+| **Sandbox disk** per session | 10 GB persistent (subject to change) | Offload large artifacts to Blob / OneLake; keep only working set |
+| Inbound **request size** | 100 MB (file uploads via Files API) | Stream large files from a connected Storage account |
+| **Tool calls per turn** | Capped by model (e.g. 128 parallel tool calls on GPT-5) | Compose with Toolbox to avoid context bloat |
+| **Memory items** per scope | Soft cap, billed per 1K | Run a periodic `memory.delete` job for stale facts |
+| **Toolbox** tools per version | 30+ tools per toolbox supported | Split by domain (e.g., `crm-toolbox`, `ops-toolbox`) for least privilege |
+| **Throughput** to model deployment | Bound by PTU / TPM you provisioned on the Foundry deployment | See §17 for PTU vs PAYG sizing |
+
+> **Practical rule**: model-side TPM/RPM (provisioned on the Foundry model deployment) is almost always the first wall you hit — not the agent platform. Provision a PTU pool for predictable workloads and front it with APIM (see Foundry_Agent_Monitoring_APIM guide).
+
+---
+
+## 16. Regional Availability & SLA
+
+Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foundry project** and your **model deployments** to the same region to avoid cross-region egress, then plan multi-region for HA.
+
+### Region selection checklist
+
+- **Hosted Agents (preview)** — initial regions are a subset of Foundry regions (East US 2, Sweden Central, West US 3 typically light up first). Verify with `az cognitiveservices account list-skus` and the [Foundry region availability page](https://learn.microsoft.com/azure/ai-foundry/reference/region-support).
+- **Models** — not every model is in every region. GPT-5 family and o-series often launch in East US 2 / Sweden Central before others.
+- **Data residency** — choose an EU region (e.g., Sweden Central, France Central, West Europe) when EU Data Boundary is required.
+- **Multi-region HA pattern** — deploy two Foundry projects in paired regions (e.g., West Europe + Sweden Central), front with APIM Premium multi-region, and replicate Memory + Toolbox config via IaC. Failover is *active-passive* today; active-active for stateful agents is on the roadmap.
+
+### SLA reference (preview vs GA)
+
+| Capability | Status (today) | SLA |
+|---|---|---|
+| Foundry Agent Service control plane | GA | 99.9% |
+| Hosted Agents compute | Public Preview | **No SLA during preview** — do not commit external production SLAs until GA |
+| Toolbox | Public Preview | No SLA |
+| Memory | Public Preview | No SLA |
+| Microsoft Agent Framework v1.0 (SDK) | GA | N/A (client SDK) |
+
+> Track GA dates in the [Foundry release notes](https://learn.microsoft.com/azure/ai-foundry/whats-new) and lock your production cutover to the GA milestone.
+
+---
+
+## 17. Hosted Agent Execution Pricing Detail
+
+Section 10 covered the FinOps levers; this section gives the per-unit numbers so you can build a credible cost model. **Always re-validate against the [Azure pricing page](https://azure.microsoft.com/pricing/details/ai-foundry/)** — preview pricing changes.
+
+### Hosted Agent compute (preview pricing)
+
+| Resource | Unit | Approx. preview price | Comment |
+|---|---|---|---|
+| Sandbox **vCPU** | per vCPU·hour active | ~$0.04 | Billed only while session is active (scale-to-zero) |
+| Sandbox **memory** | per GiB·hour active | ~$0.005 | |
+| Sandbox **storage** (persisted disk) | per GB·month | ~$0.10 | Even when scaled to zero |
+| **Cold-start** | included | $0 | No extra fee for the warm-up |
+| **Egress via BYO VNet** | standard Azure egress | varies | Same as any VNet-bound workload |
+
+### Memory (billing starts **June 1, 2026**)
+
+| Item | Price |
+|---|---|
+| Short-term memory | $0.25 per 1K events stored |
+| Long-term memory | $0.25 per 1K memories per month |
+| Memory retrieval | $0.50 per 1K retrievals |
+
+### Worked example — a typical "support triage" agent
+
+Assumptions: 200 sessions/day, avg 3 minutes active, 0.5 vCPU + 1 GiB, 50K tokens/session on GPT-5 PAYG.
+
+| Cost line | Daily | Monthly |
+|---|---|---|
+| Compute (200 × 3 min × 0.5 vCPU × $0.04) | $0.20 | ~$6 |
+| Memory + storage | negligible | ~$5 |
+| Model tokens (GPT-5 PAYG, 50K × 200) | ~$60 | ~$1,800 |
+| **Total** | **~$60** | **~$1,810** |
+
+> **The model dominates.** Switching the chat path to a PTU pool, or routing simple intents to a smaller model via APIM, has 100× more impact than tuning sandbox compute.
+
+---
+
+## 18. Fine-Tuning & Custom Models
+
+Industrialization isn't only about wiring agents — sometimes the right move is to specialize a model.
+
+### When fine-tuning beats prompting + RAG
+
+| Signal | Action |
+|---|---|
+| Fixed format / DSL output | Fine-tune (SFT) — saves tokens and is more reliable |
+| Brand-specific tone / style | Fine-tune on a few hundred examples |
+| Knowledge that changes weekly | **Stay with RAG** (Foundry IQ / Azure AI Search) |
+| Deterministic policy enforcement | Function-calling + Toolbox, *not* fine-tuning |
+| Reasoning improvement on niche domain | DPO / RFT on o-series (preview) |
+
+### How to do it on Foundry
+
+1. **Prepare** a JSONL dataset (system + user + assistant) and validate with the Foundry dataset CLI.
+2. **Submit** a fine-tune job from the Foundry portal or via `azure-ai-projects` SDK (`client.fine_tuning.jobs.create(...)`). Supported families today: GPT-4.1-mini SFT, GPT-4o-mini SFT, Llama-3 SFT, several Phi variants.
+3. **Deploy** the resulting checkpoint as a regular Foundry deployment — agents reference it like any other model.
+4. **Evaluate** the fine-tuned model in the same eval pipeline as the base (see §21) before promotion.
+5. **Govern** — fine-tuned weights are tenant-isolated and never leave the Foundry boundary; tag deployments with `model-lineage` in IaC for audit.
+
+> Combine fine-tuning with RAG: fine-tune for **format and tone**, retrieve for **facts**. This pattern is used by most production agents at scale.
+
+---
+
+## 19. Enterprise Context — Work IQ, Fabric IQ, Foundry IQ
+
+The reference architecture (§6) shows three context layers. Here's how an agent actually reaches them.
+
+### Foundry IQ — curated knowledge & vector search
+
+Wire an Azure AI Search index as a Toolbox tool (already shown in §4). Agents query it transparently via the Toolbox MCP endpoint.
+
+### Fabric IQ — business data via Microsoft Fabric
+
+Expose Fabric items (semantic models, OneLake tables, KQL DBs) as MCP servers and add them to a toolbox. Use the OneLake / Fabric REST APIs behind the MCP server, with Entra **on-behalf-of** so the user's Fabric permissions are honored.
+
+```python
+client.beta.toolboxes.add_tool(
+    toolbox_name="finance-toolbox",
+    tool={
+        "type": "mcp",
+        "server_label": "fabric-onelake",
+        "server_url": "https://fabric-mcp.contoso.com/mcp",
+        "project_connection_id": "<FABRIC_OBO_CONN>"
+    },
+)
+```
+
+### Work IQ — Microsoft 365 graph (mail, files, chats, meetings)
+
+Use the **Microsoft 365 Copilot APIs** (Work IQ retrieval and Search APIs) inside a thin MCP server that authenticates via Entra OBO. This guarantees the agent only ever sees content the calling user could see in M365.
+
+```python
+agent = Agent(
+    client=client,
+    name="MeetingPrepAgent",
+    instructions="Summarize tomorrow's meetings and pull related docs from M365.",
+    tools=[client.get_toolbox_tool(name="m365-workiq-toolbox")],
+)
+```
+
+### Pattern: chain Foundry IQ → Fabric IQ → Work IQ in a single agent
+
+A "morning briefing" agent typically (1) retrieves curated playbooks from **Foundry IQ**, (2) joins KPIs from **Fabric IQ**, and (3) personalizes with **Work IQ** (calendar, recent mail). Connected Agents (A2A) is the right pattern when each layer has its own owner team.
+
+---
+
+## 20. Compliance, Data Residency & Sovereignty
+
+Production agents handle sensitive data — design for the regulatory perimeter from day one.
+
+| Requirement | Foundry mechanism |
+|---|---|
+| **GDPR / EU Data Boundary** | Deploy Foundry projects in EU regions; enable EU Data Boundary on the parent subscription; Microsoft 365 Copilot data stays in the boundary by default |
+| **Data residency for memory** | Memory is co-located with the project region; verify in `Project → Settings → Region` |
+| **PII redaction** | Apply Azure AI Content Safety (Prompt Shields + PII detection) at APIM ingress *and* in a Toolbox pre-tool policy |
+| **Right to erasure** | Use the Memory CRUD API to surface and delete user-scoped memories on request |
+| **Audit & traceability** | OpenTelemetry traces → Log Analytics with 1+ year retention; Entra Agent ID logs → Microsoft Purview |
+| **Model provenance** | Tag every deployment with `model.family`, `model.version`, `data.classification` in IaC; enforce via Azure Policy |
+| **Certifications** | Foundry inherits Azure compliance offerings — ISO 27001/27017/27018, SOC 1/2/3, HIPAA, FedRAMP High (regional). See the [Microsoft Trust Center](https://www.microsoft.com/trust-center/compliance/compliance-overview) |
+| **Sovereign clouds** | Foundry availability in Azure Government / Azure China is on the roadmap — check the trust portal before committing |
+
+> **Document the data flow** in a one-page DPIA per agent: who is the data subject, where the data is stored, retention, model used, transfer mechanism. This is the artifact your DPO will ask for.
+
+---
+
+## 21. Advanced Quality Evaluation — Coherence, Groundedness, Hallucination
+
+Section 12 covered chaos and resilience tests. This section adds **semantic** evaluation — the only way to catch silent regressions in an LLM-driven system.
+
+### Built-in evaluators (Azure AI Evaluation SDK)
+
+| Evaluator | What it scores | Use in pipeline |
+|---|---|---|
+| `RelevanceEvaluator` | Answer addresses the question | PR gate, threshold ≥ 4/5 |
+| `CoherenceEvaluator` | Logical flow & readability | PR gate |
+| `GroundednessEvaluator` | Answer derives from retrieved context (anti-hallucination) | PR gate, threshold ≥ 4/5 |
+| `FluencyEvaluator` | Linguistic quality | Optional |
+| `SimilarityEvaluator` | Match against a golden answer | Regression suite |
+| `ContentSafetyEvaluator` | Hate, sexual, violence, self-harm | **Mandatory gate** |
+| `ProtectedMaterialEvaluator` | Copyright leakage | Mandatory gate for public-facing agents |
+| `IndirectAttackEvaluator` | Prompt injection robustness | Run after every Toolbox change |
+
+### Example — wire a continuous eval into CI
+
+```python
+from azure.ai.evaluation import evaluate, GroundednessEvaluator, RelevanceEvaluator
+from azure.ai.projects import AIProjectClient
+from azure.identity import DefaultAzureCredential
+
+project = AIProjectClient(endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"],
+                         credential=DefaultAzureCredential())
+
+results = evaluate(
+    data="eval/golden_dataset.jsonl",       # 50–500 curated Q/A/context rows
+    target=lambda row: agent.run(row["question"]),
+    evaluators={
+        "relevance": RelevanceEvaluator(model_config=project.connections.get_default_llm()),
+        "groundedness": GroundednessEvaluator(model_config=project.connections.get_default_llm()),
+    },
+    output_path="eval/results.json",
+)
+assert results["metrics"]["groundedness.mean"] >= 4.0, "Groundedness regression — block deploy"
+```
+
+### Red Team Agent (preview)
+
+Schedule the **AI Red Teaming Agent** weekly against your stable endpoint to surface jailbreaks, indirect injection vectors, and unsafe completions before customers do.
+
+### Build your golden dataset from production traces
+
+Curate 50–200 high-value traces per release from App Insights → label them in the Foundry data labeling UI → use as the regression baseline. Refresh quarterly.
+
+---
+
+## 22. Migration Paths & .NET Parity
+
+### From Semantic Kernel to MAF v1.0
+
+| SK concept | MAF v1.0 equivalent |
+|---|---|
+| `Kernel` + `KernelPlugin` | `Agent` + `Tool` |
+| `IChatCompletionService` | `ChatClient` (Azure OpenAI / Anthropic / etc.) |
+| `KernelFunction` decorator | `@tool` decorator |
+| Planners (Sequential/Stepwise) | `Workflow` with sequential / hand-off patterns |
+| `Memory` plugin | `FoundryMemoryProvider` / `InMemoryHistoryProvider` |
+| Filters / Hooks | Middleware pipeline |
+
+Use the [official MAF migration guide](https://learn.microsoft.com/agent-framework/migration-guide/) — most ports are mechanical and can be done one agent at a time, while keeping the rest of the SK app untouched.
+
+### From AutoGen to MAF v1.0
+
+AutoGen's `GroupChat` and `Society of Mind` map directly to MAF **multi-agent workflows** (concurrent / hand-off / sequential). Conversation state is preserved via the `InMemoryHistoryProvider`; long-running orchestrations move to `CompactionProvider` + Memory for persistence.
+
+### .NET parity
+
+MAF v1.0 ships with full feature parity in .NET (NuGet `Microsoft.Agents.AI`) — same agent / workflow / tool / middleware concepts. The differences are idiomatic, not functional:
+
+```csharp
+var client = new AzureOpenAIClient(endpoint, new AzureCliCredential());
+var agent = client.AsAgent(
+    name: "SupportTriage",
+    instructions: "You are an expert triage agent.");
+
+var run = await agent.RunAsync("Classify this ticket: ...");
+Console.WriteLine(run.Text);
+```
+
+Tooling: hosted-agent deployment via `azd` is identical for .NET projects (just a different `Dockerfile` base image). The Foundry Toolkit for VS Code supports both runtimes.
+
+### Update / lifecycle policy
+
+- **Preview → GA window**: typically 3–6 months; subscribe to the [Foundry release notes RSS](https://learn.microsoft.com/azure/ai-foundry/whats-new).
+- **MAF SDK** follows semver — pin the minor version in `pyproject.toml` / `Directory.Packages.props` and update via Dependabot.
+- **Hosted-agent runtime image** is patched by Microsoft; rebuild and redeploy your container monthly to pick up base-image CVE fixes.
+- **Deprecation policy**: Azure AI services give 12 months notice before retiring a model deployment. Track via Azure Service Health alerts.
+
+---
+
+## 23. References
 
 ### Source articles (this guide synthesizes and extends them)
 
@@ -902,6 +1166,17 @@ A successful agent platform involves more roles than the agent developer alone. 
 - [Memory in Foundry Agent Service](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/what-is-memory?view=foundry&tabs=conversational-agent)
 - [Microsoft Agent Framework documentation](https://learn.microsoft.com/en-us/agent-framework/)
 - [Set up a Key Vault connection in Foundry](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/set-up-key-vault-connection)
+- [Foundry quotas & limits](https://learn.microsoft.com/en-us/azure/ai-foundry/quotas-limits)
+- [Foundry region availability](https://learn.microsoft.com/en-us/azure/ai-foundry/reference/region-support)
+- [Foundry what's new / release notes](https://learn.microsoft.com/en-us/azure/ai-foundry/whats-new)
+- [Fine-tuning models on Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/fine-tuning-overview)
+- [Azure AI Evaluation SDK](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/develop/evaluate-sdk)
+- [AI Red Teaming Agent](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/ai-red-teaming-agent)
+- [MAF migration guide (Semantic Kernel & AutoGen → MAF v1.0)](https://learn.microsoft.com/en-us/agent-framework/migration-guide/)
+- [Microsoft Agent Framework for .NET](https://learn.microsoft.com/en-us/agent-framework/?pivots=programming-language-csharp)
+- [EU Data Boundary for Microsoft Cloud services](https://learn.microsoft.com/en-us/privacy/eudb/eu-data-boundary-learn)
+- [Azure SLA — AI Foundry](https://www.microsoft.com/licensing/docs/view/Service-Level-Agreements-SLA-for-Online-Services)
+- [Azure pricing — AI Foundry](https://azure.microsoft.com/pricing/details/ai-foundry/)
 
 ### Tooling
 
