@@ -125,6 +125,43 @@ Not every Fabric item type honors MPEs yet. Validate per workload before designi
 
 ---
 
+## Required Personas on the Customer Side
+
+Deploying an MPE is a **multi-team activity**. None of the profiles below can do it alone — at least the Fabric Admin, the Workspace Admin and the Target Resource Owner must coordinate. Map them to your RACI before you start.
+
+| # | Persona | Org / Team (typical) | Responsibility for the MPE | Required role / permission |
+|---|---|---|---|---|
+| 1 | **Fabric Tenant Administrator** | Data Platform / Power Platform Admins | Enables the tenant switch *"Users can create Fabric items that can have managed private endpoints"*; optionally enables *"Block public Internet access"*. | **Fabric Administrator** Entra role (or Power Platform Administrator / Global Administrator) |
+| 2 | **Fabric Capacity Administrator** | Data Platform | Provisions / sizes the F64+ capacity, assigns the workspace to it, monitors CU consumption (MPEs cost CUs). | **Capacity Admin** on the Fabric capacity |
+| 3 | **Fabric Workspace Administrator** | Business unit / data product team | Creates the MPE entry in workspace settings, picks the target Resource ID, monitors connection state. | **Admin** (or Member, depending on tenant policy) on the workspace |
+| 4 | **Azure Subscription Owner / Cloud Foundation lead** | Cloud Center of Excellence / FinOps | Registers `Microsoft.Network` resource provider on the target subscription; validates landing-zone alignment and chargeback. | **Owner** or **Contributor** at subscription scope |
+| 5 | **Target Resource Owner** | Data domain owner (e.g. Finance for SQL DB, ML team for Storage…) | **Approves** the pending Private Endpoint connection request — the workflow blocks until they act. | **Owner** or **Network Contributor** on the target resource |
+| 6 | **Network / Security Engineer** | Network or CloudOps team | Confirms the target's Private Link configuration (PE subnet, public access disabled, NSG rules, firewall exceptions), validates DNS strategy on the *target* side. | **Network Contributor** on the target VNet; **Security Reader** for audit |
+| 7 | **Identity / IAM Administrator** | Identity team | Grants data-plane RBAC (e.g. `Storage Blob Data Reader`, `Key Vault Secrets User`, `SQL DB Reader`) to the workspace identity or to the calling user/SP. | **User Access Administrator** or **Owner** on the target resource |
+| 8 | **Information Security Officer** *(advisory)* | InfoSec / GRC | Validates that public access disablement, Conditional Access, audit logging and data-egress controls meet policy. | Read access on Defender for Cloud / Purview / audit logs |
+| 9 | **Data Engineer / Workspace User** *(consumer)* | Business unit | Tests the connection from a Spark notebook, pipeline or eventstream after approval; reports back. | **Contributor** on the workspace |
+| 10 | **Service Owner / Product Owner** *(governance)* | Business sponsor | Owns the MPE life-cycle (request, decommission), tracks dependencies in the CMDB. | No technical role — accountable, not responsible |
+
+### Minimum viable team — three people
+
+If you have to ship a single MPE in a hurry, you can collapse the list to **three actors**:
+
+```mermaid
+flowchart LR
+    A[Fabric Tenant Admin<br/>enables tenant switch] --> B[Workspace Admin<br/>creates MPE]
+    B --> C[Target Resource Owner<br/>approves PE request]
+    C --> D[(Workspace identity<br/>can reach target)]
+
+    style A fill:#0078D4,color:#fff
+    style B fill:#0078D4,color:#fff
+    style C fill:#107C10,color:#fff
+    style D fill:#107C10,color:#fff
+```
+
+The remaining personas become **must-have at scale** (capacity sizing, IAM hygiene, compliance, FinOps), but are not on the critical path of the very first endpoint.
+
+---
+
 ## Pre-Deployment Checklist
 
 ```text
