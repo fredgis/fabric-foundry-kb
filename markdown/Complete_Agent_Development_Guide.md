@@ -471,7 +471,11 @@ That single command:
 
 ## 6. End-to-End Reference Architecture
 
-A drawio version of the same architecture — using Azure & Foundry icons — is available at `drawio/Foundry_Agent_Reference_Architecture.drawio`. The mermaid view below captures the same flow for in-document reading.
+The diagram below — built with Azure & Foundry icons in draw.io — captures the full reference architecture: channels, control plane (Foundry project, Toolbox, Memory), the hosted-agent runtime in a BYO VNet, governed data and tools, and the observability backbone. The editable source is at `drawio/Foundry_Agent_Reference_Architecture.drawio`.
+
+![End-to-end Foundry Agent reference architecture](../images/Foundry_Agent_Reference_Architecture.png){width=100%}
+
+The mermaid view below captures the same flow as a quick-reference for in-document reading.
 
 ```mermaid
 flowchart TB
