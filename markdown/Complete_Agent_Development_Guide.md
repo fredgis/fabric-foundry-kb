@@ -733,7 +733,9 @@ flowchart TB
 
 ## Industrialization with `azd` and CI/CD
 
-### Repository layout
+### Recommended project structure
+
+> This guide does **not** ship with a starter repository. The layout below is a recommended convention — adapt it to your existing engineering standards. There is no official Microsoft template enforced for Foundry agents.
 
 ```
 my-agent/
@@ -885,7 +887,7 @@ Prompt-based threats need prompt-aware defenses — RBAC and network isolation a
 |---|---|
 | **Direct prompt injection** | **Azure AI Content Safety – Prompt Shields** (jailbreak detection) enabled at the agent level — blocks user attempts to override system instructions |
 | **Indirect prompt injection** (poisoned doc / web page / tool output) | Prompt Shields **document-protection mode** scans tool responses and grounded content for injected instructions before they reach the model |
-| **Data exfiltration via tool calls** | Toolbox enforces **allow-listed tools per agent**; Purview DLP at the project boundary intercepts disallowed payloads |
+| **Data exfiltration via tool calls** | Toolbox enforces **allow-listed tools per agent**. **DLP must be designed and tested explicitly** — Foundry does **not** automatically intercept every tool payload. Combine: per-tool egress allowlists, Foundry Tools outbound URL controls, APIM policies on the front door, Purview DLP/labels where applicable, PII redaction. See the framing under §10 |
 | **Hallucination / ungrounded output** | **Groundedness evaluator** in CI/CD (§22); Content Safety **groundedness detection** at runtime can flag or block low-grounded responses |
 | **Excessive agency / unintended actions** | Mark high-impact tools as **`requires_approval: true`** in `agent.yaml` → forces human-in-the-loop confirmation through Foundry Approvals |
 | **Token abuse / cost-of-service** | Per-project token budget alerts (§11); per-agent rate limiting at API Management front-door |
@@ -1196,39 +1198,39 @@ A successful agent platform involves more roles than the agent developer alone. 
 
 ## Service Limits & Quotas
 
-These caps shape capacity planning and protect your tenant from runaway agents. Always check the latest figures in the official quotas page before sizing — Foundry is evolving fast and limits are raised regularly.
+The single source of truth is the official **[Foundry Agent Service quotas page](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/quotas-limits)**. The tables below separate **documented limits** (hard values from Microsoft docs) from **planning rules-of-thumb** (architectural assumptions you should validate for your workload). Do not treat the second table as a contract.
 
-| Dimension | Default ceiling (preview) | Notes / mitigation |
-|---|---|---|
-| Concurrent hosted-agent **sessions** per project | Soft quota — request increase via Azure support | Use isolation keys to namespace per-tenant traffic |
-| **Cold-start sandboxes** burst | Predictable but throttled per project | Pre-warm with a synthetic ping during business hours |
-| **Sandbox disk** per session | 10 GB persistent (subject to change) | Offload large artifacts to Blob / OneLake; keep only working set |
-| Inbound **request size** | 100 MB (file uploads via Files API) | Stream large files from a connected Storage account |
-| **Tool calls per turn** | Capped by model (e.g. 128 parallel tool calls on GPT-5) | Compose with Toolbox to avoid context bloat |
-| **Memory items** per scope | Soft cap, billed per 1K | Run a periodic `memory.delete` job for stale facts |
-| **Toolbox** tools per version | 30+ tools per toolbox supported | Split by domain (e.g., `crm-toolbox`, `ops-toolbox`) for least privilege |
-| **Throughput** to model deployment | Bound by PTU / TPM you provisioned on the Foundry deployment | See §17 for PTU vs PAYG sizing |
-
-> **Practical rule**: model-side TPM/RPM (provisioned on the Foundry model deployment) is almost always the first wall you hit — not the agent platform. Provision a PTU pool for predictable workloads and front it with APIM (see Foundry_Agent_Monitoring_APIM guide).
-
-### Concrete defaults to plan around (preview, double-check before prod)
-
-These are the values most often hit in practice. Verify on the official **[Foundry Agent Service quotas page](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/quotas-limits)** before sizing for production — Foundry is evolving fast and limits are raised regularly.
+### Documented limits (verify on the quotas page)
 
 | Surface | Documented default | Notes |
 |---|---|---|
 | **Files** attached per agent / per thread | **10,000** | Hard ceiling — chunk content or shard threads beyond this |
 | **File size** per upload (Files API) | **512 MB** per file | Use chunked upload above; offload to Blob/OneLake for very large artefacts |
 | **Total uploaded files** per project | **300 GB** | Aggregate across all agents/threads in the project |
-| **Vector store** (Foundry-managed `file_search`) | preview limit, see quotas page | Use Azure AI Search for larger / VNet-isolated indexes |
 | **Messages** per thread | **100,000** | Past ~100 turns, plan context compaction (§3.3) |
 | **Tools** attached per agent declaration | **128 tools** | Matches model parallel-tool-call ceiling |
-| **Toolbox** size | 30+ tools per Toolbox | Split by domain for least-privilege |
 | **Memory scopes** per memory store | **100** | Hard cap; design scope strategy accordingly |
 | **Memories** per scope | **10,000** | Run a periodic `memory.delete` job for stale facts |
 | **Sandbox idle** before scale-to-zero | **15 minutes** | After this, the next call pays cold-start latency |
 | **Sandbox session** max wall-clock | **up to 30 days** | Long-running sessions persist `$HOME` and `/files` |
 | **Throughput** rate-limit responses | **HTTP 429** with `Retry-After` header | Implement exponential backoff with jitter |
+
+### Planning rules-of-thumb (architectural assumptions, not contractual)
+
+These are sizing heuristics drawn from preview behavior and field experience. **Confirm against your tenant's actual quota grants and the live quotas page before committing to a production design.**
+
+| Dimension | Rule-of-thumb | Notes / mitigation |
+|---|---|---|
+| Concurrent hosted-agent **sessions** per project | Soft quota — request increase via Azure support | Use isolation keys to namespace per-tenant traffic |
+| **Cold-start sandboxes** burst | Predictable but throttled per project | Pre-warm with a synthetic ping during business hours |
+| **Sandbox disk** per session | ~10 GB persistent (subject to change) | Offload large artifacts to Blob / OneLake; keep only working set |
+| Inbound **request size** (Files API) | ~100 MB practical for synchronous uploads | Stream large files from a connected Storage account |
+| **Tool calls per turn** | Capped by model (e.g. up to 128 parallel calls on GPT-5-class models) | Compose with Toolbox to avoid context bloat |
+| **Vector store** (Foundry-managed `file_search`) | preview limit, see quotas page | Use Azure AI Search for larger / VNet-isolated indexes |
+| **Toolbox** size | 30+ tools per Toolbox observed in preview | Split by domain (e.g., `crm-toolbox`, `ops-toolbox`) for least privilege |
+| **Throughput** to model deployment | Bound by PTU / TPM you provisioned on the Foundry deployment | See §17 for PTU vs PAYG sizing |
+
+> **Practical rule**: model-side TPM/RPM (provisioned on the Foundry model deployment) is almost always the first wall you hit — not the agent platform. Provision a PTU pool for predictable workloads and front it with APIM (see Foundry_Agent_Monitoring_APIM guide).
 
 ### Quota-increase workflow
 
