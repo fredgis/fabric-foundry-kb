@@ -21,6 +21,22 @@ Microsoft Foundry now offers an end-to-end story for that journey, structured ar
 
 This guide walks through the full industrialization pipeline, with code samples, an end-to-end reference architecture, governance and FinOps controls, and a production checklist.
 
+> ### ⚠️ Preview vs GA — read this before committing
+>
+> Microsoft Foundry's agent stack is in **rapid iteration in 2026**. Several capabilities used in this guide are **public preview** and **must not be used to back external production SLAs** until they reach GA:
+>
+> | Capability | Status today | Implication |
+> |---|---|---|
+> | Microsoft Agent Framework v1.0 (SDK) | **GA** | Safe for production code |
+> | Foundry Toolkit for VS Code | **GA** | Safe for inner-loop tooling |
+> | Foundry Agent Service control plane | **GA** | 99.9 % SLA |
+> | Hosted Agents compute (per-session sandbox) | **Public preview** | No SLA; pricing & quotas can change |
+> | Foundry Toolbox | **Public preview** | No SLA; tool catalogue evolving |
+> | Foundry Memory | **Public preview** | No SLA; **billing scheduled to begin June 1, 2026** — verify before production go-live |
+> | AI Red Teaming Agent | **Public preview** | No SLA |
+>
+> All preview prices, quotas and feature lists in this guide are **planning assumptions**. Always cross-check the live Microsoft Learn page before a commercial commitment — links are in §26 References.
+
 ---
 
 ## The Industrialization Journey at a Glance
@@ -731,20 +747,33 @@ flowchart LR
 ### One-command developer flow
 
 ```bash
-# Bootstrap + deploy a fresh agent
+# Bootstrap a fresh agent project from a template
 azd init --template foundry-hosted-agent-quickstart
+
+# Deploy infrastructure + container in one go
 azd up
 
-# Iterate
+# Iterate: rebuild + push + create new agent version
 git commit -am "improve triage prompt"
-azd deploy             # builds, pushes, creates new version
+azd deploy
 
-# Canary
-azd agent rollout --canary 10
+# Inspect the deployed agent
+azd ai agent show
 
-# Promote
-azd agent promote --version v4
+# Invoke a quick smoke test
+azd ai agent invoke --message "ping"
+
+# Run an evaluation suite
+azd ai agent run --evaluate ./evals/triage.yaml
+
+# Tail traces / metrics
+azd ai agent monitor
+
+# Tear it all down
+azd down
 ```
+
+> **Canary / weighted rollout** is configured in `agent.yaml` (see §24 Lifecycle Management — the platform applies the weights, there is no dedicated `azd agent rollout` sub-command today). Promoting a canary to 100 % is a config change re-deployed via `azd deploy`.
 
 ---
 
@@ -762,17 +791,22 @@ Treat a hosted agent as **production application code**.
 | Agent → Toolbox | Bearer token via Entra; toolbox forwards via OAuth passthrough or its own MI |
 | Tool → external SaaS | OAuth identity passthrough configured **once** in Toolbox |
 
-### Network isolation
+### Network isolation — what's in, what's still public
 
-- **BYO VNet** — outbound agent traffic flows through your VNet, enabling Private Endpoints to data sources
-- **Private Link** to Foundry, ACR, Key Vault, Storage, Cosmos
-- No public egress required for data-plane calls
+- **BYO VNet** — for the hosted agent runtime, **outbound agent traffic can flow through your VNet** (preview), enabling Private Endpoints to your data sources
+- **Private Link** is supported toward Foundry, ACR, Key Vault, Storage and Cosmos (when those resources are configured with PE)
+- **Caveats — not everything is private today:**
+  - **Foundry-managed `file_search`** (vector index served by Foundry) does **not yet** support BYO VNet — if you need full network isolation for retrieval, use **Azure AI Search with Private Endpoint** instead, exposed through the Toolbox
+  - **`web_search` / `bing_grounding`** intentionally calls a **public endpoint** (Bing) — there is no "private web". Allow-list domains and rely on egress logging
+  - **Logic Apps connectors and many SaaS MCP servers** are public SaaS endpoints by design — apply DLP and JIT tokens, not network isolation
+  - **Code Interpreter and File Search via Toolbox** in hosted agents have specific multi-tenant isolation considerations — review the official docs before shipping a multi-tenant SaaS
 
-### Content safety & DLP
+### Content safety & DLP — what is built in vs what you must configure
 
-- **Azure AI Content Safety** policies applied at the agent level (Prompt Shield, jailbreak detection, harmful content filtering)
-- **DLP policies** centrally applied in Foundry Control Plane
-- **Responsible AI guardrails** (system metaprompts, content filters, abuse monitoring) enforced platform-wide
+- **Built-in (project-level)** — **Azure AI Content Safety** with **Prompt Shields** (direct + indirect prompt injection), jailbreak detection, harmful-content categories, groundedness detection, **Responsible AI** abuse monitoring
+- **Configurable** — content-filter strictness per category, custom blocklists, region selection, allowed/blocked domains for `web_search`
+- **Not automatic** — **Microsoft Purview / DLP** integration is a *connect-and-configure* exercise, not a default. Plan an explicit project task to wire Purview labels, DLP policies and audit log routing to your central SIEM
+- **Defense in depth** — never rely on a single layer. Combine prompt-side (Prompt Shields), tool-side (allow-listed and approval-gated tools), data-side (RBAC + Purview labels) and network-side (Private Endpoint + DLP) controls
 
 ### Secrets
 
@@ -898,6 +932,23 @@ Hosted Agents cost economics are fundamentally different from traditional comput
 
 ## Decision Matrix — Hosted Agent vs Prompt-Based Agent
 
+### When *not* to build an agent at all
+
+The first decision is whether you actually need an agent. **Agents add latency, cost and surface area** — pick a simpler primitive when you can.
+
+| Symptom | Better than an agent | Why |
+|---|---|---|
+| Stateless transformation, deterministic input/output | A plain **Azure Function** or **REST API** | No LLM-at-runtime cost, deterministic SLO, easier to test |
+| Multi-step process with **fixed branches** | A **Logic App / Durable Function workflow** | Deterministic, retries built in, much lower cost |
+| Pure RAG ("answer from these docs") | A **classic RAG endpoint** (AI Search + a model call) | An "agent" wrapper adds cost without changing the answer |
+| Scheduled / batch job | A **Function timer + queue** | Hosted agents are interactive sandboxes; not ideal for cron |
+| Process that must be **fully auditable per step** | A **workflow agent** (declarative steps), not a free-roaming hosted agent | Each step is observable and policy-checked |
+| Use case requiring legally-binding decisions | A **human-in-the-loop tool** with the LLM as advisor | Liability and compliance constraints |
+
+**Choose an agent when** you need autonomous tool selection across an open task space, multi-turn dialogue with state, dynamic tool composition, or natural-language UX.
+
+### Hosted Agent vs Prompt-Based Agent
+
 | You need to… | Choose | Why |
 |---|---|---|
 | Define an agent in prompts + tool config only | **Prompt-based agent** | No-code, stays in the portal |
@@ -988,7 +1039,7 @@ Use **Azure Chaos Studio** to inject faults in dependent services (model regiona
 - [ ] Continuous evaluation suite gating promotions
 - [ ] Red Teaming Agent gating promotions
 - [ ] Cost alerts at 80% / 100% of monthly budget per project
-- [ ] Runbook for rollback (`azd agent rollout --version <prev>`)
+- [ ] Runbook for rollback (re-deploy with the previous `agent.yaml` weights via `azd deploy`)
 
 ### Distribution
 
@@ -1036,18 +1087,22 @@ These caps shape capacity planning and protect your tenant from runaway agents. 
 
 ### Concrete defaults to plan around (preview, double-check before prod)
 
-| Surface | Default value to plan against |
-|---|---|
-| **Files attached** to a single agent (Files API) | up to **10,000** files per agent |
-| **File size** per upload | **512 MB** per file (chunked upload required above) |
-| **Vector store** size per index (Foundry-managed `file_search`) | **10 GB** active; archive older content to AI Search |
-| **Messages** per thread before context compaction recommended | **~100 turns** (depends on model context window) |
-| **Tools attached** per agent declaration | **128 tools** (matches model parallel-tool-call ceiling) |
-| **Toolbox** size | **30+ tools** per Toolbox; split by domain |
-| **Memory items** per scope | thousands; soft-capped, billed per 1K |
-| **Sandbox idle** before scale-to-zero | **15 minutes** of no activity |
-| **Sandbox max wall-clock** per session | hours (per session); long-running jobs → externalize to Durable Functions |
-| **Throughput** rate-limit responses | **HTTP 429** with `Retry-After` header — implement exponential backoff with jitter |
+These are the values most often hit in practice. Verify on the official **[Foundry Agent Service quotas page](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/quotas-limits)** before sizing for production — Foundry is evolving fast and limits are raised regularly.
+
+| Surface | Documented default | Notes |
+|---|---|---|
+| **Files** attached per agent / per thread | **10,000** | Hard ceiling — chunk content or shard threads beyond this |
+| **File size** per upload (Files API) | **512 MB** per file | Use chunked upload above; offload to Blob/OneLake for very large artefacts |
+| **Total uploaded files** per project | **300 GB** | Aggregate across all agents/threads in the project |
+| **Vector store** (Foundry-managed `file_search`) | preview limit, see quotas page | Use Azure AI Search for larger / VNet-isolated indexes |
+| **Messages** per thread | **100,000** | Past ~100 turns, plan context compaction (§3.3) |
+| **Tools** attached per agent declaration | **128 tools** | Matches model parallel-tool-call ceiling |
+| **Toolbox** size | 30+ tools per Toolbox | Split by domain for least-privilege |
+| **Memory scopes** per memory store | **100** | Hard cap; design scope strategy accordingly |
+| **Memories** per scope | **10,000** | Run a periodic `memory.delete` job for stale facts |
+| **Sandbox idle** before scale-to-zero | **15 minutes** | After this, the next call pays cold-start latency |
+| **Sandbox session** max wall-clock | **up to 30 days** | Long-running sessions persist `$HOME` and `/files` |
+| **Throughput** rate-limit responses | **HTTP 429** with `Retry-After` header | Implement exponential backoff with jitter |
 
 ### Quota-increase workflow
 
@@ -1064,9 +1119,9 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 
 ### Region selection checklist
 
-- **Hosted Agents (preview)** — initial regions are a subset of Foundry regions (East US 2, Sweden Central, West US 3 typically light up first). Verify with `az cognitiveservices account list-skus` and the [Foundry region availability page](https://learn.microsoft.com/azure/ai-foundry/reference/region-support).
-- **Models** — not every model is in every region. GPT-5 family and o-series often launch in East US 2 / Sweden Central before others.
-- **Data residency** — choose an EU region (e.g., Sweden Central, France Central, West Europe) when EU Data Boundary is required.
+- **Hosted Agents (preview)** — initial regions are a subset of Foundry regions (East US 2, Sweden Central, West US 3 typically light up first). **Availability changes per feature, per model and per region — always verify on the [Foundry region availability page](https://learn.microsoft.com/azure/ai-foundry/reference/region-support) before committing to a region.**
+- **Models** — not every model is in every region. GPT-5 family and o-series often launch in East US 2 / Sweden Central before others. Cross-check the [Azure OpenAI models matrix](https://learn.microsoft.com/azure/ai-services/openai/concepts/models).
+- **Data residency** — choose an EU region (e.g., Sweden Central, France Central, West Europe) when EU Data Boundary is required. EU Data Boundary scope and exceptions are documented separately — read it.
 - **Multi-region HA pattern** — deploy two Foundry projects in paired regions (e.g., West Europe + Sweden Central), front with APIM Premium multi-region, and replicate Memory + Toolbox config via IaC. Failover is *active-passive* today; active-active for stateful agents is on the roadmap.
 
 ### SLA reference (preview vs GA)
@@ -1087,19 +1142,23 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 
 Section 10 covered the FinOps levers; this section gives the per-unit numbers so you can build a credible cost model. **Always re-validate against the [Azure pricing page](https://azure.microsoft.com/pricing/details/ai-foundry/)** — preview pricing changes.
 
-### Hosted Agent compute (preview pricing)
+### Hosted Agent compute (preview pricing — verify on the live page)
 
-| Resource | Unit | Approx. preview price | Comment |
+These are the public preview prices announced by Microsoft. **They are not GA prices and Microsoft can change them — always re-check the [Azure AI Foundry pricing page](https://azure.microsoft.com/pricing/details/ai-foundry/) before committing a budget.**
+
+| Resource | Unit | Public preview price | Comment |
 |---|---|---|---|
-| Sandbox **vCPU** | per vCPU·hour active | ~$0.04 | Billed only while session is active (scale-to-zero) |
-| Sandbox **memory** | per GiB·hour active | ~$0.005 | |
-| Sandbox **storage** (persisted disk) | per GB·month | ~$0.10 | Even when scaled to zero |
+| Sandbox **vCPU** | per vCPU·hour active | **$0.0994** | Billed only while session is active (scale-to-zero) |
+| Sandbox **memory** | per GiB·hour active | **$0.0118** | Active session only |
+| Sandbox **storage** (persisted disk) | per GB·month | check pricing page | Even when scaled to zero |
 | **Cold-start** | included | $0 | No extra fee for the warm-up |
 | **Egress via BYO VNet** | standard Azure egress | varies | Same as any VNet-bound workload |
 
-### Memory (billing starts **June 1, 2026**)
+### Memory pricing — preview, billing scheduled to start June 1, 2026
 
-| Item | Price |
+> ⚠️ Microsoft Memory is in **public preview**. Pricing structure and effective billing date can change before GA. Treat all numbers below as planning assumptions, not commitments.
+
+| Item | Announced preview price |
 |---|---|
 | Short-term memory | $0.25 per 1K events stored |
 | Long-term memory | $0.25 per 1K memories per month |
@@ -1111,12 +1170,13 @@ Assumptions: 200 sessions/day, avg 3 minutes active, 0.5 vCPU + 1 GiB, 50K token
 
 | Cost line | Daily | Monthly |
 |---|---|---|
-| Compute (200 × 3 min × 0.5 vCPU × $0.04) | $0.20 | ~$6 |
+| Compute vCPU (200 × 3 min × 0.5 vCPU × $0.0994) | ~$0.50 | ~$15 |
+| Compute memory (200 × 3 min × 1 GiB × $0.0118) | ~$0.12 | ~$3.50 |
 | Memory + storage | negligible | ~$5 |
 | Model tokens (GPT-5 PAYG, 50K × 200) | ~$60 | ~$1,800 |
-| **Total** | **~$60** | **~$1,810** |
+| **Total** | **~$61** | **~$1,825** |
 
-> **The model dominates.** Switching the chat path to a PTU pool, or routing simple intents to a smaller model via APIM, has 100× more impact than tuning sandbox compute.
+> **The model still dominates.** Even with the corrected (higher) compute prices, sandbox CPU + RAM is < 2 % of TCO. Switching the chat path to a PTU pool, or routing simple intents to a smaller model via APIM, has roughly 100× more impact than tuning sandbox compute.
 
 ---
 
@@ -1371,7 +1431,7 @@ Retiring an agent is a documented event, not a delete-and-forget:
 
 ## Agent 365 & Enterprise Control Plane
 
-Once you have **more than three agents** in production — or any agent that crosses department boundaries — the per-agent operational model breaks down. **Agent 365** is Microsoft's enterprise-wide control plane for the agent estate, layered on top of Foundry projects.
+> **When to think about Agent 365**: not on day one. A single agent can ship through Foundry alone. Once you operate **a fleet** — multiple business units, multiple Foundry projects, mixed Copilot Studio + custom agents — the per-project model gets noisy and you need a portfolio control plane. **Agent 365** is Microsoft's emerging admin layer for that case; it is *not* a mandatory dependency for building one or two agents.
 
 ### What Agent 365 provides
 
