@@ -49,7 +49,7 @@ Each step is **independent and reversible** — you can adopt them in any order 
 
 ---
 
-## 1. Foundry Platform & Agent Types Decoded
+## Foundry Platform & Agent Types Decoded
 
 Before the deep-dives, anchor the mental model: **Microsoft Foundry is a single project-scoped workspace** that unifies models, tools, agents, knowledge, identity, and observability behind one RBAC plane. An agent is never a stand-alone artifact — it always lives inside a Foundry **project**, inherits the project's connections (model deployments, Azure AI Search indexes, Storage, Key Vault), and is governed by the project's RBAC and policies.
 
@@ -63,7 +63,7 @@ Foundry exposes **three agent flavours** with different authoring surfaces, runt
 | **Workflow agent** (multi-step) | Foundry portal designer or MAF `Workflow` (declarative or programmatic) | Foundry-managed serverless with deterministic step graph | Multi-step orchestrations with conditional branches, parallel fan-out, hand-offs; observable per step |
 | **Hosted Agent** (BYO container) | `Dockerfile` + `agent.yaml` (`azd deploy`) | **Per-session VM-isolated sandbox**, scale-to-zero, persistent FS | Custom code, custom harness (MAF / LangGraph / Copilot SDK / your own), need shell + filesystem, BYO VNet |
 
-> The §11 (now §12) Decision Matrix expands this with concrete capability comparisons.
+> §12 Decision Matrix expands this with concrete capability comparisons.
 
 ```mermaid
 flowchart TB
@@ -129,7 +129,7 @@ Inside one Foundry project, **the platform itself supplies**:
 
 ---
 
-## 2. Build Locally with Microsoft Agent Framework v1.0
+## Build Locally with Microsoft Agent Framework v1.0
 
 ### What's stable in v1.0
 
@@ -192,7 +192,7 @@ The constant across all paths is the **Foundry project + agent.yaml + Entra Agen
 
 ---
 
-## 3. Agent Harness — Shell, Files, and Long Sessions
+## Agent Harness — Shell, Files, and Long Sessions
 
 Orchestrating *multiple* agents is half the picture; the other half is what one agent does autonomously over a long task: run shell commands, read/write files, manage context across hours of work without losing coherence. MAF ships three foundational harness patterns.
 
@@ -253,7 +253,7 @@ MAF acts as the **orchestration backbone** while delegating heavy code-related w
 
 ---
 
-## 4. Make Agents Stateful — Memory in Foundry
+## Make Agents Stateful — Memory in Foundry
 
 Production agents need to remember user preferences, prior context, and domain facts across sessions — without forcing every team to provision their own database.
 
@@ -305,7 +305,7 @@ Memory is **free during preview** before billing begins.
 
 ---
 
-## 5. Toolbox in Foundry — One Endpoint, Any Agent
+## Toolbox in Foundry — One Endpoint, Any Agent
 
 ### The problem Toolbox solves
 
@@ -433,7 +433,7 @@ client.beta.toolboxes.update(
 
 ---
 
-## 6. Hosted Agents in Foundry Agent Service
+## Hosted Agents in Foundry Agent Service
 
 This is the production runtime. The 2026 refresh is **fundamentally different** from the original Ignite preview — it now provides **per-session VM-isolated sandboxes**, **persistent filesystem**, **scale-to-zero with state resume**, and **dedicated Entra Agent IDs** out of the box.
 
@@ -565,7 +565,7 @@ That single command:
 
 ---
 
-## 7. End-to-End Reference Architecture
+## End-to-End Reference Architecture
 
 The diagram below — built with Azure & Foundry icons in draw.io — captures the full reference architecture: channels, control plane (Foundry project, Toolbox, Memory), the hosted-agent runtime in a BYO VNet, governed data and tools, and the observability backbone. The editable source is at `drawio/Foundry_Agent_Reference_Architecture.drawio`.
 
@@ -665,7 +665,7 @@ flowchart TB
 
 ---
 
-## 8. Industrialization with `azd` and CI/CD
+## Industrialization with `azd` and CI/CD
 
 ### Repository layout
 
@@ -748,7 +748,7 @@ azd agent promote --version v4
 
 ---
 
-## 9. Security & Governance
+## Security & Governance
 
 Treat a hosted agent as **production application code**.
 
@@ -822,7 +822,7 @@ AppTraces
 
 ---
 
-## 10. Observability & Operations
+## Observability & Operations
 
 Observability is GA on core capabilities and is built around **OpenTelemetry**.
 
@@ -865,7 +865,7 @@ flowchart LR
 
 ---
 
-## 11. Cost & FinOps
+## Cost & FinOps
 
 Hosted Agents cost economics are fundamentally different from traditional compute, **largely in your favor**.
 
@@ -896,7 +896,7 @@ Hosted Agents cost economics are fundamentally different from traditional comput
 
 ---
 
-## 12. Decision Matrix — Hosted Agent vs Prompt-Based Agent
+## Decision Matrix — Hosted Agent vs Prompt-Based Agent
 
 | You need to… | Choose | Why |
 |---|---|---|
@@ -910,7 +910,7 @@ Hosted Agents cost economics are fundamentally different from traditional comput
 
 ---
 
-## 13. Test & Simulation
+## Test & Simulation
 
 Before promoting a new version, exercise the rough paths.
 
@@ -952,7 +952,7 @@ Use **Azure Chaos Studio** to inject faults in dependent services (model regiona
 
 ---
 
-## 14. Production Readiness Checklist
+## Production Readiness Checklist
 
 ### Architecture
 
@@ -997,7 +997,7 @@ Use **Azure Chaos Studio** to inject faults in dependent services (model regiona
 
 ---
 
-## 15. Required Personas for Industrialization
+## Required Personas for Industrialization
 
 A successful agent platform involves more roles than the agent developer alone. The following RACI shows the minimum set.
 
@@ -1017,7 +1017,7 @@ A successful agent platform involves more roles than the agent developer alone. 
 
 ---
 
-## 16. Service Limits & Quotas
+## Service Limits & Quotas
 
 These caps shape capacity planning and protect your tenant from runaway agents. Always check the latest figures in the official quotas page before sizing — Foundry is evolving fast and limits are raised regularly.
 
@@ -1058,7 +1058,7 @@ These caps shape capacity planning and protect your tenant from runaway agents. 
 
 ---
 
-## 17. Regional Availability & SLA
+## Regional Availability & SLA
 
 Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foundry project** and your **model deployments** to the same region to avoid cross-region egress, then plan multi-region for HA.
 
@@ -1083,7 +1083,7 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 
 ---
 
-## 18. Hosted Agent Execution Pricing Detail
+## Hosted Agent Execution Pricing Detail
 
 Section 10 covered the FinOps levers; this section gives the per-unit numbers so you can build a credible cost model. **Always re-validate against the [Azure pricing page](https://azure.microsoft.com/pricing/details/ai-foundry/)** — preview pricing changes.
 
@@ -1120,7 +1120,7 @@ Assumptions: 200 sessions/day, avg 3 minutes active, 0.5 vCPU + 1 GiB, 50K token
 
 ---
 
-## 19. Fine-Tuning & Custom Models
+## Fine-Tuning & Custom Models
 
 Industrialization isn't only about wiring agents — sometimes the right move is to specialize a model.
 
@@ -1146,7 +1146,7 @@ Industrialization isn't only about wiring agents — sometimes the right move is
 
 ---
 
-## 20. Enterprise Context — Work IQ, Fabric IQ, Foundry IQ
+## Enterprise Context — Work IQ, Fabric IQ, Foundry IQ
 
 The reference architecture (§6) shows three context layers. Here's how an agent actually reaches them.
 
@@ -1189,7 +1189,7 @@ A "morning briefing" agent typically (1) retrieves curated playbooks from **Foun
 
 ---
 
-## 21. Compliance, Data Residency & Sovereignty
+## Compliance, Data Residency & Sovereignty
 
 Production agents handle sensitive data — design for the regulatory perimeter from day one.
 
@@ -1208,7 +1208,7 @@ Production agents handle sensitive data — design for the regulatory perimeter 
 
 ---
 
-## 22. Advanced Quality Evaluation — Coherence, Groundedness, Hallucination
+## Advanced Quality Evaluation — Coherence, Groundedness, Hallucination
 
 Section 12 covered chaos and resilience tests. This section adds **semantic** evaluation — the only way to catch silent regressions in an LLM-driven system.
 
@@ -1257,7 +1257,7 @@ Curate 50–200 high-value traces per release from App Insights → label them i
 
 ---
 
-## 23. Migration Paths & .NET Parity
+## Migration Paths & .NET Parity
 
 ### From Semantic Kernel to MAF v1.0
 
@@ -1301,7 +1301,7 @@ Tooling: hosted-agent deployment via `azd` is identical for .NET projects (just 
 
 ---
 
-## 24. Lifecycle Management — Versioning, Rollback, Decommissioning
+## Lifecycle Management — Versioning, Rollback, Decommissioning
 
 A production agent is a **long-lived asset**, not a one-shot deployment. Foundry treats every promoted agent as a versioned resource — and so should you.
 
@@ -1369,7 +1369,7 @@ Retiring an agent is a documented event, not a delete-and-forget:
 
 ---
 
-## 25. Agent 365 & Enterprise Control Plane
+## Agent 365 & Enterprise Control Plane
 
 Once you have **more than three agents** in production — or any agent that crosses department boundaries — the per-agent operational model breaks down. **Agent 365** is Microsoft's enterprise-wide control plane for the agent estate, layered on top of Foundry projects.
 
