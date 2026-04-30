@@ -1,10 +1,10 @@
 ---
-title: "The Complete Agent Development Guide"
-subtitle: "Industrializing AI Agents on Microsoft Foundry"
+title: "The Microsoft Foundry Agent Development Guide"
+subtitle: "Industrializing AI Agents from Prototype to Production"
 date: "April 2026"
 ---
 
-# The Complete Agent Development Guide
+# The Microsoft Foundry Agent Development Guide
 
 *Industrializing AI agents on Microsoft Foundry — from local prototype to production-grade enterprise deployment.*
 
