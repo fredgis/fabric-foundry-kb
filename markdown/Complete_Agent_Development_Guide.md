@@ -16,7 +16,7 @@ Microsoft Foundry now offers an end-to-end story for that journey, structured ar
 | Foundry Toolkit for VS Code | **GA** | Local create / debug / deploy loop with traces |
 | Memory in Foundry Agent Service | **Public Preview** | Managed long-term memory, no DB to provision |
 | Toolbox in Foundry | **Public Preview** | One MCP endpoint exposing many tools, governed centrally |
-| Hosted Agents in Foundry Agent Service (refresh) | **Public Preview** | Per-session VM-isolated sandbox, scale-to-zero, persistent FS, per-agent Entra ID |
+| Hosted Agents in Foundry Agent Service (refresh) | **GA** (March 2026) | Per-session VM-isolated sandbox, scale-to-zero, persistent FS, per-agent Entra ID. Some sub-features (e.g. parts of the Workflow builder, advanced tracing) remain Preview |
 | Observability in Foundry Control Plane | **Core capabilities GA, advanced features still rolling out** | End-to-end OpenTelemetry tracing and continuous evaluation are GA; Red Teaming Agent and some advanced eval flows remain Public Preview |
 
 This guide walks through the full industrialization pipeline, with code samples, an end-to-end reference architecture, governance and FinOps controls, and a production checklist.
@@ -30,7 +30,7 @@ This guide walks through the full industrialization pipeline, with code samples,
 > | Microsoft Agent Framework v1.0 (SDK) | **GA** | Safe for production code |
 > | Foundry Toolkit for VS Code | **GA** | Safe for inner-loop tooling |
 > | Foundry Agent Service control plane | **GA** | Subject to a Microsoft SLA — verify the exact figure in the [Azure SLA / Product Terms](https://www.microsoft.com/licensing/docs/view/Service-Level-Agreements-SLA-for-Online-Services) before quoting it externally |
-> | Hosted Agents compute (per-session sandbox) | **Public preview** | No SLA; pricing & quotas can change |
+> | Hosted Agents compute (per-session sandbox) | **GA** (March 2026) | Covered by the Foundry Agent Service SLA at GA. Some sub-features remain Preview — verify per feature |
 > | Foundry Toolbox | **Public preview** | No SLA; tool catalogue evolving |
 > | Foundry Memory | **Public preview** | No SLA; **billing scheduled to begin June 1, 2026** — verify before production go-live |
 > | AI Red Teaming Agent | **Public preview** | No SLA |
@@ -499,7 +499,7 @@ Most agent failures come from **under-specified tools**, not the model. Before e
 
 ## Hosted Agents in Foundry Agent Service
 
-> **Status:** Public Preview · **Production readiness:** Use with caution — no SLA, pricing and quotas can change. Solid for pilots and internal workloads; pin a GA cutover date for any externally-committed SLO.
+> **Status:** **GA** (announced March 16, 2026 at GTC) · **Production readiness:** Recommended for production workloads under the Foundry Agent Service SLA. Some sub-features (parts of the Workflow builder, certain advanced tracing capabilities) remain Public Preview — verify per feature before relying on it for compliance evidence.
 
 This is the production runtime. The 2026 refresh is **fundamentally different** from the original Ignite preview — it now provides **per-session VM-isolated sandboxes**, **persistent filesystem**, **scale-to-zero with state resume**, and **dedicated Entra Agent IDs** out of the box.
 
@@ -863,7 +863,7 @@ Treat a hosted agent as **production application code**.
 - **Private Link** is supported toward Foundry, ACR, Key Vault, Storage and Cosmos (when those resources are configured with PE)
 - **Caveats — not everything is private today:**
   - **Foundry-managed `file_search`** (vector index served by Foundry) does **not yet** support BYO VNet — if you need full network isolation for retrieval, use **Azure AI Search with Private Endpoint** instead, exposed through the Toolbox
-  - **`web_search` / `bing_grounding`** intentionally calls a **public endpoint** (Bing) — there is no "private web". Allow-list domains and rely on egress logging
+  - **`web_search` / `bing_grounding`** intentionally calls a **public endpoint** (Bing) — there is no "private web". Allow-list domains, force outbound traffic through your Azure Firewall (or NVA), and **monitor the Bing FQDN at the firewall** so every query is logged and inspectable. Combine with Content Safety + URL allow/block lists in Foundry
   - **Logic Apps connectors and many SaaS MCP servers** are public SaaS endpoints by design — apply DLP and JIT tokens, not network isolation
   - **Code Interpreter and File Search via Toolbox** in hosted agents have specific multi-tenant isolation considerations — review the official docs before shipping a multi-tenant SaaS
 
@@ -1263,7 +1263,7 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 | Capability | Status (today) | SLA |
 |---|---|---|
 | Foundry Agent Service control plane | GA | Covered by a Microsoft SLA — **verify the current figure in the [Azure SLA / Product Terms](https://www.microsoft.com/licensing/docs/view/Service-Level-Agreements-SLA-for-Online-Services)** before quoting any number externally |
-| Hosted Agents compute | Public Preview | **No SLA during preview** — do not commit external production SLAs until GA |
+| Hosted Agents compute | **GA** (March 2026) | Covered by the Foundry Agent Service SLA at GA — verify the exact figure in the Azure SLA / Product Terms before quoting externally. Some sub-features (advanced workflow builder, certain tracing capabilities) remain Preview |
 | Toolbox | Public Preview | No SLA |
 | Memory | Public Preview | No SLA |
 | Microsoft Agent Framework v1.0 (SDK) | GA | N/A (client SDK) |
@@ -1316,6 +1316,17 @@ Assumptions: 200 sessions/day, avg 3 minutes active, 0.5 vCPU + 1 GiB, 50K token
 
 > **The model still dominates.** Even with the corrected (higher) compute prices, sandbox CPU + RAM is < 2 % of TCO. Switching the chat path to a PTU pool, or routing simple intents to a smaller model via APIM, has roughly 100× more impact than tuning sandbox compute.
 
+### PTU vs PAYG — the deployment-mode trade-off
+
+Hosted Agents scale to zero on the **runtime** side, but the **model deployment** behind them does not always behave the same way:
+
+| Mode | Behaviour | Best when |
+|---|---|---|
+| **PAYG** (Pay-as-you-go) | Per-token pricing; no idle charge on the model deployment itself | Spiky / unpredictable traffic, pilots, internal tools, scale-to-zero alignment with the agent runtime |
+| **PTU** (Provisioned Throughput Units) | **Hourly committed capacity**, billed even when agents are idle; predictable latency and throughput | Steady high-volume traffic, latency-critical user-facing flows, workloads with strict SLOs |
+
+> **FinOps consequence:** if you run a Hosted Agent that genuinely scales to zero overnight, a PAYG model deployment respects that pattern; a PTU pool keeps billing 24×7 regardless. Mix both — PTU for the predictable peak, PAYG (or APIM-fronted overflow) for the long tail — to get the lowest blended cost. Re-validate every quarter with Azure Cost Management.
+
 ---
 
 ## Fine-Tuning & Custom Models
@@ -1353,6 +1364,10 @@ The reference architecture (§6) shows three context layers. Here's how an agent
 Wire an Azure AI Search index as a Toolbox tool (already shown in §4). Agents query it transparently via the Toolbox MCP endpoint.
 
 ### Fabric IQ — business data via Microsoft Fabric
+
+> **April 2026 update:** Microsoft **Fabric Data Agent** and **OneLake MCP** are both **GA** (announced at FabCon 2026). You can now expose Lakehouses, KQL databases and semantic models to your Hosted Agents through a managed MCP endpoint without writing custom data-access code. Connect the OneLake MCP server to your Foundry Toolbox; Entra identity and Fabric workspace permissions flow through automatically.
+
+The legacy pattern below — wrapping Fabric items in a custom MCP server you host yourself — remains useful when you need to mix Fabric data with bespoke business logic, but is no longer the **only** way to give an agent access to OneLake.
 
 Expose Fabric items (semantic models, OneLake tables, KQL DBs) as MCP servers and add them to a toolbox. Use the OneLake / Fabric REST APIs behind the MCP server, with Entra **on-behalf-of** so the user's Fabric permissions are honored.
 
