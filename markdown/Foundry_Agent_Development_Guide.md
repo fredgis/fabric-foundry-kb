@@ -12,13 +12,19 @@ date: "April 2026"
 
 ## Overview
 
+> **What you will learn**
+>
+> - The six Foundry building blocks the rest of the guide builds on (MAF, Toolkit, Toolbox, Memory, Hosted Agents, Observability) and the GA / Preview status of each as of April 2026.
+> - Why this guide is positioned as a single entry point for industrialization rather than a per-feature reference.
+> - The disclaimer that frames every preview-marked claim in this guide.
+
 Building a working agent on a developer laptop is no longer the hard part. The hard part is taking that same agent and operating it for **thousands of users**, with **per-session isolation**, **enterprise identity**, **governed tools**, **persistent memory**, **observability**, and **scale-to-zero economics** — without rebuilding the platform every time.
 
-Microsoft Foundry now offers an end-to-end story for that journey, structured around five capabilities that landed (or stabilized) together:
+Microsoft Foundry now provides an end-to-end set of services for that journey, structured around six capabilities that landed (or stabilized) together:
 
 | Capability | Status | What it changes |
 |---|---|---|
-| Microsoft Agent Framework v1.0 | **GA** | Stable Python + .NET runtime that unifies Semantic Kernel & AutoGen |
+| Microsoft Agent Framework v1.0 | **GA** | Stable Python + .NET runtime that consolidates patterns from Semantic Kernel and AutoGen, with documented migration paths from each |
 | Foundry Toolkit for VS Code | **GA** | Local create / debug / deploy loop with traces |
 | Memory in Foundry Agent Service | **Public Preview** | Managed long-term memory, no DB to provision |
 | Toolbox in Foundry | **Public Preview** | One MCP endpoint exposing many tools, governed centrally |
@@ -41,11 +47,16 @@ This guide walks through the full industrialization pipeline, with code samples,
 > | Foundry Memory | **Public preview** | No SLA; **billing scheduled to begin June 1, 2026** — verify before production go-live |
 > | AI Red Teaming Agent | **Public preview** | No SLA |
 >
-> All preview prices, quotas and feature lists in this guide are **planning assumptions**. Always cross-check the live Microsoft Learn page before a commercial commitment — links are in §26 References.
+> All preview prices, quotas and feature lists in this guide are **planning assumptions**. Always cross-check the live Microsoft Learn page before a commercial commitment — links are in the References section.
 
 ---
 
 ## The Industrialization Journey at a Glance
+
+> **What you will learn**
+>
+> - The five-step path from a local prototype to a hosted, channel-published agent.
+> - Which artifact (image + `agent.yaml`) ties the steps together so each step stays reversible.
 
 ```mermaid
 flowchart LR
@@ -73,6 +84,12 @@ Each step is **independent and reversible** — you can adopt them in any order 
 
 ## Foundry Platform & Agent Types Decoded
 
+> **What you will learn**
+>
+> - The three agent flavours (Prompt-based, Workflow, Hosted Agent) and where each one fits.
+> - What a Foundry project gives you out of the box (RBAC, connections, tracing, evaluations).
+> - The three external connector surfaces — Foundry IQ, Logic Apps, MCP server catalog — and why any agent type can use any of them.
+
 Before the deep-dives, anchor the mental model: **Microsoft Foundry is a single project-scoped workspace** that unifies models, tools, agents, knowledge, identity, and observability behind one RBAC plane. An agent is never a stand-alone artifact — it always lives inside a Foundry **project**, inherits the project's connections (model deployments, Azure AI Search indexes, Storage, Key Vault), and is governed by the project's RBAC and policies.
 
 ### The three agent types — pick one consciously
@@ -85,7 +102,7 @@ Foundry exposes **three agent flavours** with different authoring surfaces, runt
 | **Workflow agent** (multi-step) | Foundry portal designer or MAF `Workflow` (declarative or programmatic) | Foundry-managed serverless with deterministic step graph | Multi-step orchestrations with conditional branches, parallel fan-out, hand-offs; observable per step |
 | **Hosted Agent** (BYO container) | `Dockerfile` + `agent.yaml` (`azd deploy`) | **Per-session VM-isolated sandbox**, scale-to-zero, persistent FS | Custom code, custom harness (MAF / LangGraph / Copilot SDK / your own), need shell + filesystem, BYO VNet |
 
-> §12 Decision Matrix expands this with concrete capability comparisons.
+> §14 Decision Matrix expands this with concrete capability comparisons.
 
 ```mermaid
 flowchart TB
@@ -99,12 +116,17 @@ flowchart TB
     A2[Workflow agent<br/>multi-step]:::agent
     A3[Hosted Agent<br/>BYO container]:::agent
     M[Models<br/>Azure OpenAI · Anthropic · Llama · Mistral · …]:::plat
-    FIQ[Foundry IQ<br/>File Search · AI Search · Web]:::data
-    BIQ[Fabric IQ<br/>OneLake · Semantic models]:::data
-    WIQ[Work IQ<br/>M365 Graph]:::data
-    LA[Logic Apps Connectors<br/>1400+ SaaS &amp; LOB]:::tool
-    MCP[MCP Server Catalog<br/>GitHub · Atlassian · ServiceNow · …]:::tool
-    OAP[OpenAPI / Functions]:::tool
+
+    subgraph IQ["Knowledge / IQ surfaces (any agent type can use any)"]
+        FIQ[Foundry IQ<br/>File Search · AI Search · Web]:::data
+        BIQ[Fabric IQ<br/>OneLake · Semantic models]:::data
+        WIQ[Work IQ<br/>M365 Graph]:::data
+    end
+    subgraph CONN["Tool surfaces (any agent type can use any)"]
+        LA[Logic Apps Connectors<br/>1400+ SaaS &amp; LOB]:::tool
+        MCP[MCP Server Catalog<br/>GitHub · Atlassian · ServiceNow · …]:::tool
+        OAP[OpenAPI / Functions]:::tool
+    end
     OBS[Observability<br/>Tracing · Eval · Red Team]:::plat
     SEC[Security<br/>Entra · Content Safety · Purview]:::plat
 
@@ -114,19 +136,19 @@ flowchart TB
     A1 --> M
     A2 --> M
     A3 --> M
-    A1 -.-> FIQ
-    A2 -.-> BIQ
-    A3 -.-> WIQ
-    A1 -.-> LA
-    A2 -.-> MCP
-    A3 -.-> OAP
+    A1 -.-> IQ
+    A2 -.-> IQ
+    A3 -.-> IQ
+    A1 -.-> CONN
+    A2 -.-> CONN
+    A3 -.-> CONN
     P --> OBS
     P --> SEC
 ```
 
 ### The tool & knowledge ecosystem
 
-A Foundry agent reaches outside through **three connector surfaces**, all callable directly or — recommended — through a Toolbox (§5) for reuse and governance:
+A Foundry agent reaches outside through **three connector surfaces**, all callable directly or — recommended — through a Toolbox (§7) for reuse and governance:
 
 - **Foundry IQ** — built-in retrieval primitives: `file_search` (Foundry-managed vector index), `azure_ai_search` (your existing index), `web_search` (Bing-grounded with custom domains).
 - **Logic Apps connectors** — **1,400+** Microsoft-curated SaaS & LOB connectors (Salesforce, SAP, ServiceNow, Workday, Dynamics, Office 365, GitHub, Jira, Confluence, …) exposed natively to agents with no custom code.
@@ -152,6 +174,12 @@ Inside one Foundry project, **the platform itself supplies**:
 ---
 
 ## Build Locally with Microsoft Agent Framework v1.0
+
+> **What you will learn**
+>
+> - What is GA in MAF v1.0 and the documented migration paths from Semantic Kernel and AutoGen.
+> - The minimum Python sample to instantiate an agent, plus the .NET equivalent.
+> - Which authoring runtimes (MAF, LangChain, LlamaIndex, custom) are first-class on Foundry.
 
 ### What's stable in v1.0
 
@@ -206,8 +234,8 @@ You are **not locked into MAF**. Foundry meets developers where they are:
 | **Microsoft Agent Framework v1.0** | Production custom agents in Python or .NET | First-class Foundry integration; this guide's default |
 | **LangChain / LangGraph** | Existing LangChain investments | Use the Foundry Inference SDK + Toolbox MCP client; observability still flows through OpenTelemetry |
 | **LlamaIndex** | RAG-first agents already on LlamaIndex | Foundry connections (AI Search, file_search) usable through standard LlamaIndex retrievers |
-| **Semantic Kernel** | Migrating apps | First-class migration path → MAF (see §23 Migration) |
-| **AutoGen** | Multi-agent research code | First-class migration path → MAF (see §23 Migration) |
+| **Semantic Kernel** | Migrating apps | First-class migration path → MAF (see §26 Migration) |
+| **AutoGen** | Multi-agent research code | First-class migration path → MAF (see §26 Migration) |
 | **Custom / no framework** | Special runtime constraints | Hosted Agent + your own HTTP loop; Toolbox still callable via MCP HTTP |
 
 The constant across all paths is the **Foundry project + agent.yaml + Entra Agent ID** triple — the framework above the `azd deploy` line is your choice.
@@ -215,6 +243,12 @@ The constant across all paths is the **Foundry project + agent.yaml + Entra Agen
 ---
 
 ## Agent Harness — Shell, Files, and Long Sessions
+
+> **What you will learn**
+>
+> - How to wire shell, file, and long-session compaction patterns into a MAF agent.
+> - The single-line change that moves shell execution from local to a Hosted Agent sandbox.
+> - Why context compaction is not optional for sessions that run over hours.
 
 Orchestrating *multiple* agents is half the picture; the other half is what one agent does autonomously over a long task: run shell commands, read/write files, manage context across hours of work without losing coherence. MAF ships three foundational harness patterns.
 
@@ -276,6 +310,12 @@ MAF acts as the **orchestration backbone** while delegating heavy code-related w
 ---
 
 ## Make Agents Stateful — Memory in Foundry
+
+> **What you will learn**
+>
+> - How to attach Foundry Memory to an agent via `FoundryMemoryProvider` and what scope to pin.
+> - Memory's per-event / per-memory / per-retrieval pricing model (free during preview, billed from June 2026).
+> - The governance rules — what to scope, what to never store, how to honor right-to-erasure.
 
 > **Status:** Public Preview · **Production readiness:** Use with caution — no SLA, billing scheduled to begin **June 1, 2026**, schema and pricing can still evolve. Treat any sensitive data carefully and keep an exit plan.
 
@@ -349,6 +389,12 @@ Memory is a **risk surface disguised as a feature**. Treat it like a small datab
 ---
 
 ## Toolbox in Foundry — One Endpoint, Any Agent
+
+> **What you will learn**
+>
+> - Why a Toolbox replaces N×M tool-to-agent integration and where it sits in the call chain.
+> - How to build, version, promote, and consume a Toolbox from any MCP-capable runtime.
+> - The 15-field tool governance template every production-grade tool should pass.
 
 > **Status:** Public Preview · **Production readiness:** Recommended for new builds; expect API surface to evolve before GA. Discover and Govern pillars are not fully shipped — design with that in mind.
 
@@ -505,9 +551,15 @@ Most agent failures come from **under-specified tools**, not the model. Before e
 
 ## Hosted Agents in Foundry Agent Service
 
+> **What you will learn**
+>
+> - How Hosted Agents differ from a traditional container deployment (per-session sandbox, scale-to-zero, persistent FS, per-agent Entra ID).
+> - The Sessions vs Conversations distinction and how to pick a protocol (Responses vs Invocations vs A2A).
+> - The versioning + canary primitives the platform exposes — and what is still Public Preview.
+
 > **Status:** **Public Preview** (Foundry Agent Service control plane is GA; the hosted-agents compute / runtime described here remains in public preview as of April 2026 — see the [official Hosted Agents (preview) page](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents)) · **Production readiness:** Suitable for pilots and pre-production hardening. **Do not commit external production SLAs to hosted-agents until GA.**
 
-This is the production runtime. The 2026 refresh is **fundamentally different** from the original Ignite preview — it now provides **per-session VM-isolated sandboxes**, **persistent filesystem**, **scale-to-zero with state resume**, and **dedicated Entra Agent IDs** out of the box.
+This is the runtime intended for production once Hosted Agents reach GA. Today (April 2026) it is suitable for pilots and pre-production hardening. The 2026 refresh is materially different from the original Ignite preview — it now provides **per-session VM-isolated sandboxes**, **persistent filesystem**, **scale-to-zero with state resume**, and **dedicated Entra Agent IDs** out of the box.
 
 ### Why traditional compute doesn't fit agents
 
@@ -558,7 +610,7 @@ This is a critical distinction. They serve different concerns and behave differe
 
 | Concept | What it is | Where it lives | Lifetime |
 |---|---|---|---|
-| **Session** | Logical session with persisted compute state — `$HOME`, uploaded files | Tied to compute (provisioned/deprovisioned automatically) | Up to **30 days**; idle timeout **15 min** |
+| **Session** | Logical session with persisted compute state — `$HOME`, uploaded files | Tied to compute (provisioned/deprovisioned automatically) | Idle timeout **15 min**; long wall-clock supported (verify ceiling on the limits page) |
 | **Conversation** | Durable record of messages, tool calls, responses | Stored in Foundry; independent of compute | As long as you keep it |
 
 ```mermaid
@@ -640,6 +692,11 @@ That single command:
 ---
 
 ## End-to-End Reference Architecture
+
+> **What you will learn**
+>
+> - The reference architecture across channels, control plane, data plane, tools, enterprise context, security and observability.
+> - Layer responsibilities at a glance, including which boxes are GA and which are Public Preview.
 
 The diagram below — built with Azure & Foundry icons in draw.io — captures the full reference architecture: channels, control plane (Foundry project, Toolbox, Memory), the hosted-agent runtime in a BYO VNet, governed data and tools, and the observability backbone. The editable source is at `drawio/Foundry_Agent_Reference_Architecture.drawio`.
 
@@ -740,6 +797,12 @@ flowchart TB
 ---
 
 ## Industrialization with `azd` and CI/CD
+
+> **What you will learn**
+>
+> - A recommended (not enforced) project layout for Hosted Agents.
+> - The three tiers of the `azd` command surface — what is GA, what is preview, what you must implement yourself.
+> - A CI/CD promotion workflow with explicit eval, security and approval gates.
 
 ### Recommended project structure
 
@@ -842,7 +905,7 @@ azd ai agent monitor        # tail traces / metrics
 
 | Need | How to do it today |
 |---|---|
-| **Canary rollout** | Set `deployment.strategy: weighted` in `agent.yaml` (see §24); `azd deploy` applies the new weights |
+| **Canary rollout** | Set `deployment.strategy: weighted` in `agent.yaml` (see §27); `azd deploy` applies the new weights |
 | **Promote canary to 100%** | Edit weights in `agent.yaml`; commit; `azd deploy` |
 | **Rollback** | Re-deploy the previous `agent.yaml` revision via `azd deploy` (or revert the commit and re-run the pipeline) |
 | **Per-environment deploy** | Use `azd env new <env>` per dev/test/prod; same template, distinct subscriptions / resource groups |
@@ -851,7 +914,55 @@ azd ai agent monitor        # tail traces / metrics
 
 ## Security & Governance
 
+> **What you will learn**
+>
+> - The trust and identity boundaries an agent crosses (tenant → project → sandbox → Toolbox → SaaS) and which identity actually carries each hop.
+> - What is private and what stays public in a BYO VNet deployment, including the Bing egress reality.
+> - Defenses against prompt injection, indirect injection, exfiltration, hallucination, excessive agency, and token abuse.
+
 Treat a hosted agent as **production application code**.
+
+### Trust & identity boundaries — at a glance
+
+Before the per-layer details below, the diagram shows which identity actually crosses each boundary — tenant → Foundry project → per-session sandbox → Toolbox → SaaS. The same identity rarely survives the full hop; that is by design.
+
+```mermaid
+flowchart TB
+    classDef tenant fill:#fff4ce,stroke:#d4a017,color:#3a3a3a,stroke-width:2px
+    classDef proj fill:#cfe2f3,stroke:#0078d4,color:#1f1f1f,stroke-width:2px
+    classDef sand fill:#d9ead3,stroke:#107c10,color:#1f1f1f,stroke-width:2px
+    classDef tool fill:#e6d4f3,stroke:#5c2d91,color:#1f1f1f,stroke-width:2px
+    classDef saas fill:#f4cccc,stroke:#a4262c,color:#1f1f1f,stroke-width:2px
+
+    User([End user · Entra principal])
+
+    subgraph Tenant["Customer Entra tenant — Conditional Access applies here"]
+        subgraph Project["Foundry project boundary — Project MI · RBAC · network policy"]
+            subgraph Sandbox["Per-session sandbox — VM-isolated"]
+                Agent[Hosted Agent code<br/>Entra Agent ID]:::sand
+            end
+            Toolbox[Toolbox endpoint<br/>Project-scoped MI]:::proj
+            Memory[(Memory store<br/>scoped per user)]:::proj
+            Model[Foundry model deployment]:::proj
+        end
+    end
+    class Tenant tenant
+    class Project proj
+
+    subgraph External["External / SaaS — outside the Foundry trust zone"]
+        SaaS1[Logic Apps connector<br/>SaaS]:::saas
+        SaaS2[3rd-party MCP server]:::saas
+        Bing[Bing public endpoint]:::saas
+    end
+
+    User -->|"OAuth + Conditional Access"| Agent
+    Agent -->|"Entra Agent ID"| Model
+    Agent -->|"Bearer · Entra"| Toolbox
+    Agent -->|"Entra Agent ID"| Memory
+    Toolbox -->|"OBO — user identity flows through"| SaaS1
+    Toolbox -->|"OAuth passthrough or Toolbox MI"| SaaS2
+    Toolbox -->|"Public egress · log at firewall"| Bing
+```
 
 ### Identity & access (no shared service accounts)
 
@@ -868,7 +979,7 @@ Treat a hosted agent as **production application code**.
 - **BYO VNet** — for the hosted agent runtime, **outbound agent traffic can flow through your VNet** (preview), enabling Private Endpoints to your data sources
 - **Private Link** is supported toward Foundry, ACR, Key Vault, Storage and Cosmos (when those resources are configured with PE)
 - **Caveats — not everything is private today:**
-  - **Foundry-managed `file_search`** (vector index served by Foundry) does **not yet** support BYO VNet — if you need full network isolation for retrieval, use **Azure AI Search with Private Endpoint** instead, exposed through the Toolbox
+  - **Foundry-managed `file_search`** BYO VNet support is **evolving — verify on the [Foundry network isolation page](https://learn.microsoft.com/azure/ai-foundry/concepts/network-isolation) before designing around it**. If the capability you need is not there, fall back to **Azure AI Search with Private Endpoint** exposed through the Toolbox
   - **`web_search` / `bing_grounding`** intentionally calls a **public endpoint** (Bing) — there is no "private web". Allow-list domains, force outbound traffic through your Azure Firewall (or NVA), and **monitor the Bing FQDN at the firewall** so every query is logged and inspectable. Combine with Content Safety + URL allow/block lists in Foundry
   - **Logic Apps connectors and many SaaS MCP servers** are public SaaS endpoints by design — apply DLP and JIT tokens, not network isolation
   - **Code Interpreter and File Search via Toolbox** in hosted agents have specific multi-tenant isolation considerations — review the official docs before shipping a multi-tenant SaaS
@@ -897,10 +1008,10 @@ Prompt-based threats need prompt-aware defenses — RBAC and network isolation a
 |---|---|
 | **Direct prompt injection** | **Azure AI Content Safety – Prompt Shields** (jailbreak detection) enabled at the agent level — blocks user attempts to override system instructions |
 | **Indirect prompt injection** (poisoned doc / web page / tool output) | Prompt Shields **document-protection mode** scans tool responses and grounded content for injected instructions before they reach the model |
-| **Data exfiltration via tool calls** | Toolbox enforces **allow-listed tools per agent**. **DLP must be designed and tested explicitly** — Foundry does **not** automatically intercept every tool payload. Combine: per-tool egress allowlists, Foundry Tools outbound URL controls, APIM policies on the front door, Purview DLP/labels where applicable, PII redaction. See the framing under §10 |
-| **Hallucination / ungrounded output** | **Groundedness evaluator** in CI/CD (§22); Content Safety **groundedness detection** at runtime can flag or block low-grounded responses |
+| **Data exfiltration via tool calls** | Toolbox enforces **allow-listed tools per agent**. **DLP must be designed and tested explicitly** — Foundry does **not** automatically intercept every tool payload. Combine: per-tool egress allowlists, Foundry Tools outbound URL controls, APIM policies on the front door, Purview DLP/labels where applicable, PII redaction. See the network and DLP framing earlier in this section |
+| **Hallucination / ungrounded output** | **Groundedness evaluator** in CI/CD (§25); Content Safety **groundedness detection** at runtime can flag or block low-grounded responses |
 | **Excessive agency / unintended actions** | Mark high-impact tools as **`requires_approval: true`** in `agent.yaml` → forces human-in-the-loop confirmation through Foundry Approvals |
-| **Token abuse / cost-of-service** | Per-project token budget alerts (§11); per-agent rate limiting at API Management front-door |
+| **Token abuse / cost-of-service** | Per-project token budget alerts (§13); per-agent rate limiting at API Management front-door |
 
 ### Per-agent least privilege — concrete pattern
 
@@ -914,7 +1025,7 @@ Treat the **Entra Agent ID** as you would an Azure VM identity:
 
 ### Audit trail per tool call
 
-OpenTelemetry traces (§10) capture **every tool invocation** with: agent version, Entra principal, tool name, input/output (subject to DLP redaction), latency, status. Sink to Log Analytics with **immutable retention** (Azure Storage immutability policy or Microsoft Sentinel archive) for forensic-grade audit. KQL query example:
+OpenTelemetry traces (§12) capture **every tool invocation** with: agent version, Entra principal, tool name, input/output (subject to DLP redaction), latency, status. Sink to Log Analytics with **immutable retention** (Azure Storage immutability policy or Microsoft Sentinel archive) for forensic-grade audit. KQL query example:
 
 ```kql
 AppTraces
@@ -929,6 +1040,11 @@ AppTraces
 ---
 
 ## Observability & Operations
+
+> **What you will learn**
+>
+> - The OpenTelemetry data flow from agent to App Insights / Log Analytics / Foundry tracing UI.
+> - The five baseline alerts every production agent should emit, and where the gaps are versus a classical web service.
 
 Observability is built around **OpenTelemetry**. Core tracing and continuous evaluation are GA; the **AI Red Teaming Agent** and some advanced evaluators remain in Public Preview — verify per-feature status on Microsoft Learn before relying on them for compliance or contractual evidence.
 
@@ -973,7 +1089,12 @@ flowchart LR
 
 ## Cost & FinOps
 
-Hosted Agents cost economics are fundamentally different from traditional compute, **largely in your favor**.
+> **What you will learn**
+>
+> - Why Hosted Agent compute is < 2% of TCO and the model deployment dominates the bill.
+> - The seven cost levers (scale-to-zero, sandbox sizing, Toolbox reuse, model selection, caching, eval gating, PTU vs PAYG).
+
+Hosted Agents cost economics are different from traditional compute, but **model spend dominates the bill** — the worked example in §21 shows sandbox CPU + RAM at < 2 % of TCO. Optimise model deployment mode and selection first; tune sandbox sizing second.
 
 | Cost lever | Mechanism | Impact |
 |---|---|---|
@@ -1003,6 +1124,11 @@ Hosted Agents cost economics are fundamentally different from traditional comput
 ---
 
 ## Decision Matrix — Hosted Agent vs Prompt-Based Agent
+
+> **What you will learn**
+>
+> - When **not** to build an agent at all (and the cheaper primitive to use instead).
+> - How to choose between Prompt-based, Workflow, and Hosted Agent on cost, control, and ops fit.
 
 ### When *not* to build an agent at all
 
@@ -1034,6 +1160,11 @@ The first decision is whether you actually need an agent. **Agents add latency, 
 ---
 
 ## Test & Simulation
+
+> **What you will learn**
+>
+> - How to inject deterministic failures (429, tool 503, tool malformed payload) before promotion.
+> - How to wire Red Teaming + Chaos Studio into the gating pipeline.
 
 Before promoting a new version, exercise the rough paths.
 
@@ -1077,13 +1208,18 @@ Use **Azure Chaos Studio** to inject faults in dependent services (model regiona
 
 ## Anti-Patterns to Avoid
 
+> **What you will learn**
+>
+> - The recurring failure modes seen across architecture, tooling, data, and governance.
+> - The PR checklist to apply at code-review time so they don't reach production.
+
 A guide that only shows the happy path is dangerous. The following are the **recurring mistakes** that turn promising agent pilots into production incidents — recurring failure modes seen in enterprise agent programs.
 
 ### Architecture anti-patterns
 
 | Anti-pattern | Why it fails | Do this instead |
 |---|---|---|
-| **Wrap a simple API in an agent "because agents are cool"** | LLM cost + latency + non-determinism for zero benefit | Plain Function or REST endpoint (see §12 "When NOT to build an agent") |
+| **Wrap a simple API in an agent without a clear agent-shaped reason** | LLM cost + latency + non-determinism for zero benefit | Plain Function or REST endpoint (see §14 "When NOT to build an agent") |
 | **One mega-agent handling everything** | Tool sprawl, exploding context window, impossible to test or audit | Split into focused agents with **A2A** composition |
 | **Use a hosted agent for a deterministic multi-step process** | Pay sandbox + LLM for what a Logic App does cheaper and reliably | Workflow agent or pure Logic App |
 | **Skip Toolbox and call tools directly from each agent** | 5 agents × 5 tools = 25 integration points to maintain | One Toolbox per domain, consumed by all agents |
@@ -1125,6 +1261,11 @@ A guide that only shows the happy path is dangerous. The following are the **rec
 
 ## Production Readiness Checklist
 
+> **What you will learn**
+>
+> - The pre-flight items (architecture, identity, tools, state, ops, distribution) that should all be green before traffic.
+> - The verify-before-go-live sub-checklist — concrete actions on top of the checkbox list.
+
 ### Architecture
 
 - [ ] Hosted Agent packaged as a versioned container image in **ACR**
@@ -1165,7 +1306,7 @@ A guide that only shows the happy path is dangerous. The following are the **rec
 
 - [ ] Publication (Teams app · M365 app · external endpoint) gated by signed releases
 - [ ] Consumer documentation written; sample requests provided
-- [ ] Decommission plan documented (see §24 Decommissioning checklist)
+- [ ] Decommission plan documented (see §27 Decommissioning checklist)
 
 ### Verify-before-go-live (must be green before traffic)
 
@@ -1190,6 +1331,10 @@ A guide that only shows the happy path is dangerous. The following are the **rec
 
 ## Required Personas for Industrialization
 
+> **What you will learn**
+>
+> - The minimum RACI for an agent platform — who owns what across product, platform, security, and FinOps.
+
 A successful agent platform involves more roles than the agent developer alone. The following RACI shows the minimum set.
 
 | Persona | Owns | Typical seat |
@@ -1210,6 +1355,11 @@ A successful agent platform involves more roles than the agent developer alone. 
 
 ## Service Limits & Quotas
 
+> **What you will learn**
+>
+> - The hard documented limits (files, messages, tools, scopes, sessions, idle timeout) and the planning rules-of-thumb on top of them.
+> - The workflow to raise quotas through the Foundry support path.
+
 The single source of truth is the official **[Foundry Agent Service limits, quotas & regions page](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/limits-quotas-regions)**. The tables below separate **documented limits** (hard values from Microsoft docs) from **planning rules-of-thumb** (architectural assumptions you should validate for your workload). Do not treat the second table as a contract.
 
 ### Documented limits (verify on the quotas page)
@@ -1219,12 +1369,12 @@ The single source of truth is the official **[Foundry Agent Service limits, quot
 | **Files** attached per agent / per thread | **10,000** | Hard ceiling — chunk content or shard threads beyond this |
 | **File size** per upload (Files API) | **512 MB** per file | Use chunked upload above; offload to Blob/OneLake for very large artefacts |
 | **Total uploaded files** per project | **300 GB** | Aggregate across all agents/threads in the project |
-| **Messages** per thread | **100,000** | Past ~100 turns, plan context compaction (§3.3) |
+| **Messages** per thread | **100,000** | Past ~100 turns, plan context compaction (§5) |
 | **Tools** attached per agent declaration | **128 tools** | Matches model parallel-tool-call ceiling |
 | **Memory scopes** per memory store | **100** | Hard cap; design scope strategy accordingly |
 | **Memories** per scope | **10,000** | Run a periodic `memory.delete` job for stale facts |
 | **Sandbox idle** before scale-to-zero | **15 minutes** | After this, the next call pays cold-start latency |
-| **Sandbox session** max wall-clock | **up to 30 days** | Long-running sessions persist `$HOME` and `/files` |
+| **Sandbox session** max wall-clock | long-running sessions supported (verify the exact ceiling on the limits page) | Long-running sessions persist `$HOME` and `/files` |
 | **Throughput** rate-limit responses | **HTTP 429** with `Retry-After` header | Implement exponential backoff with jitter |
 
 ### Planning rules-of-thumb (architectural assumptions, not contractual)
@@ -1240,7 +1390,7 @@ These are sizing heuristics drawn from preview behavior and field experience. **
 | **Tool calls per turn** | Capped by model (e.g. up to 128 parallel calls on GPT-5-class models) | Compose with Toolbox to avoid context bloat |
 | **Vector store** (Foundry-managed `file_search`) | preview limit, see quotas page | Use Azure AI Search for larger / VNet-isolated indexes |
 | **Toolbox** size | 30+ tools per Toolbox observed in preview | Split by domain (e.g., `crm-toolbox`, `ops-toolbox`) for least privilege |
-| **Throughput** to model deployment | Bound by PTU / TPM you provisioned on the Foundry deployment | See §17 for PTU vs PAYG sizing |
+| **Throughput** to model deployment | Bound by PTU / TPM you provisioned on the Foundry deployment | See §21 for PTU vs PAYG sizing |
 
 > **Practical rule**: model-side TPM/RPM (provisioned on the Foundry model deployment) is almost always the first wall you hit — not the agent platform. Provision a PTU pool for predictable workloads and front it with APIM (see Foundry_Agent_Monitoring_APIM guide).
 
@@ -1254,6 +1404,11 @@ These are sizing heuristics drawn from preview behavior and field experience. **
 ---
 
 ## Regional Availability & SLA
+
+> **What you will learn**
+>
+> - How to pin region for Hosted Agents + model + Toolbox + data so latency, residency and SLA stay aligned.
+> - The current SLA surface — control plane GA vs Hosted Agents compute Public Preview.
 
 Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foundry project** and your **model deployments** to the same region to avoid cross-region egress, then plan multi-region for HA.
 
@@ -1280,7 +1435,13 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 
 ## Hosted Agent Execution Pricing Detail
 
-Section §11 covered the FinOps levers; this section gives the per-unit numbers so you can build a credible cost model.
+> **What you will learn**
+>
+> - Hosted Agent compute pricing in preview ($0.0994/vCPU·h, $0.0118/GiB·h) and what is included.
+> - A worked TCO example showing why the model deployment, not the sandbox, dominates spend.
+> - The PTU vs PAYG trade-off when scale-to-zero applies on the agent side.
+
+Section §13 covered the FinOps levers; this section gives the per-unit numbers so you can build a credible cost model.
 
 > ### ⚠️ Pricing changes frequently — verify before committing
 >
@@ -1295,7 +1456,7 @@ These are the public preview prices announced by Microsoft. **They are not GA pr
 | Sandbox **vCPU** | per vCPU·hour active | **$0.0994** | Billed only while session is active (scale-to-zero) |
 | Sandbox **memory** | per GiB·hour active | **$0.0118** | Active session only |
 | Sandbox **storage** (persisted disk) | per GB·month | check pricing page | Even when scaled to zero |
-| **Cold-start** | included | $0 | No extra fee for the warm-up |
+| **Cold-start** | no separate charge | — | Warm-up time is billed as normal vCPU·hour. Microsoft does not publish a guaranteed cold-start latency ceiling — measure in your region |
 | **Egress via BYO VNet** | standard Azure egress | varies | Same as any VNet-bound workload |
 
 ### Memory pricing — preview, billing scheduled to start June 1, 2026
@@ -1337,6 +1498,11 @@ Hosted Agents scale to zero on the **runtime** side, but the **model deployment*
 
 ## Fine-Tuning & Custom Models
 
+> **What you will learn**
+>
+> - When fine-tuning beats prompting + RAG (and when it does not).
+> - The 5-step Foundry fine-tuning pipeline, with the eval gate that must run before promotion.
+
 Industrialization isn't only about wiring agents — sometimes the right move is to specialize a model.
 
 ### When fine-tuning beats prompting + RAG
@@ -1354,7 +1520,7 @@ Industrialization isn't only about wiring agents — sometimes the right move is
 1. **Prepare** a JSONL dataset (system + user + assistant) and validate with the Foundry dataset CLI.
 2. **Submit** a fine-tune job from the Foundry portal or via `azure-ai-projects` SDK (`client.fine_tuning.jobs.create(...)`). Supported families today: GPT-4.1-mini SFT, GPT-4o-mini SFT, Llama-3 SFT, several Phi variants.
 3. **Deploy** the resulting checkpoint as a regular Foundry deployment — agents reference it like any other model.
-4. **Evaluate** the fine-tuned model in the same eval pipeline as the base (see §22) before promotion.
+4. **Evaluate** the fine-tuned model in the same eval pipeline as the base (see §25) before promotion.
 5. **Govern** — fine-tuned weights are tenant-isolated and never leave the Foundry boundary; tag deployments with `model-lineage` in IaC for audit.
 
 > Combine fine-tuning with RAG: fine-tune for **format and tone**, retrieve for **facts**. This pattern is used by most production agents at scale.
@@ -1363,11 +1529,16 @@ Industrialization isn't only about wiring agents — sometimes the right move is
 
 ## Enterprise Context — Work IQ, Fabric IQ, Foundry IQ
 
-The reference architecture (§6) shows three context layers. Here's how an agent actually reaches them.
+> **What you will learn**
+>
+> - How to expose M365, Fabric (incl. OneLake MCP, GA April 2026) and Foundry-curated knowledge to an agent.
+> - The chain-of-context pattern for a "morning briefing" type agent, end-to-end.
+
+The reference architecture (§9) shows three context layers. Here's how an agent actually reaches them.
 
 ### Foundry IQ — curated knowledge & vector search
 
-Wire an Azure AI Search index as a Toolbox tool (already shown in §4). Agents query it transparently via the Toolbox MCP endpoint.
+Wire an Azure AI Search index as a Toolbox tool (already shown in §7). Agents query it transparently via the Toolbox MCP endpoint.
 
 ### Fabric IQ — business data via Microsoft Fabric
 
@@ -1410,6 +1581,11 @@ A "morning briefing" agent typically (1) retrieves curated playbooks from **Foun
 
 ## Compliance, Data Residency & Sovereignty
 
+> **What you will learn**
+>
+> - The Foundry mechanism for each typical compliance requirement (GDPR, residency, PII, audit, certifications, sovereign clouds).
+> - Why a per-agent DPIA is non-optional and what it must contain.
+
 Production agents handle sensitive data — design for the regulatory perimeter from day one.
 
 | Requirement | Foundry mechanism |
@@ -1429,7 +1605,12 @@ Production agents handle sensitive data — design for the regulatory perimeter 
 
 ## Advanced Quality Evaluation — Coherence, Groundedness, Hallucination
 
-Section 12 covered chaos and resilience tests. This section adds **semantic** evaluation — the only way to catch silent regressions in an LLM-driven system.
+> **What you will learn**
+>
+> - The built-in evaluators in the Azure AI Evaluation SDK and which ones must gate every promotion.
+> - How to wire a continuous eval into CI and grow the golden dataset from production traces.
+
+Section §15 covered chaos and resilience tests. This section adds **semantic** evaluation — the only way to catch silent regressions in an LLM-driven system.
 
 ### Built-in evaluators (Azure AI Evaluation SDK)
 
@@ -1482,6 +1663,11 @@ Curate 50–200 high-value traces per release from App Insights → label them i
 
 ## Migration Paths & .NET Parity
 
+> **What you will learn**
+>
+> - Concept-level mapping from Semantic Kernel and AutoGen to MAF v1.0.
+> - The .NET parity story and the lifecycle policy for SDK and runtime upgrades.
+
 ### From Semantic Kernel to MAF v1.0
 
 | SK concept | MAF v1.0 equivalent |
@@ -1526,6 +1712,11 @@ Tooling: hosted-agent deployment via `azd` is identical for .NET projects (just 
 
 ## Lifecycle Management — Versioning, Rollback, Decommissioning
 
+> **What you will learn**
+>
+> - The five versioning axes (code, declaration, model, tool, memory schema) and the gate for each.
+> - Rollouts, rollback, the model-upgrade discipline, and the decommissioning checklist.
+
 A production agent is a **long-lived asset**, not a one-shot deployment. Foundry treats every promoted agent as a versioned resource — and so should you.
 
 ### Versioning model
@@ -1534,7 +1725,7 @@ A production agent is a **long-lived asset**, not a one-shot deployment. Foundry
 |---|---|---|
 | **Agent code** | Container image tag `agent:<git-sha>` pushed to ACR by CI | Build green + unit tests + plugin tests |
 | **Agent declaration** | `agent.yaml` revision (instructions, model, tools, memory cfg) | Diff review; no model downgrade without sign-off |
-| **Underlying model** | Pinned model deployment name + version (e.g. `gpt-4.1-2025-04-14`) | Eval suite (§22) + Red-Team Agent regression must not regress |
+| **Underlying model** | Pinned model deployment name + version (e.g. `gpt-4.1-2025-04-14`) | Eval suite (§25) + Red-Team Agent regression must not regress |
 | **Tool / Toolbox version** | Tool manifest `version` field; Toolbox honors per-agent pin | Contract tests on tool input/output schemas |
 | **Memory schema** | Long-term memory `schema_version` in metadata | Backward-compat check before any breaking change |
 
@@ -1568,7 +1759,7 @@ Treat production as an evaluation set:
 1. **Sample** 1–5% of production conversations daily into Foundry **Tracing UI**
 2. **Auto-label** with built-in evaluators (groundedness, coherence, safety) and human SME review for the long-tail
 3. Failed traces feed **a regression dataset** — appended to the eval suite so the bug never returns
-4. Retrain prompts / fine-tune (§19) on the curated set when patterns emerge
+4. Retrain prompts / fine-tune (§22) on the curated set when patterns emerge
 5. Promote through the same azd + canary pipeline → loop back to step 1
 
 ### Model upgrade strategy
@@ -1590,11 +1781,16 @@ Retiring an agent is a documented event, not a delete-and-forget:
 5. **Revoke** the Entra Agent ID and all RBAC role assignments
 6. **Remove** Toolbox bindings and Logic Apps connections
 7. **Decommission** ACR image tags after the audit-retention window (don't delete sooner — you may need to re-deploy for forensic replay)
-8. Update the **agent registry / Agent 365 catalog** (§25) to mark the agent **Retired** and document the replacement
+8. Update the **agent registry / Agent 365 catalog** (§28) to mark the agent **Retired** and document the replacement
 
 ---
 
 ## Agent 365 & Enterprise Control Plane
+
+> **What you will learn**
+>
+> - When Agent 365 starts to matter (≥ 4–20 agents in a portfolio).
+> - The capabilities it brings beyond a single Foundry project — registry, identity governance, Conditional Access, RAI gates, chargeback.
 
 > **Status:** Announcement / early availability — feature scope and naming may evolve. **Production readiness:** Use selectively for fleet-level governance; not required for individual agents.
 
@@ -1629,14 +1825,7 @@ For agents touching regulated data or interacting with end customers, Microsoft 
 
 ### Adoption pattern
 
-```mermaid
-flowchart LR
-    classDef phase fill:#0078d4,stroke:#003a6e,color:#fff
-    P1[Phase 1: 1-3 agents<br/>Per-project governance]:::phase
-    P2[Phase 2: 4-20 agents<br/>Adopt Agent 365 registry]:::phase
-    P3[Phase 3: 20+ agents<br/>Conditional Access + RAI gates + chargeback]:::phase
-    P1 --> P2 --> P3
-```
+A simple maturity ladder is enough — start with **per-project governance** at 1–3 agents; **adopt the Agent 365 registry** when you cross 4–20 agents; layer **Conditional Access, RAI gates, and chargeback** once you operate 20+ agents across business units.
 
 The earlier you onboard Agent 365, the cheaper compliance becomes — retro-tagging an estate of 50 agents is painful.
 
