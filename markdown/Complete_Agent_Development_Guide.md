@@ -17,7 +17,7 @@ Microsoft Foundry now offers an end-to-end story for that journey, structured ar
 | Memory in Foundry Agent Service | **Public Preview** | Managed long-term memory, no DB to provision |
 | Toolbox in Foundry | **Public Preview** | One MCP endpoint exposing many tools, governed centrally |
 | Hosted Agents in Foundry Agent Service (refresh) | **Public Preview** | Per-session VM-isolated sandbox, scale-to-zero, persistent FS, per-agent Entra ID |
-| Observability in Foundry Control Plane | **GA on core** | End-to-end OpenTelemetry tracing, Red Teaming Agent, continuous evaluation |
+| Observability in Foundry Control Plane | **Core capabilities GA, advanced features still rolling out** | End-to-end OpenTelemetry tracing and continuous evaluation are GA; Red Teaming Agent and some advanced eval flows remain Public Preview |
 
 This guide walks through the full industrialization pipeline, with code samples, an end-to-end reference architecture, governance and FinOps controls, and a production checklist.
 
@@ -29,7 +29,7 @@ This guide walks through the full industrialization pipeline, with code samples,
 > |---|---|---|
 > | Microsoft Agent Framework v1.0 (SDK) | **GA** | Safe for production code |
 > | Foundry Toolkit for VS Code | **GA** | Safe for inner-loop tooling |
-> | Foundry Agent Service control plane | **GA** | 99.9 % SLA |
+> | Foundry Agent Service control plane | **GA** | Subject to a Microsoft SLA — verify the exact figure in the [Azure SLA / Product Terms](https://www.microsoft.com/licensing/docs/view/Service-Level-Agreements-SLA-for-Online-Services) before quoting it externally |
 > | Hosted Agents compute (per-session sandbox) | **Public preview** | No SLA; pricing & quotas can change |
 > | Foundry Toolbox | **Public preview** | No SLA; tool catalogue evolving |
 > | Foundry Memory | **Public preview** | No SLA; **billing scheduled to begin June 1, 2026** — verify before production go-live |
@@ -518,7 +518,7 @@ Containers, App Service, serverless functions were designed for **shared multi-t
 
 ### Core capabilities (2026 refresh)
 
-- **Predictable cold starts** — sessions spin up in **<100 ms** in your custom Docker environment
+- **Predictable cold starts** — fast warm-up in your custom Docker image. **Measure in your target region and container size before committing latency SLOs** — Microsoft does not currently publish a guaranteed cold-start ceiling.
 - **Scale to zero** — pay nothing while idle; agents suspend between turns
 - **Resume with filesystem intact** — `$HOME` and uploaded `/files` survive scale-to-zero events
 - **Per-session isolation** — every session gets a dedicated, hypervisor-isolated sandbox; isolation keys to namespace end-user sessions
@@ -920,7 +920,7 @@ AppTraces
 
 ## Observability & Operations
 
-Observability is GA on core capabilities and is built around **OpenTelemetry**.
+Observability is built around **OpenTelemetry**. Core tracing and continuous evaluation are GA; the **AI Red Teaming Agent** and some advanced evaluators remain in Public Preview — verify per-feature status on Microsoft Learn before relying on them for compliance or contractual evidence.
 
 ```mermaid
 flowchart LR
@@ -1019,7 +1019,7 @@ The first decision is whether you actually need an agent. **Agents add latency, 
 | Specify CPU/memory for the sandbox | **Hosted Agent** | Resource control per version |
 | Persist files/state across turns (`$HOME`, `/files`) | **Hosted Agent** | Per-session FS persistence |
 | Run inside your own VNet | **Hosted Agent** | BYO VNet supported |
-| Need per-agent Entra ID + OBO | **Hosted Agent** | Built-in; not available to prompt agents |
+| Need per-agent Entra ID + per-user OBO with custom code/runtime | **Hosted Agent** | Hosted agents get a dedicated Entra Agent ID and let you implement OBO in code. **Note:** Agent Applications (published prompt or workflow agents) also receive a unique Entra agent identity at publish time — re-evaluate before assuming Hosted is the only option for identity alone |
 
 ---
 
@@ -1077,6 +1077,8 @@ A guide that only shows the happy path is dangerous. The following are the **rec
 | **One mega-agent handling everything** | Tool sprawl, exploding context window, impossible to test or audit | Split into focused agents with **A2A** composition |
 | **Use a hosted agent for a deterministic multi-step process** | Pay sandbox + LLM for what a Logic App does cheaper and reliably | Workflow agent or pure Logic App |
 | **Skip Toolbox and call tools directly from each agent** | 5 agents × 5 tools = 25 integration points to maintain | One Toolbox per domain, consumed by all agents |
+| **Hardcode the model name in agent code (e.g. literal `"gpt-4o"`)** | Cannot swap model at deprecation or for cost optimization without a code release | Read from env var (`AZURE_OPENAI_DEPLOYMENT`) and use a stable **deployment alias** (`prod-chat-model`); model swap = config change, not code change |
+| **Assume Foundry agent and consumed services live across tenants** | Cross-tenant Entra trust is rarely supported during preview; broken auth, broken OBO | Foundry project, Hosted Agent, Toolbox, Memory, MCP servers and connected data sources should be in the **same Entra tenant** unless a feature explicitly documents cross-tenant support |
 
 ### Tooling anti-patterns
 
@@ -1221,7 +1223,7 @@ These are sizing heuristics drawn from preview behavior and field experience. **
 
 | Dimension | Rule-of-thumb | Notes / mitigation |
 |---|---|---|
-| Concurrent hosted-agent **sessions** per project | Soft quota — request increase via Azure support | Use isolation keys to namespace per-tenant traffic |
+| Concurrent hosted-agent **sessions** | Soft quota — typically governed **per subscription, per region** during preview (commonly seen at 50 active concurrent sessions, adjustable via Azure support) | Use isolation keys to namespace per-tenant traffic; track quota at the subscription/region level, not per project |
 | **Cold-start sandboxes** burst | Predictable but throttled per project | Pre-warm with a synthetic ping during business hours |
 | **Sandbox disk** per session | ~10 GB persistent (subject to change) | Offload large artifacts to Blob / OneLake; keep only working set |
 | Inbound **request size** (Files API) | ~100 MB practical for synchronous uploads | Stream large files from a connected Storage account |
@@ -1247,7 +1249,7 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 
 ### Region selection checklist
 
-- **Hosted Agents (preview)** — initial regions are a subset of Foundry regions (East US 2, Sweden Central, West US 3 typically light up first). **Availability changes per feature, per model and per region — always verify on the [Foundry region availability page](https://learn.microsoft.com/azure/ai-foundry/reference/region-support) before committing to a region.**
+- **Hosted Agents (preview)** — available in a **subset of Foundry regions** that grows frequently (recent additions include East US 2, Sweden Central, Australia East, Canada Central, North Central US, South East Asia, Poland Central, South Africa North, Korea Central, South India, Brazil South, and others). **Do not hardcode a region list in solution design.** Always confirm on the [Foundry region availability page](https://learn.microsoft.com/azure/ai-foundry/reference/region-support) for your selected feature, model, and tool combination at the time of deployment.
 - **Models** — not every model is in every region. GPT-5 family and o-series often launch in East US 2 / Sweden Central before others. Cross-check the [Azure OpenAI models matrix](https://learn.microsoft.com/azure/ai-services/openai/concepts/models).
 - **Data residency** — choose an EU region (e.g., Sweden Central, France Central, West Europe) when EU Data Boundary is required. EU Data Boundary scope and exceptions are documented separately — read it.
 - **Multi-region HA pattern** — deploy two Foundry projects in paired regions (e.g., West Europe + Sweden Central), front with APIM Premium multi-region, and replicate Memory + Toolbox config via IaC. Failover is *active-passive* today; active-active for stateful agents is on the roadmap.
@@ -1256,7 +1258,7 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 
 | Capability | Status (today) | SLA |
 |---|---|---|
-| Foundry Agent Service control plane | GA | 99.9% |
+| Foundry Agent Service control plane | GA | Covered by a Microsoft SLA — **verify the current figure in the [Azure SLA / Product Terms](https://www.microsoft.com/licensing/docs/view/Service-Level-Agreements-SLA-for-Online-Services)** before quoting any number externally |
 | Hosted Agents compute | Public Preview | **No SLA during preview** — do not commit external production SLAs until GA |
 | Toolbox | Public Preview | No SLA |
 | Memory | Public Preview | No SLA |
@@ -1437,6 +1439,10 @@ results = evaluate(
     output_path="eval/results.json",
 )
 assert results["metrics"]["groundedness.mean"] >= 4.0, "Groundedness regression — block deploy"
+# NOTE: the exact key path and scale depend on the azure-ai-evaluation SDK version
+# (some releases nest under results["metrics"]["groundedness"]["mean"], others use
+# 1-5 instead of 0-1). Pin the SDK version in requirements.txt and adapt the
+# assertion to the structure your version returns.
 ```
 
 ### Red Team Agent (preview)
