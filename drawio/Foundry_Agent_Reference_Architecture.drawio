@@ -36,28 +36,28 @@
         <mxCell id="L2" value="2 · Edge &amp; Ingress" style="swimlane;horizontal=1;startSize=24;fillColor=#FFF4CE;strokeColor=#A88B00;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
           <mxGeometry x="20" y="240" width="1480" height="140" as="geometry" />
         </mxCell>
-        <mxCell id="afd" value="Azure Front Door&#10;(WAF · TLS · CDN)" style="shape=mxgraph.azure.front_door_service;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;" vertex="1" parent="L2">
-          <mxGeometry x="120" y="40" width="80" height="80" as="geometry" />
+        <mxCell id="afd" value="Azure Front Door&#10;WAF · TLS · CDN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L2">
+          <mxGeometry x="40" y="50" width="220" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="apim" value="Azure API Management&#10;AI Gateway · OAuth · Quotas · Caching" style="shape=mxgraph.azure.api_management_services;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;fontStyle=1;" vertex="1" parent="L2">
-          <mxGeometry x="640" y="40" width="80" height="80" as="geometry" />
+        <mxCell id="cs" value="Azure AI Content Safety&#10;Prompt Shields · Groundedness" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A4262C;strokeColor=#5B1418;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L2">
+          <mxGeometry x="280" y="50" width="240" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="entra" value="Microsoft Entra&#10;OBO · Managed Identity" style="shape=mxgraph.azure.azure_active_directory;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;" vertex="1" parent="L2">
-          <mxGeometry x="1240" y="40" width="80" height="80" as="geometry" />
+        <mxCell id="apim" value="Azure API Management&#10;AI Gateway · OAuth · Quotas · Caching" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#117865;strokeColor=#0B4D40;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L2">
+          <mxGeometry x="540" y="50" width="280" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="cs" value="Azure AI Content Safety&#10;Prompt Shields · PII" style="shape=mxgraph.azure.cognitive_services;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;fillColor=#A4262C;strokeColor=#5B1418;" vertex="1" parent="L2">
-          <mxGeometry x="380" y="40" width="80" height="80" as="geometry" />
+        <mxCell id="entra" value="Microsoft Entra&#10;OBO · Managed Identity · Conditional Access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F2D54;strokeColor=#0B1228;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L2">
+          <mxGeometry x="1100" y="50" width="280" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="ratelimit" value="Token Limits&#10;Semantic Cache" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE399;strokeColor=#A88B00;fontStyle=1;fontSize=10;" vertex="1" parent="L2">
-          <mxGeometry x="900" y="55" width="180" height="50" as="geometry" />
+        <mxCell id="ratelimit" value="Token Limits&#10;Semantic Cache" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE399;strokeColor=#A88B00;fontStyle=1;fontSize=11;" vertex="1" parent="L2">
+          <mxGeometry x="840" y="50" width="240" height="60" as="geometry" />
         </mxCell>
 
         <!-- ============== LAYER 3 — FOUNDRY CONTROL PLANE ============== -->
         <mxCell id="L3" value="3 · Microsoft Foundry — Control Plane (Project)" style="swimlane;horizontal=1;startSize=24;fillColor=#E8F5E8;strokeColor=#107C10;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
           <mxGeometry x="20" y="400" width="1480" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="fproj" value="Foundry Project&#10;(Project MI · RBAC · Connections)" style="shape=mxgraph.azure.cognitive_services;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;fontStyle=1;fillColor=#107C10;strokeColor=#054A05;" vertex="1" parent="L3">
-          <mxGeometry x="80" y="60" width="80" height="80" as="geometry" />
+        <mxCell id="fproj" value="Foundry Project&#10;Project MI · RBAC · Connections" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#107C10;strokeColor=#054A05;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L3">
+          <mxGeometry x="40" y="65" width="220" height="70" as="geometry" />
         </mxCell>
         <mxCell id="versions" value="Agent Versions&#10;Stable Endpoint · Canary · Weighted Rollout" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#107C10;strokeColor=#054A05;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L3">
           <mxGeometry x="280" y="65" width="270" height="70" as="geometry" />
@@ -76,8 +76,8 @@
         <mxCell id="L4" value="4 · Hosted Agent Runtime — BYO VNet" style="swimlane;horizontal=1;startSize=24;fillColor=#FAF3FF;strokeColor=#5C2D91;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
           <mxGeometry x="20" y="600" width="1480" height="200" as="geometry" />
         </mxCell>
-        <mxCell id="vnet" value="Customer VNet (Private Subnet)" style="shape=mxgraph.azure.virtual_networks;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=11;fontStyle=1;" vertex="1" parent="L4">
-          <mxGeometry x="60" y="60" width="80" height="80" as="geometry" />
+        <mxCell id="vnet" value="Customer VNet&#10;Private Subnet · NSG · UDR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#5C9BCF;strokeColor=#2A5780;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="L4">
+          <mxGeometry x="40" y="80" width="160" height="60" as="geometry" />
         </mxCell>
         <mxCell id="sandbox_pool" value="VM-Isolated Sandbox Pool · Scale-to-zero · Persistent FS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#5C2D91;dashed=1;fontStyle=1;fontSize=11;align=center;verticalAlign=top;spacingTop=8;fontColor=#5C2D91;" vertex="1" parent="L4">
           <mxGeometry x="220" y="40" width="900" height="140" as="geometry" />
@@ -122,14 +122,14 @@
         <mxCell id="grp_fiq" value="Foundry IQ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEDDB;strokeColor=#D83B01;fontStyle=1;fontSize=11;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="L5">
           <mxGeometry x="380" y="40" width="320" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="aisearch" value="Azure AI Search" style="shape=mxgraph.azure.azure_search;html=1;align=center;verticalAlign=top;spacingTop=70;fontSize=10;" vertex="1" parent="L5">
-          <mxGeometry x="430" y="80" width="80" height="80" as="geometry" />
+        <mxCell id="aisearch" value="Azure AI Search&#10;Vector + hybrid index" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D83B01;strokeColor=#6E1D00;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="400" y="80" width="280" height="40" as="geometry" />
         </mxCell>
         <mxCell id="filesearch" value="Foundry File Search&#10;(curated knowledge)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D83B01;strokeColor=#6E1D00;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
-          <mxGeometry x="530" y="100" width="160" height="50" as="geometry" />
+          <mxGeometry x="400" y="130" width="280" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="bing" value="Web Search (Bing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
-          <mxGeometry x="430" y="180" width="260" height="30" as="geometry" />
+        <mxCell id="bing" value="Web Search (Bing) — public egress · Azure Firewall log" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+          <mxGeometry x="400" y="180" width="280" height="30" as="geometry" />
         </mxCell>
 
         <mxCell id="grp_biq" value="Fabric IQ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEDDB;strokeColor=#D83B01;fontStyle=1;fontSize=11;align=center;verticalAlign=top;spacingTop=8;" vertex="1" parent="L5">
@@ -162,26 +162,26 @@
         <mxCell id="SP" value="Cross-Cutting · Security &amp; Observability" style="swimlane;horizontal=1;startSize=24;fillColor=#FDECEA;strokeColor=#A4262C;fontStyle=1;fontSize=12;align=left;spacingLeft=12;html=1;" vertex="1" parent="1">
           <mxGeometry x="1520" y="240" width="260" height="820" as="geometry" />
         </mxCell>
-        <mxCell id="kv" value="Azure Key Vault" style="shape=mxgraph.azure.key_vaults;html=1;align=center;verticalAlign=top;spacingTop=70;fontSize=10;" vertex="1" parent="SP">
-          <mxGeometry x="90" y="50" width="80" height="80" as="geometry" />
+        <mxCell id="kv" value="Azure Key Vault&#10;Secrets · Certs · Keys" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD335;strokeColor=#A88B00;fontStyle=1;fontSize=11;" vertex="1" parent="SP">
+          <mxGeometry x="30" y="40" width="200" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="purview" value="Microsoft Purview&#10;DLP · Lineage · Audit" style="shape=mxgraph.azure.purview_accounts;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=10;" vertex="1" parent="SP">
-          <mxGeometry x="90" y="170" width="80" height="80" as="geometry" />
+        <mxCell id="purview" value="Microsoft Purview&#10;DLP · Lineage · Audit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7B83EB;strokeColor=#3A4199;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="SP">
+          <mxGeometry x="30" y="120" width="200" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="appins" value="Application Insights&#10;OpenTelemetry traces" style="shape=mxgraph.azure.application_insights;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=10;" vertex="1" parent="SP">
-          <mxGeometry x="90" y="290" width="80" height="80" as="geometry" />
+        <mxCell id="appins" value="Application Insights&#10;OpenTelemetry traces" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="SP">
+          <mxGeometry x="30" y="210" width="200" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="loga" value="Log Analytics&#10;Workspace" style="shape=mxgraph.azure.log_analytics_workspaces;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=10;" vertex="1" parent="SP">
-          <mxGeometry x="90" y="420" width="80" height="80" as="geometry" />
+        <mxCell id="loga" value="Log Analytics&#10;Workspace · KQL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#005A9E;strokeColor=#002B4A;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="SP">
+          <mxGeometry x="30" y="300" width="200" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="monitor" value="Azure Monitor&#10;Alerts · Dashboards" style="shape=mxgraph.azure.monitor;html=1;align=center;verticalAlign=top;spacingTop=80;fontSize=10;" vertex="1" parent="SP">
-          <mxGeometry x="90" y="540" width="80" height="80" as="geometry" />
+        <mxCell id="monitor" value="Azure Monitor&#10;Alerts · Dashboards · Workbooks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0078D4;strokeColor=#003A6E;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="SP">
+          <mxGeometry x="30" y="380" width="200" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="costmgmt" value="Cost Management&#10;Tag-based showback" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFB900;strokeColor=#7A5800;fontStyle=1;fontSize=10;" vertex="1" parent="SP">
-          <mxGeometry x="40" y="660" width="180" height="50" as="geometry" />
+        <mxCell id="costmgmt" value="Cost Management&#10;Tag-based showback" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFB900;strokeColor=#7A5800;fontStyle=1;fontSize=11;" vertex="1" parent="SP">
+          <mxGeometry x="30" y="470" width="200" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="defender" value="Defender for Cloud&#10;Posture · Threats" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A4262C;strokeColor=#5B1418;fontColor=#fff;fontStyle=1;fontSize=10;" vertex="1" parent="SP">
-          <mxGeometry x="40" y="730" width="180" height="50" as="geometry" />
+        <mxCell id="defender" value="Defender for Cloud&#10;Posture · Threats" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A4262C;strokeColor=#5B1418;fontColor=#fff;fontStyle=1;fontSize=11;" vertex="1" parent="SP">
+          <mxGeometry x="30" y="550" width="200" height="60" as="geometry" />
         </mxCell>
 
         <!-- ============== CONNECTORS — CLEAN VERTICAL TRUNK ============== -->
