@@ -271,6 +271,8 @@ MAF acts as the **orchestration backbone** while delegating heavy code-related w
 
 ## Make Agents Stateful — Memory in Foundry
 
+> **Status:** Public Preview · **Production readiness:** Use with caution — no SLA, billing scheduled to begin **June 1, 2026**, schema and pricing can still evolve. Treat any sensitive data carefully and keep an exit plan.
+
 Production agents need to remember user preferences, prior context, and domain facts across sessions — without forcing every team to provision their own database.
 
 ```python
@@ -319,9 +321,30 @@ agent = AzureOpenAIResponsesClient(
 
 Memory is **free during preview** before billing begins.
 
+### Memory governance — what to store, when to forget
+
+Memory is a **risk surface disguised as a feature**. Treat it like a small database that needs a data-protection policy from day one.
+
+| Decision | Recommended default |
+|---|---|
+| **What MAY be memorized** | User preferences, declared profile facts, ongoing task state, factual answers the user confirmed |
+| **What must NEVER be memorized** | Secrets, credentials, payment / health data unless explicitly authorized; PII covered by stricter regulation; "facts" the agent inferred but the user did not confirm |
+| **Scope strategy** | Distinct `scope` per **user**, per **tenant**, per **workspace** — never a global scope for user-derived content |
+| **Retention** | Set a TTL per memory class (e.g. session-context: 7 d; preferences: 12 mo; task-state: until task closed). Run a periodic cleanup job |
+| **User rights (GDPR / DPO)** | Expose **read** and **delete** via the Memory CRUD API; document the SLA for "right to erasure" requests |
+| **Export** | Provide a `memory.export(scope=...)` operation — useful for portability and audit |
+| **Memory poisoning** | Validate any new fact before persistence (model-as-judge, optional human review for sensitive scopes); reject contradictions to canonical sources |
+| **Conflict between memory and source-of-truth** | Memory is **never** authoritative — when a database / system-of-record disagrees, the agent must trust the source-of-truth and update memory |
+| **Periodic validation** | Schedule a recurring job that re-validates long-term memories against system-of-record sources; flag stale or contradicted facts |
+| **Tenant separation** | Hard fail any retrieval crossing tenant boundaries — write a contract test for it |
+
+> **Operational rule of thumb**: "If you cannot explain to a user — in one sentence — *why* the agent remembers this, *for how long*, and *how they can delete it*, the agent should not be storing it."
+
 ---
 
 ## Toolbox in Foundry — One Endpoint, Any Agent
+
+> **Status:** Public Preview · **Production readiness:** Recommended for new builds; expect API surface to evolve before GA. Discover and Govern pillars are not fully shipped — design with that in mind.
 
 ### The problem Toolbox solves
 
@@ -447,9 +470,36 @@ client.beta.toolboxes.update(
 )
 ```
 
+### Tool governance — fillable spec template
+
+Most agent failures come from **under-specified tools**, not the model. Before exposing a tool through Toolbox, fill the spec below. Keep it in your repo next to the tool definition; review it in PRs.
+
+| Field | Example | Why it matters |
+|---|---|---|
+| **Tool name** | `crm.create_ticket` | Stable identifier; agents and audits reference it |
+| **Purpose** (1 sentence) | Open a Tier-2 support ticket against the production CRM | Forces clarity; rejects vague tools |
+| **Input schema** | JSON-Schema with required + optional fields, types, regex patterns | Validated by Toolbox before model can hallucinate parameters |
+| **Output schema** | JSON-Schema; document error envelope shape | Lets the agent reason about results / failures consistently |
+| **Authentication** | OAuth on-behalf-of user / Entra Agent ID / API key in KV | No tool ever uses a long-lived secret in code |
+| **Authorization scope** | Allow-list of agents (or Toolbox group) permitted to call | Default-deny; smallest scope that works |
+| **Timeout** | 8 s soft / 15 s hard | Bounds latency contribution to the agent turn |
+| **Retry policy** | 2 retries, exponential backoff with jitter; only on idempotent ops | Prevents thundering-herd and double-execution |
+| **Idempotency** | Yes / No; if yes, declare the idempotency key field | Critical for any side-effect tool |
+| **Side effects** | None / Reads only / Writes / External notification | Drives the human-approval requirement |
+| **Risk level** | Low / Medium / High / Critical | Drives review depth + monitoring |
+| **Human approval required?** | No (Low/Med) / Yes (High) / Mandatory + ticket (Critical) | Mark `requires_approval: true` in `agent.yaml` |
+| **Logs emitted** | Tool name · agent version · principal · params hash · status · latency | Mandatory for audit + KQL alerting |
+| **PII exposure** | None / Pseudonymous / Direct PII / Sensitive personal data | Drives Purview labels + DLP rules |
+| **Failure behavior** | Return structured error · circuit-break after N consecutive failures · degraded mode | Agent must surface a useful message, not a stack trace |
+| **Owner team / on-call** | `@team-crm-platform`, on-call rotation link | Incident routing |
+
+> **Operational rule**: a tool without **all 15 fields filled** is not allowed in any production toolbox.
+
 ---
 
 ## Hosted Agents in Foundry Agent Service
+
+> **Status:** Public Preview · **Production readiness:** Use with caution — no SLA, pricing and quotas can change. Solid for pilots and internal workloads; pin a GA cutover date for any externally-committed SLO.
 
 This is the production runtime. The 2026 refresh is **fundamentally different** from the original Ignite preview — it now provides **per-session VM-isolated sandboxes**, **persistent filesystem**, **scale-to-zero with state resume**, and **dedicated Entra Agent IDs** out of the box.
 
@@ -746,34 +796,44 @@ flowchart LR
 
 ### One-command developer flow
 
+The `azd` command surface for Foundry agents is split into **three tiers** — be explicit about which one you are using:
+
+**Tier 1 — Documented, safe to script in CI/CD:**
+
 ```bash
 # Bootstrap a fresh agent project from a template
 azd init --template foundry-hosted-agent-quickstart
 
-# Deploy infrastructure + container in one go
+# Provision infrastructure + deploy in one go
 azd up
 
-# Iterate: rebuild + push + create new agent version
+# Iterate: rebuild image + push + create new agent version
 git commit -am "improve triage prompt"
 azd deploy
-
-# Inspect the deployed agent
-azd ai agent show
-
-# Invoke a quick smoke test
-azd ai agent invoke --message "ping"
-
-# Run an evaluation suite
-azd ai agent run --evaluate ./evals/triage.yaml
-
-# Tail traces / metrics
-azd ai agent monitor
 
 # Tear it all down
 azd down
 ```
 
-> **Canary / weighted rollout** is configured in `agent.yaml` (see §24 Lifecycle Management — the platform applies the weights, there is no dedicated `azd agent rollout` sub-command today). Promoting a canary to 100 % is a config change re-deployed via `azd deploy`.
+**Tier 2 — Foundry agent extension commands (preview surface, verify version):**
+
+```bash
+azd ai agent show           # describe deployed agent
+azd ai agent invoke --message "ping"
+azd ai agent run --evaluate ./evals/triage.yaml
+azd ai agent monitor        # tail traces / metrics
+```
+
+> ⚠️ The `azd ai agent ...` extension is in preview — pin a known version of the extension in CI and re-validate after each upgrade.
+
+**Tier 3 — Recommended deployment patterns (no dedicated CLI; do them via config + `azd deploy`):**
+
+| Need | How to do it today |
+|---|---|
+| **Canary rollout** | Set `deployment.strategy: weighted` in `agent.yaml` (see §24); `azd deploy` applies the new weights |
+| **Promote canary to 100%** | Edit weights in `agent.yaml`; commit; `azd deploy` |
+| **Rollback** | Re-deploy the previous `agent.yaml` revision via `azd deploy` (or revert the commit and re-run the pipeline) |
+| **Per-environment deploy** | Use `azd env new <env>` per dev/test/prod; same template, distinct subscriptions / resource groups |
 
 ---
 
@@ -1003,6 +1063,52 @@ Use **Azure Chaos Studio** to inject faults in dependent services (model regiona
 
 ---
 
+## Anti-Patterns to Avoid
+
+A guide that only shows the happy path is dangerous. The following are the **recurring mistakes** that turn promising agent pilots into production incidents. Every one of these has been observed in real customer deployments.
+
+### Architecture anti-patterns
+
+| Anti-pattern | Why it fails | Do this instead |
+|---|---|---|
+| **Wrap a simple API in an agent "because agents are cool"** | LLM cost + latency + non-determinism for zero benefit | Plain Function or REST endpoint (see §12 "When NOT to build an agent") |
+| **One mega-agent handling everything** | Tool sprawl, exploding context window, impossible to test or audit | Split into focused agents with **A2A** composition |
+| **Use a hosted agent for a deterministic multi-step process** | Pay sandbox + LLM for what a Logic App does cheaper and reliably | Workflow agent or pure Logic App |
+| **Skip Toolbox and call tools directly from each agent** | 5 agents × 5 tools = 25 integration points to maintain | One Toolbox per domain, consumed by all agents |
+
+### Tooling anti-patterns
+
+| Anti-pattern | Why it fails | Do this instead |
+|---|---|---|
+| **Connect any MCP server you find on the web** | Supply-chain risk: untrusted code running with your agent's identity | Allow-list MCP servers; review code; pin versions; SBOM scan |
+| **Give an agent 50 tools "just in case"** | Model confusion, tool-selection errors, blown context window | ≤ 15 tools per agent; specialize agents instead |
+| **Tools without idempotency keys for write actions** | Retries duplicate orders, send double emails, double-charge cards | Mandatory idempotency key for any side-effect tool |
+| **No human approval on irreversible actions** | Agent deletes data / sends external comms / pays a vendor | Mark `requires_approval: true` for any High/Critical-risk tool |
+
+### Data & memory anti-patterns
+
+| Anti-pattern | Why it fails | Do this instead |
+|---|---|---|
+| **Memory with no scope** | One user's preferences leak into another's session | Always scope by user / tenant / workspace; contract-test the boundary |
+| **Memory with no retention policy** | Stale facts persist forever; "right to be forgotten" is impossible | TTL per memory class + scheduled cleanup + GDPR-ready CRUD |
+| **Trust the agent's "memory" over the system-of-record** | Agent confidently states an outdated price / status | Memory is **never authoritative**; cross-check sources |
+| **Send raw secrets in the prompt or env vars** | Secrets end up in traces, logs, model providers | Always Key Vault + MI; reference by name |
+
+### Process & governance anti-patterns
+
+| Anti-pattern | Why it fails | Do this instead |
+|---|---|---|
+| **Ship a preview-status capability into a critical workload without a GA cutover plan** | No SLA when it breaks; pricing surprises at GA | Pin GA milestones; document fallback; set budget alerts |
+| **"Eval = a few manual prompts in the playground"** | Quality regressions ship undetected; cost blows up | Curated golden dataset + automated evaluators in CI |
+| **Confuse technical observability with business quality** | Latency is fine but answers are useless | Track both: traces *and* per-conversation quality scores |
+| **No incident runbook for the agent** | First incident = blind panic; rollback takes hours | Pre-written runbook covering rollback, model swap, key revoke |
+| **Treat the model as immutable** | Model deprecates with 6-month notice; you scramble | Quarterly model-sweep eval; alias-based deployment names |
+| **Multi-tenant SaaS without isolation testing of every tool** | Tenant A sees Tenant B's data through `code_interpreter` or `file_search` | Per-tool isolation review; contract test every cross-tenant boundary |
+
+> **Use this list as a PR checklist.** If a change introduces any of the above, require justification + sign-off before merge.
+
+---
+
 ## Production Readiness Checklist
 
 ### Architecture
@@ -1042,6 +1148,26 @@ Use **Azure Chaos Studio** to inject faults in dependent services (model regiona
 - [ ] Runbook for rollback (re-deploy with the previous `agent.yaml` weights via `azd deploy`)
 
 ### Distribution
+
+- [ ] Publication (Teams app · M365 app · external endpoint) gated by signed releases
+- [ ] Consumer documentation written; sample requests provided
+- [ ] Decommission plan documented (see §24 Decommissioning checklist)
+
+### Verify-before-go-live (must be green before traffic)
+
+- [ ] **Region availability** verified for every model + every Foundry capability used
+- [ ] **Quotas** verified against expected peak load (TPM, RPM, files, sessions)
+- [ ] **Pricing** re-validated against the live Microsoft pricing page; budget alerts armed
+- [ ] **Model fallback** defined (which model the agent switches to if primary is unavailable)
+- [ ] **Tool permissions** reviewed line-by-line for least privilege
+- [ ] **Human approval** wired for every High / Critical-risk tool
+- [ ] **Memory retention policy** documented + cleanup job scheduled
+- [ ] **Evaluation dataset** versioned in repo; baseline eval scores recorded
+- [ ] **Red-Team Agent** scan passed without new high-severity findings
+- [ ] **Logs and traces** reaching central Log Analytics with immutable retention
+- [ ] **Incident runbook** written, dry-run executed, on-call rotation in place
+- [ ] **Rollback strategy** documented + previous version warm in the weighted-deployment slot
+- [ ] **Anti-patterns** review (above) — no item flagged
 
 - [ ] Activity protocol enabled if published to Teams or M365 Copilot
 - [ ] A2A endpoint exposed if other agents will delegate to this one
@@ -1140,7 +1266,11 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 
 ## Hosted Agent Execution Pricing Detail
 
-Section 10 covered the FinOps levers; this section gives the per-unit numbers so you can build a credible cost model. **Always re-validate against the [Azure pricing page](https://azure.microsoft.com/pricing/details/ai-foundry/)** — preview pricing changes.
+Section §11 covered the FinOps levers; this section gives the per-unit numbers so you can build a credible cost model.
+
+> ### ⚠️ Pricing changes frequently — verify before committing
+>
+> All prices below are **public preview values**, captured from Microsoft announcements at the time of writing. **Always verify the current Hosted Agents pricing on the [Azure AI Foundry pricing page](https://azure.microsoft.com/pricing/details/ai-foundry/) before estimating production costs.** Treat the numbers in this guide as planning assumptions, not as a committed price list.
 
 ### Hosted Agent compute (preview pricing — verify on the live page)
 
@@ -1430,6 +1560,8 @@ Retiring an agent is a documented event, not a delete-and-forget:
 ---
 
 ## Agent 365 & Enterprise Control Plane
+
+> **Status:** Announcement / early availability — feature scope and naming may evolve. **Production readiness:** Use selectively for fleet-level governance; not required for individual agents.
 
 > **When to think about Agent 365**: not on day one. A single agent can ship through Foundry alone. Once you operate **a fleet** — multiple business units, multiple Foundry projects, mixed Copilot Studio + custom agents — the per-project model gets noisy and you need a portfolio control plane. **Agent 365** is Microsoft's emerging admin layer for that case; it is *not* a mandatory dependency for building one or two agents.
 
