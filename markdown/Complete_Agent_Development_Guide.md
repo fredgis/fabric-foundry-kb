@@ -519,7 +519,7 @@ Containers, App Service, serverless functions were designed for **shared multi-t
 ### Core capabilities (2026 refresh)
 
 - **Predictable cold starts** — fast warm-up in your custom Docker image. **Measure in your target region and container size before committing latency SLOs** — Microsoft does not currently publish a guaranteed cold-start ceiling.
-- **Scale to zero** — pay nothing while idle; agents suspend between turns
+- **Scale to zero** — **no Hosted Agents CPU/RAM charge while idle**; agents suspend between turns. Persistent storage, ACR, monitoring (Log Analytics / Application Insights), tools, memory and model usage continue to be billed separately.
 - **Resume with filesystem intact** — `$HOME` and uploaded `/files` survive scale-to-zero events
 - **Per-session isolation** — every session gets a dedicated, hypervisor-isolated sandbox; isolation keys to namespace end-user sessions
 - **BYO VNet** — pin outbound traffic through your own virtual network for private connectivity
@@ -627,7 +627,9 @@ That single command:
 - Provisions the per-agent Entra identity
 - Assigns the Azure AI User role
 - Wires up the stable endpoint
-- Configures autoscaling and the CI/CD promotion gates declared in `azd-pipelines.yaml`
+- Applies the deployment configuration supported by the current `azure.ai.agents` extension
+
+> **Note:** CI/CD promotion gates, evaluation gates and rollback policies are **not** automatically configured by `azd deploy`. Implement them explicitly in your pipeline (GitHub Actions / Azure DevOps) — see the promotion workflow further down.
 
 ---
 
@@ -752,6 +754,8 @@ my-agent/
 ```
 
 ### Key pieces of `agent.yaml`
+
+> **YAML below is illustrative.** The exact field names, structure and supported keys depend on the installed `azure.ai.agents` `azd` extension version. **Validate against the schema published with the extension version you have installed before copy-pasting into a real pipeline** — preview schemas evolve.
 
 ```yaml
 name: customer-success-agent
@@ -1067,7 +1071,7 @@ Use **Azure Chaos Studio** to inject faults in dependent services (model regiona
 
 ## Anti-Patterns to Avoid
 
-A guide that only shows the happy path is dangerous. The following are the **recurring mistakes** that turn promising agent pilots into production incidents. Every one of these has been observed in real customer deployments.
+A guide that only shows the happy path is dangerous. The following are the **recurring mistakes** that turn promising agent pilots into production incidents — recurring failure modes seen in enterprise agent programs.
 
 ### Architecture anti-patterns
 
@@ -1200,7 +1204,7 @@ A successful agent platform involves more roles than the agent developer alone. 
 
 ## Service Limits & Quotas
 
-The single source of truth is the official **[Foundry Agent Service quotas page](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/quotas-limits)**. The tables below separate **documented limits** (hard values from Microsoft docs) from **planning rules-of-thumb** (architectural assumptions you should validate for your workload). Do not treat the second table as a contract.
+The single source of truth is the official **[Foundry Agent Service limits, quotas & regions page](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/limits-quotas-regions)**. The tables below separate **documented limits** (hard values from Microsoft docs) from **planning rules-of-thumb** (architectural assumptions you should validate for your workload). Do not treat the second table as a contract.
 
 ### Documented limits (verify on the quotas page)
 
@@ -1391,7 +1395,7 @@ Production agents handle sensitive data — design for the regulatory perimeter 
 |---|---|
 | **GDPR / EU Data Boundary** | Deploy Foundry projects in EU regions; enable EU Data Boundary on the parent subscription; Microsoft 365 Copilot data stays in the boundary by default |
 | **Data residency for memory** | Memory is co-located with the project region; verify in `Project → Settings → Region` |
-| **PII redaction** | Apply Azure AI Content Safety (Prompt Shields + PII detection) at APIM ingress *and* in a Toolbox pre-tool policy |
+| **PII redaction** | Use **Azure AI Content Safety / Prompt Shields** for harmful content and prompt-injection protection; use **Azure Language PII detection** (or an equivalent DLP tool) for PII identification, classification and redaction. Apply both at APIM ingress *and* in a Toolbox pre-tool policy |
 | **Right to erasure** | Use the Memory CRUD API to surface and delete user-scoped memories on request |
 | **Audit & traceability** | OpenTelemetry traces → Log Analytics with 1+ year retention; Entra Agent ID logs → Microsoft Purview |
 | **Model provenance** | Tag every deployment with `model.family`, `model.version`, `data.classification` in IaC; enforce via Azure Policy |
@@ -1515,7 +1519,9 @@ A production agent is a **long-lived asset**, not a one-shot deployment. Foundry
 
 ### Rollouts and rollback
 
-Foundry exposes **stable agent endpoints** with weighted routing across versions — the same primitive used by Azure App Service slots, applied to agents:
+Foundry exposes **stable agent endpoints** with weighted routing across versions — the same primitive used by Azure App Service slots, applied to agents.
+
+> **YAML below is illustrative — not a stable schema.** Validate the exact field names against the installed `azure.ai.agents` extension version. The capability (immutable versions + weighted traffic routing + auto-rollback) is documented; the precise YAML keys may differ from the example.
 
 ```yaml
 # excerpt of agent.yaml
@@ -1635,7 +1641,7 @@ The earlier you onboard Agent 365, the cheaper compliance becomes — retro-tagg
 - [Memory in Foundry Agent Service](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/what-is-memory?view=foundry&tabs=conversational-agent)
 - [Microsoft Agent Framework documentation](https://learn.microsoft.com/en-us/agent-framework/)
 - [Set up a Key Vault connection in Foundry](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/set-up-key-vault-connection)
-- [Foundry quotas & limits](https://learn.microsoft.com/en-us/azure/ai-foundry/quotas-limits)
+- [Foundry Agent Service limits, quotas & regions](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/limits-quotas-regions)
 - [Foundry region availability](https://learn.microsoft.com/en-us/azure/ai-foundry/reference/region-support)
 - [Foundry what's new / release notes](https://learn.microsoft.com/en-us/azure/ai-foundry/whats-new)
 - [Fine-tuning models on Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/fine-tuning-overview)
