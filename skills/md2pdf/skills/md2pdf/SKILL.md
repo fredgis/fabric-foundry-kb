@@ -35,7 +35,25 @@ MiKTeX installs to: `%LOCALAPPDATA%\Programs\MiKTeX\miktex\bin\x64\`
 $env:PATH = "$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64;$env:PATH"
 ```
 
-### Step 2 — Render Mermaid Diagrams to PNG
+### Step 2 — Add YAML frontmatter for the cover page
+
+The cover page renders **title + subtitle + date** when these three fields are present at the top of the markdown. **Always include all three** — the cover looks unbalanced if subtitle is missing.
+
+```markdown
+---
+title: "Network Configurations in Microsoft Fabric"
+subtitle: "Architecture, Security & Best Practices"
+date: "April 2026"
+---
+```
+
+- `title` is the big bold line at the top of the cover (and is also reused in the page footer).
+- `subtitle` is the muted gray line just below the title.
+- `date` is the small gray line at the bottom — typically the **month + year**, e.g. `April 2026`. Avoid full ISO dates on covers.
+- The repo's `header.tex` defines a custom `\subtitle{...}` command that pandoc's default LaTeX template invokes automatically when the `subtitle:` YAML field is set — no extra CLI flag is needed.
+- If you only set `title` + `date`, the cover shows just those two lines. **Don't forget the subtitle.**
+
+### Step 3 — Render Mermaid Diagrams to PNG
 
 Extract all ` ```mermaid ` code blocks, render each to PNG via mmdc, replace with image references:
 
@@ -61,7 +79,7 @@ foreach ($m in $mermaidMatches) {
 Set-Content -Path "RESOLVED.md" -Value $newMd
 ```
 
-### Step 3 — Generate PDF with pandoc + xelatex
+### Step 4 — Generate PDF with pandoc + xelatex
 
 ```powershell
 pandoc RESOLVED.md -o OUTPUT.pdf `
@@ -80,7 +98,7 @@ pandoc RESOLVED.md -o OUTPUT.pdf `
     -V toccolor:black
 ```
 
-### Step 4 — Cleanup
+### Step 5 — Cleanup
 
 ```powershell
 Remove-Item ".\mermaid-*.png" -Force -ErrorAction SilentlyContinue

@@ -1,6 +1,7 @@
 ---
 title: "The Complete Agent Development Guide"
-date: "Avril 2026"
+subtitle: "Industrializing AI Agents on Microsoft Foundry"
+date: "April 2026"
 ---
 
 # The Complete Agent Development Guide
