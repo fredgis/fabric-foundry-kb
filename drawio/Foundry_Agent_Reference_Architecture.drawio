@@ -141,7 +141,7 @@
         <mxCell id="semantic" value="Semantic Models · Power BI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2C811;strokeColor=#7A6500;fontStyle=1;fontSize=10;" vertex="1" parent="L5">
           <mxGeometry x="740" y="140" width="280" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="mcp_fabric" value="MCP Server (OBO) · OneLake APIs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9673A6;strokeColor=#3B1C5A;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
+        <mxCell id="mcp_fabric" value="OneLake MCP (GA, Apr 2026)&#10;Custom MCP Server (OBO) · Fabric APIs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9673A6;strokeColor=#3B1C5A;fontColor=#fff;fontSize=10;" vertex="1" parent="L5">
           <mxGeometry x="740" y="180" width="280" height="30" as="geometry" />
         </mxCell>
 
@@ -257,10 +257,10 @@
         <mxCell id="lg3" value="🟦 Channels   🟨 Edge / Identity   🟩 Foundry Control Plane   🟪 Hosted Runtime   🟧 Models &amp; Data   🟥 Cross-cutting Sec/Obs" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#333;" vertex="1" parent="legend">
           <mxGeometry x="20" y="74" width="900" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="lg4" value="All inter-zone traffic flows over Azure Private Endpoints (Private Link). No public model endpoints; all auth via Microsoft Entra (Managed Identity / OBO)." style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#555;fontStyle=2;" vertex="1" parent="legend">
+        <mxCell id="lg4" value="Network isolation is tool-dependent. Most data-plane traffic flows over Azure Private Endpoints; some tools (web_search/Bing, SaaS MCP, ACR image pull) still require public-endpoint reachability — see guide §9. Auth via Microsoft Entra (Managed Identity / OBO)." style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#555;fontStyle=2;" vertex="1" parent="legend">
           <mxGeometry x="20" y="96" width="1440" height="20" as="geometry" />
         </mxCell>
-        <mxCell id="lg5" value="Reference architecture for industrializing agents on Microsoft Foundry · Hosted Agents (Public Preview) · Toolbox (Public Preview) · Memory (Public Preview)" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#555;fontStyle=2;" vertex="1" parent="legend">
+        <mxCell id="lg5" value="Reference architecture for industrializing agents on Microsoft Foundry · Foundry Agent Service control plane (GA) · OneLake MCP &amp; Fabric Data Agent (GA, April 2026) · Hosted Agents (Public Preview) · Toolbox (Public Preview) · Memory (Public Preview)" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#555;fontStyle=2;" vertex="1" parent="legend">
           <mxGeometry x="20" y="116" width="1440" height="18" as="geometry" />
         </mxCell>
 

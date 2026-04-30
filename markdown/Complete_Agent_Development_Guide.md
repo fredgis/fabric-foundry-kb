@@ -1,3 +1,8 @@
+---
+title: "The Complete Agent Development Guide"
+date: "Avril 2026"
+---
+
 # The Complete Agent Development Guide
 
 *Industrializing AI agents on Microsoft Foundry — from local prototype to production-grade enterprise deployment.*
@@ -16,7 +21,7 @@ Microsoft Foundry now offers an end-to-end story for that journey, structured ar
 | Foundry Toolkit for VS Code | **GA** | Local create / debug / deploy loop with traces |
 | Memory in Foundry Agent Service | **Public Preview** | Managed long-term memory, no DB to provision |
 | Toolbox in Foundry | **Public Preview** | One MCP endpoint exposing many tools, governed centrally |
-| Hosted Agents in Foundry Agent Service (refresh) | **GA** (March 2026) | Per-session VM-isolated sandbox, scale-to-zero, persistent FS, per-agent Entra ID. Some sub-features (e.g. parts of the Workflow builder, advanced tracing) remain Preview |
+| Hosted Agents in Foundry Agent Service (refresh) | **Public Preview** (April 2026) | Per-session VM-isolated sandbox, scale-to-zero, persistent FS, per-agent Entra ID. The Foundry Agent Service control plane is GA, but the **hosted-agents compute / runtime is still in public preview** — see the [official Hosted Agents (preview) page](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents) |
 | Observability in Foundry Control Plane | **Core capabilities GA, advanced features still rolling out** | End-to-end OpenTelemetry tracing and continuous evaluation are GA; Red Teaming Agent and some advanced eval flows remain Public Preview |
 
 This guide walks through the full industrialization pipeline, with code samples, an end-to-end reference architecture, governance and FinOps controls, and a production checklist.
@@ -30,7 +35,7 @@ This guide walks through the full industrialization pipeline, with code samples,
 > | Microsoft Agent Framework v1.0 (SDK) | **GA** | Safe for production code |
 > | Foundry Toolkit for VS Code | **GA** | Safe for inner-loop tooling |
 > | Foundry Agent Service control plane | **GA** | Subject to a Microsoft SLA — verify the exact figure in the [Azure SLA / Product Terms](https://www.microsoft.com/licensing/docs/view/Service-Level-Agreements-SLA-for-Online-Services) before quoting it externally |
-> | Hosted Agents compute (per-session sandbox) | **GA** (March 2026) | Covered by the Foundry Agent Service SLA at GA. Some sub-features remain Preview — verify per feature |
+> | Hosted Agents compute (per-session sandbox) | **Public preview** | No SLA — **the Foundry Agent Service control plane is GA, but the hosted-agents compute is still in public preview**. Do not back external production SLAs with hosted-agents until they reach GA |
 > | Foundry Toolbox | **Public preview** | No SLA; tool catalogue evolving |
 > | Foundry Memory | **Public preview** | No SLA; **billing scheduled to begin June 1, 2026** — verify before production go-live |
 > | AI Red Teaming Agent | **Public preview** | No SLA |
@@ -499,7 +504,7 @@ Most agent failures come from **under-specified tools**, not the model. Before e
 
 ## Hosted Agents in Foundry Agent Service
 
-> **Status:** **GA** (announced March 16, 2026 at GTC) · **Production readiness:** Recommended for production workloads under the Foundry Agent Service SLA. Some sub-features (parts of the Workflow builder, certain advanced tracing capabilities) remain Public Preview — verify per feature before relying on it for compliance evidence.
+> **Status:** **Public Preview** (Foundry Agent Service control plane is GA; the hosted-agents compute / runtime described here remains in public preview as of April 2026 — see the [official Hosted Agents (preview) page](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents)) · **Production readiness:** Suitable for pilots and pre-production hardening. **Do not commit external production SLAs to hosted-agents until GA.**
 
 This is the production runtime. The 2026 refresh is **fundamentally different** from the original Ignite preview — it now provides **per-session VM-isolated sandboxes**, **persistent filesystem**, **scale-to-zero with state resume**, and **dedicated Entra Agent IDs** out of the box.
 
@@ -1263,7 +1268,7 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 | Capability | Status (today) | SLA |
 |---|---|---|
 | Foundry Agent Service control plane | GA | Covered by a Microsoft SLA — **verify the current figure in the [Azure SLA / Product Terms](https://www.microsoft.com/licensing/docs/view/Service-Level-Agreements-SLA-for-Online-Services)** before quoting any number externally |
-| Hosted Agents compute | **GA** (March 2026) | Covered by the Foundry Agent Service SLA at GA — verify the exact figure in the Azure SLA / Product Terms before quoting externally. Some sub-features (advanced workflow builder, certain tracing capabilities) remain Preview |
+| Hosted Agents compute | **Public Preview** (April 2026) | No SLA — the Foundry Agent Service control plane is GA, but the hosted-agents compute / runtime is still in public preview. Do not back production SLAs with hosted-agents until GA |
 | Toolbox | Public Preview | No SLA |
 | Memory | Public Preview | No SLA |
 | Microsoft Agent Framework v1.0 (SDK) | GA | N/A (client SDK) |
