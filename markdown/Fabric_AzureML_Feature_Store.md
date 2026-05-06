@@ -332,7 +332,7 @@ After this is done, the DS in Fabric sees a folder under `Files/` of the Lakehou
 
 ### Alternative: the OneLake datastore (Public preview)
 
-Azure ML now ships an **OneLake datastore** type, currently in **Public preview**, that lets the AML workspace point directly at a Fabric Lakehouse without the intermediate ADLS Gen2 account. Under the hood it is still ABFS — Azure ML resolves the OneLake artifact URL and treats it as ADLS — but the user sees one fewer storage account.
+Azure ML now ships an [**OneLake datastore**](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-datastore?view=azureml-api-2#create-a-onelake-microsoft-fabric-datastore-preview) type, currently in **Public preview**, that lets the AML workspace point directly at a Fabric Lakehouse without the intermediate ADLS Gen2 account. Under the hood it is still ABFS — Azure ML resolves the OneLake artifact URL and treats it as ADLS — but the user sees one fewer storage account. The corresponding SDK class, [`azure.ai.ml.entities.OneLakeDatastore`](https://learn.microsoft.com/en-us/python/api/azure-ai-ml/azure.ai.ml.entities.onelakedatastore?view=azure-python), is marked **experimental**, which confirms the preview status. A [UI walkthrough](https://learn.microsoft.com/en-us/azure/machine-learning/create-datastore-with-user-interface?view=azureml-api-2) is also available in the Azure ML Studio docs.
 
 | Pattern | Status (April 2026) | Strengths | Limits |
 |---|---|---|---|
@@ -1400,6 +1400,9 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 ### A. Microsoft Learn — primary integration sources
 
 - [Use Microsoft Fabric to access models deployed to Azure Machine Learning batch endpoints](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-batch-fabric?view=azureml-api-2) — **the** canonical page for the Fabric × Azure ML integration. Documents the OneLake / ADLS Gen2 shortcut pattern, the Public-preview status of the Fabric Data Factory `Azure Machine Learning` pipeline activity, and the input/output contract for the activity.
+- [Create datastores in Azure Machine Learning — *OneLake (Microsoft Fabric) datastore (preview)*](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-datastore?view=azureml-api-2#create-a-onelake-microsoft-fabric-datastore-preview) — official documentation of the OneLake datastore type: Preview status, required workspace/artifact GUIDs, supported lakehouse `Files` area only, Python SDK and CLI examples.
+- [`azure.ai.ml.entities.OneLakeDatastore` (Python SDK reference, experimental)](https://learn.microsoft.com/en-us/python/api/azure-ai-ml/azure.ai.ml.entities.onelakedatastore?view=azure-python) — class reference, marked experimental — the SDK proof of preview status.
+- [Linking tables in OneLake to Azure Machine Learning through the UI](https://learn.microsoft.com/en-us/azure/machine-learning/create-datastore-with-user-interface?view=azureml-api-2) — UI walkthrough for the same OneLake datastore preview flow in Azure ML Studio.
 - [What is managed feature store?](https://learn.microsoft.com/en-us/azure/machine-learning/concept-what-is-managed-feature-store?view=azureml-api-2)
 - [Manage feature sets in managed feature store (CLI v2 and SDK v2)](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-feature-sets?view=azureml-api-2)
 - [Tutorial — Develop and register a feature set with managed feature store](https://learn.microsoft.com/en-us/azure/machine-learning/tutorial-get-started-with-feature-store?view=azureml-api-2)
