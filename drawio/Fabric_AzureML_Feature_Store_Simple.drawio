@@ -1,0 +1,96 @@
+<mxfile host="Electron" agent="copilot-cli" version="24.7.5">
+  <diagram name="Simple architecture" id="simple-arch">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="Microsoft Fabric &#215; Azure Machine Learning &#183; Simple architecture" style="text;html=1;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;fontColor=#1F2D54;" vertex="1" parent="1">
+          <mxGeometry x="100" y="20" width="1400" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Same ADLS Gen2 bytes, two logical views, no copy &#183; April 2026" style="text;html=1;fontSize=13;fontStyle=2;align=center;verticalAlign=middle;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="100" y="60" width="1400" height="24" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="entra" value="&lt;b&gt;Microsoft Entra ID&lt;/b&gt;&lt;br/&gt;Users (DS / MLE) &#183; Managed Identities for AML compute, endpoints and datastores &#183; Workload Identity Federation for CI/CD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F2D54;strokeColor=#0D1633;fontColor=#FFFFFF;fontSize=13;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="110" width="1400" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="fab" value="&lt;b&gt;Microsoft Fabric&lt;/b&gt;" style="swimlane;startSize=36;fillColor=#DAE8FC;strokeColor=#6C8EBF;html=1;fontSize=15;fontStyle=1;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="220" width="400" height="300" as="geometry"/>
+        </mxCell>
+        <mxCell id="fab_lh" value="&lt;b&gt;Lakehouse 'ml-features'&lt;/b&gt;&lt;br/&gt;Gold data products owned by Data Engineering" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="fab">
+          <mxGeometry x="20" y="56" width="360" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="fab_nb" value="&lt;b&gt;Notebooks (Data Scientist)&lt;/b&gt;&lt;br/&gt;Spark exploration &#183; transform.py &#183; FeatureSetSpec" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6C8EBF;fontSize=12;" vertex="1" parent="fab">
+          <mxGeometry x="20" y="136" width="360" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="fab_sc" value="&lt;b&gt;OneLake shortcut&lt;/b&gt;&lt;br/&gt;Virtualizes the shared ADLS Gen2 container as a native Lakehouse folder" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;fontStyle=1;" vertex="1" parent="fab">
+          <mxGeometry x="20" y="216" width="360" height="64" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="adls" value="&lt;b style=&quot;font-size:16px;&quot;&gt;Azure Data Lake Storage Gen2&lt;/b&gt;&lt;br/&gt;&lt;span style=&quot;font-size:12px;&quot;&gt;Single shared container&#160;&#183;&#160;Hierarchical namespace&lt;br/&gt;Private endpoint&#160;&#183;&#160;CMK via Key Vault&#160;&#183;&#160;Soft delete&#160;&#183;&#160;Versioning&lt;/span&gt;&lt;br/&gt;&lt;br/&gt;&lt;b&gt;The single physical contract&lt;/b&gt;&lt;br/&gt;&lt;span style=&quot;font-size:11px;font-style:italic;&quot;&gt;same bytes &#183; two logical views &#183; no copy&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD335;strokeColor=#A88B00;fontSize=13;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="600" y="280" width="400" height="240" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="aml" value="&lt;b&gt;Azure Machine Learning&lt;/b&gt;" style="swimlane;startSize=36;fillColor=#D5E8D4;strokeColor=#82B366;html=1;fontSize=15;fontStyle=1;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="220" width="400" height="360" as="geometry"/>
+        </mxCell>
+        <mxCell id="aml_fs" value="&lt;b&gt;Managed Feature Store&lt;/b&gt;&lt;br/&gt;Entities &#183; FeatureSets (versioned, immutable) &#183; transform.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=12;" vertex="1" parent="aml">
+          <mxGeometry x="20" y="56" width="360" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="aml_mr" value="&lt;b&gt;Model Registry &amp; Endpoints&lt;/b&gt;&lt;br/&gt;MLflow registry &#183; managed online &amp; batch endpoints" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=12;" vertex="1" parent="aml">
+          <mxGeometry x="20" y="136" width="360" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="aml_ds" value="&lt;b&gt;AzureDataLakeGen2Datastore&lt;/b&gt;&lt;br/&gt;ManagedIdentityConfiguration &#183; no key, no SAS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE6CC;strokeColor=#D79B00;fontSize=12;fontStyle=1;" vertex="1" parent="aml">
+          <mxGeometry x="20" y="216" width="360" height="64" as="geometry"/>
+        </mxCell>
+        <mxCell id="aml_studio" value="&lt;b&gt;Azure ML Studio / VS Code&lt;/b&gt;&lt;br/&gt;ML Engineer authoring path (CLI YAML)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#82B366;fontSize=12;" vertex="1" parent="aml">
+          <mxGeometry x="20" y="296" width="360" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="fab_pbi" value="&lt;b&gt;Power BI &#183; Apps &#183; Agents&lt;/b&gt;&lt;br/&gt;Consume predictions through the OneLake shortcut as Gold data products" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4F8;strokeColor=#6C8EBF;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="600" y="560" width="400" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cross" value="&lt;b&gt;Cross-cutting&lt;/b&gt;&#160;&#160;&#160;Microsoft Purview (unified lineage)&#160;&#183;&#160;Azure Key Vault (CMK + secrets via RBAC)&#160;&#183;&#160;Application Insights / Azure Monitor (telemetry, drift, alerts)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1D5E7;strokeColor=#9673A6;fontSize=12;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="640" width="1400" height="50" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="legend" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="100" y="710" width="1400" height="220" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_title" value="&lt;b&gt;What this picture says (and what it does not)&lt;/b&gt;" style="text;html=1;fontSize=13;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="120" y="720" width="500" height="24" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_says" value="&lt;b&gt;Says.&lt;/b&gt;&lt;br/&gt;&#8226; ADLS Gen2 is the single physical contract.&lt;br/&gt;&#8226; Fabric and Azure ML each see it through their own native object (shortcut / datastore).&lt;br/&gt;&#8226; Identity is Entra everywhere; secrets live in Key Vault; lineage is unified in Purview.&lt;br/&gt;&#8226; Predictions land back on the same ADLS Gen2 and reappear in Fabric via the shortcut." style="text;html=1;fontSize=11;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="120" y="746" width="680" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="leg_doesnot" value="&lt;b&gt;Does not say.&lt;/b&gt;&lt;br/&gt;&#8226; That Azure ML reads OneLake directly &#8212; Microsoft documents that this is &lt;i&gt;not&lt;/i&gt; supported. Use the shared ADLS Gen2 instead.&lt;br/&gt;&#8226; That the data is replicated. Same bytes, two logical paths.&lt;br/&gt;&#8226; That the choice between Fabric notebook and Azure ML Studio matters for the artifacts. Both produce the same FeatureSet in the same store. They are complementary entry points." style="text;html=1;fontSize=11;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="820" y="746" width="660" height="170" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_entra_fab" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#1F2D54;strokeWidth=1;endArrow=open;" edge="1" parent="1" source="entra" target="fab">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_entra_aml" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#1F2D54;strokeWidth=1;endArrow=open;" edge="1" parent="1" source="entra" target="aml">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_entra_adls" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeColor=#1F2D54;strokeWidth=1;endArrow=open;" edge="1" parent="1" source="entra" target="adls">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e_fab_adls" value="OneLake shortcut&#10;(same physical bytes)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6C8EBF;strokeWidth=3;startArrow=classic;endArrow=classic;fontSize=12;fontStyle=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="fab_sc" target="adls">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_aml_adls" value="AML datastore&#10;(Managed Identity)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#82B366;strokeWidth=3;startArrow=classic;endArrow=classic;fontSize=12;fontStyle=1;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="aml_ds" target="adls">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_predictions" value="predictions" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D79B00;strokeWidth=2;dashed=1;endArrow=classic;fontSize=11;fontStyle=2;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="adls" target="fab_pbi">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

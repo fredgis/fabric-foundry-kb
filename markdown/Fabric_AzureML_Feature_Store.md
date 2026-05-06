@@ -10,37 +10,13 @@ date: "April 2026"
 
 ---
 
-## Table of Contents
-
-**Part 1 — Foundations**
-
-1. [Executive summary](#1-executive-summary)
-2. [What is a feature?](#2-what-is-a-feature)
-3. [What is a feature store?](#3-what-is-a-feature-store)
-4. [The fundamental insight: storage ≠ contract ≠ execution](#4-the-fundamental-insight-storage--contract--execution)
-5. [Why Fabric and Azure ML are not redundant](#5-why-fabric-and-azure-ml-are-not-redundant)
-6. [Who does what (Data Eng / DS / MLE / Platform)](#6-who-does-what-data-eng--ds--mle--platform)
-
-**Part 2 — Industrialization**
-
-7. [Reference architecture](#7-reference-architecture)
-8. [The ADLS Gen2 + OneLake shortcut contract](#8-the-adls-gen2--onelake-shortcut-contract)
-9. [Two authoring paths and how to choose](#9-two-authoring-paths-and-how-to-choose)
-10. [End-to-end flow: from a Fabric notebook to production](#10-end-to-end-flow-from-a-fabric-notebook-to-production)
-11. [Materialization: offline vs online stores](#11-materialization-offline-vs-online-stores)
-12. [Training: feature retrieval spec and point-in-time joins](#12-training-feature-retrieval-spec-and-point-in-time-joins)
-13. [Serving the model](#13-serving-the-model)
-14. [Governance: identity, network, lineage, EU AI Act](#14-governance-identity-network-lineage-eu-ai-act)
-15. [Decision matrix: feature store vs plain Delta table](#15-decision-matrix-feature-store-vs-plain-delta-table)
-16. [Anti-patterns](#16-anti-patterns)
-17. [Production checklist](#17-production-checklist)
-18. [References](#18-references)
+> The PDF table of contents is generated automatically. Reading order: Part 1 builds the mental model from scratch (what is a feature, what is a feature store, why two products and not one). Part 2 is the deep dive: physical contract on ADLS Gen2, the two complementary authoring paths, the end-to-end flow, governance, the decision trees and the production checklist. The Annex lists every public reference used to write this document.
 
 ---
 
 # Part 1 — Foundations
 
-## 1. Executive summary
+## Executive summary
 
 > **What you will learn**
 >
@@ -69,7 +45,7 @@ Microsoft Fabric and Azure Machine Learning solve **different problems** and are
 
 ---
 
-## 2. What is a feature?
+## What is a feature?
 
 > **What you will learn**
 >
@@ -100,7 +76,7 @@ The ability to perform a **point-in-time join** — *"give me each feature as it
 
 ---
 
-## 3. What is a feature store?
+## What is a feature store?
 
 > **What you will learn**
 >
@@ -170,7 +146,7 @@ You can certainly write a Delta table called `customer_features_v1` in a Fabric 
 
 ---
 
-## 4. The fundamental insight: storage ≠ contract ≠ execution
+## The fundamental insight: storage ≠ contract ≠ execution
 
 > **What you will learn**
 >
@@ -196,7 +172,7 @@ Once you internalize this split, several apparent paradoxes disappear:
 
 ---
 
-## 5. Why Fabric and Azure ML are not redundant
+## Why Fabric and Azure ML are complementary, not redundant
 
 > **What you will learn**
 >
@@ -228,7 +204,7 @@ This asymmetry is healthy. A data scientist should not have to learn Azure DevOp
 
 ---
 
-## 6. Who does what (Data Eng / DS / MLE / Platform)
+## Who does what (Data Eng / DS / MLE / Platform)
 
 > **What you will learn**
 >
@@ -278,33 +254,43 @@ R = Responsible · A = Accountable · C = Consulted · I = Informed
 
 # Part 2 — Industrialization
 
-## 7. Reference architecture
+## Reference architecture
 
 > **What you will learn**
 >
-> - The four planes you need to draw on every architecture review.
-> - Where identity, network, lineage and observability cross those planes.
-> - What "zero-copy" actually means in this design.
+> - The 30-second mental picture of the integration (simple view).
+> - The full reference architecture for an enterprise rollout (detailed view).
+> - What "zero-copy" actually means and the two arrows that matter most.
 
-![Fabric × Azure ML feature store reference architecture](../images/Fabric_AzureML_Feature_Store_Architecture.png){ width=100% }
+The architecture is presented at two levels of detail. Read the **simple view** first; it is the version to put in front of a steering committee or a non-technical sponsor. Read the **detailed view** when you need to defend the design at an architecture review.
 
-The diagram has four horizontal planes plus two cross-cutting columns:
+### Simple view
 
-- **Plane 1 — Sources & Data Platform (Fabric).** Lakehouses, Warehouses and the Gold data products, governed by Fabric workspace roles, OneLake security and Purview.
-- **Plane 2 — Authoring.** Two co-equal entry points: the **Fabric notebook** (for the DS, with the `azure-ai-ml` and `azureml-featurestore` SDKs installed) and **Azure ML Studio / VS Code + CLI YAML** (for the MLE). Both write to the same Git repo and the same ADLS Gen2.
+A single storage account in ADLS Gen2 is shared between Fabric (via a OneLake shortcut) and Azure ML (via a datastore). Both products see the same physical bytes. Predictions written by Azure ML reappear in Fabric through the same shortcut. Identity is Entra; secrets live in Key Vault; lineage is unified in Purview.
+
+![Fabric × Azure ML — simple architecture](../images/Fabric_AzureML_Feature_Store_Simple.png){ width=95% }
+
+### Detailed view
+
+The detailed reference adds the four planes that an architecture review will ask about: data sources, authoring entry points, the shared physical layer, the Azure ML execution plane, and the cross-cutting identity / network / observability columns.
+
+![Fabric × Azure ML — detailed reference architecture](../images/Fabric_AzureML_Feature_Store_Architecture.png){ width=100% }
+
+- **Plane 1 — Sources & Data Platform (Fabric).** Lakehouses, Warehouses and Gold data products, governed by Fabric workspace roles, OneLake security and Purview.
+- **Plane 2 — Authoring.** Two complementary entry points: the **Fabric notebook** with the `azure-ai-ml` and `azureml-featurestore` SDKs, and **Azure ML Studio / VS Code + CLI YAML**. Both produce identical artifacts in the AML Feature Store and target the same ADLS Gen2.
 - **Plane 3 — Shared physical layer (ADLS Gen2).** Single storage account. **OneLake shortcut** on the Fabric side, **AzureDataLakeGen2Datastore** on the Azure ML side. This is the only place feature bytes physically live.
-- **Plane 4 — Azure ML execution plane.** The Feature Store (a kind of AML workspace) with its registered Entities and Feature Sets; training pipelines and the model registry; managed online endpoints; managed batch endpoints. Predictions are written back to the same ADLS Gen2 and re-surface in Fabric via the shortcut.
-- **Cross-cutting — Identity & Network.** Entra ID for Fabric users, Managed Identity for AML compute and endpoints, private endpoints on ADLS Gen2 and the AML workspace, Trusted Workspace Access for Fabric → ADLS egress.
+- **Plane 4 — Azure ML execution plane.** The Feature Store workspace with registered Entities and Feature Sets; training pipelines and the model registry; managed online and batch endpoints. Predictions are written back to the same ADLS Gen2 and re-surface in Fabric via the shortcut.
+- **Cross-cutting — Identity & Network.** Entra ID for users, Managed Identity for AML compute and endpoints, private endpoints on ADLS Gen2 and the AML workspace, Trusted Workspace Access for Fabric → ADLS egress.
 - **Cross-cutting — Governance & Observability.** Purview for unified lineage, Key Vault for secrets and CMKs, Application Insights and Azure Monitor for runtime telemetry.
 
 The two arrows that matter most are:
 
-1. The **register-spec arrow** from the Fabric notebook to the AML Feature Store: the `FeatureSetSpec.yaml` and the `transform.py` are pushed to AML by the DS; AML stores them as immutable versioned artifacts.
-2. The **materialize arrow** from AML Feature Store back to ADLS Gen2: AML re-executes the transformation on its own compute and writes the materialized features as parquet partitioned by index keys + timestamp.
+1. The **register-spec arrow** from the authoring side (Fabric notebook *or* Azure ML Studio) to the AML Feature Store. The `FeatureSetSpec.yaml` and the `transform.py` are stored as immutable versioned artifacts.
+2. The **materialize arrow** from the AML Feature Store back to ADLS Gen2. AML re-executes the transformation on its own compute and writes parquet partitioned by index keys + timestamp.
 
 ---
 
-## 8. The ADLS Gen2 + OneLake shortcut contract
+## The ADLS Gen2 + OneLake shortcut contract
 
 > **What you will learn**
 >
@@ -382,15 +368,15 @@ What is **not** zero-copy:
 
 ---
 
-## 9. Two authoring paths and how to choose
+## Two complementary authoring paths
 
 > **What you will learn**
 >
-> - The two supported ways to register feature sets, with code on each side.
-> - When to pick which path, based on team profile and feature complexity.
-> - Why offering both is more pragmatic than enforcing one.
+> - The two officially supported entry points, with code on each side.
+> - That they are **complementary**, not competing — both produce the exact same artifacts.
+> - A decision tree to pick the path for a given feature set, and why offering both is more pragmatic than enforcing one.
 
-There are two officially supported entry points to register a feature set. They produce **identical artifacts in Azure ML** and they consume **identical infrastructure**. The difference is only the human who drives them.
+There are two officially supported entry points to register a feature set. They produce **identical artifacts in Azure ML** and they consume **identical infrastructure**. The difference is the human who drives them and the local context (notebook environment vs YAML/CLI). They are not in opposition; in real organizations, both paths coexist, sometimes for the same team across different feature sets.
 
 ### Path A — From a Fabric notebook (DS-driven, SDK)
 
@@ -453,7 +439,25 @@ az ml feature-set create \
 - The MLE is one step removed from the source data exploration; risk of the spec drifting from the actual data semantics.
 - Requires either the source data to be visible to AML (via the same ADLS Gen2 datastore) or a separate exploration loop.
 
-### Decision criteria
+### Decision tree: which path for this feature set?
+
+Both paths can be active in the same organization. The choice is per feature set, not per team, and it is reversible (the artifacts in AML are identical).
+
+```mermaid
+flowchart TD
+    Start{"Where will the feature<br/>be authored?"}
+    Start -->|"DS doing live exploration<br/>on Lakehouse data"| QA{"Are azure-ai-ml and<br/>azureml-featurestore installable<br/>in the Fabric environment?"}
+    Start -->|"MLE-led, YAML/CLI native,<br/>automation-first"| QB{"Is the source data already<br/>visible to AML through<br/>the datastore?"}
+    QA -->|Yes| PathA["Path A — Fabric notebook + SDK<br/>register from where you explore"]
+    QA -->|"No / restricted environment"| Hybrid["Hybrid — explore in Fabric,<br/>register from CI with templated YAML"]
+    QB -->|Yes| PathB["Path B — Azure ML Studio /<br/>VS Code + CLI YAML"]
+    QB -->|No| Hybrid
+    style PathA fill:#dae8fc,stroke:#6c8ebf
+    style PathB fill:#d5e8d4,stroke:#82b366
+    style Hybrid fill:#fff2cc,stroke:#d6b656
+```
+
+### Decision criteria (reference table)
 
 | Criterion | Lean Path A (Fabric notebook + SDK) | Lean Path B (Azure ML Studio/CLI) |
 |---|---|---|
@@ -472,7 +476,7 @@ az ml feature-set create \
 
 ---
 
-## 10. End-to-end flow: from a Fabric notebook to production
+## End-to-end flow: from a Fabric notebook to production
 
 > **What you will learn**
 >
@@ -627,7 +631,7 @@ jobs:
 
 ---
 
-## 11. Materialization: offline vs online stores
+## Materialization: offline vs online stores
 
 > **What you will learn**
 >
@@ -674,9 +678,26 @@ When **not** to enable it:
 - Batch-only models. The online store will sit there empty and bill you.
 - Models scoring ≤ a few requests per minute. A direct read of the materialized parquet from a small compute will be cheaper.
 
+### Decision tree: enable the online store?
+
+```mermaid
+flowchart TD
+    Q1{"Is the model served via<br/>a synchronous endpoint?"}
+    Q1 -->|"No, batch only"| NoOnline["Do not enable the online store<br/>(would bill Redis 24/7 for nothing)"]
+    Q1 -->|Yes| Q2{"End-to-end latency budget<br/>under ~500 ms?"}
+    Q2 -->|No| Direct["Read materialized parquet directly<br/>from a small compute"]
+    Q2 -->|Yes| Q3{"Lookup is by primary key<br/>(customer_id, asset_id)?"}
+    Q3 -->|Yes| Online["Enable online store<br/>(Azure Managed Redis)"]
+    Q3 -->|"No, complex query"| Cache["Online store ill-suited;<br/>consider a different cache pattern"]
+    style Online fill:#d5e8d4,stroke:#82b366
+    style NoOnline fill:#dae8fc,stroke:#6c8ebf
+    style Direct fill:#dae8fc,stroke:#6c8ebf
+    style Cache fill:#fff2cc,stroke:#d6b656
+```
+
 ---
 
-## 12. Training: feature retrieval spec and point-in-time joins
+## Training: feature retrieval spec and point-in-time joins
 
 > **What you will learn**
 >
@@ -741,7 +762,7 @@ Without point-in-time joins, you write that logic by hand and you eventually get
 
 ---
 
-## 13. Serving the model
+## Serving the model
 
 > **What you will learn**
 >
@@ -751,7 +772,7 @@ Without point-in-time joins, you write that logic by hand and you eventually get
 
 Three serving modes are available, and they are not interchangeable.
 
-### 13.1. Online inference (Azure ML managed online endpoint)
+### Online inference (Azure ML managed online endpoint)
 
 ```mermaid
 flowchart LR
@@ -773,7 +794,7 @@ flowchart LR
 - Authentication: Entra ID (recommended) or key-based auth.
 - Autoscaling, blue/green, canary and traffic split are managed by AML.
 
-### 13.2. Batch inference from Azure ML
+### Batch inference from Azure ML
 
 When the orchestration logic naturally lives in the ML world (re-training pipelines, offline scoring jobs triggered by `az ml job create`), use a **managed batch endpoint** with a **feature retrieval component** that runs the point-in-time join from the offline store.
 
@@ -803,7 +824,7 @@ job = command(
 
 Outputs land back on the shared ADLS Gen2 → reappear in the Fabric Lakehouse via the OneLake shortcut → are consumed by Power BI, downstream pipelines and applications.
 
-### 13.3. Batch inference triggered from a Fabric pipeline (Public preview)
+### Batch inference triggered from a Fabric pipeline (Public preview)
 
 When the orchestration naturally lives in the data world (a Fabric Data Factory pipeline that triggers scoring at the end of a daily ETL), use the built-in **Azure Machine Learning** activity in the Fabric pipeline.
 
@@ -840,7 +861,7 @@ The output predictions land on ADLS Gen2 → become visible in Fabric via the On
 flowchart TD
     Q1{"Is the trigger<br/>a data event<br/>(end of ETL,<br/>new file)?"}
     Q1 -->|Yes| Q2{"Is the SLA<br/>strict and external<br/>(customer-facing)?"}
-    Q1 -->|No, it's a model event<br/>(re-training, drift)| AML["Orchestrate in Azure ML<br/>(pipeline + schedule)"]
+    Q1 -->|No - it's a model event| AML["Orchestrate in Azure ML<br/>(pipeline + schedule)"]
     Q2 -->|Yes| AML2["Orchestrate in AML<br/>triggered by ADF / schedule<br/>(GA, supported SLA)"]
     Q2 -->|No| FAB["Fabric Data Factory pipeline<br/>+ AML batch endpoint activity<br/>(Preview, no SLA)"]
     style FAB fill:#fff2cc,stroke:#d6b656
@@ -850,7 +871,7 @@ flowchart TD
 
 ---
 
-## 14. Governance: identity, network, lineage, EU AI Act
+## Governance: identity, network, lineage, EU AI Act
 
 > **What you will learn**
 >
@@ -858,7 +879,7 @@ flowchart TD
 > - How identity flows across the two products without service-principal sprawl.
 > - How Purview unifies lineage between the data and ML worlds.
 
-### 14.1. Identity
+### Identity
 
 | Surface | Identity | Authority |
 |---|---|---|
@@ -876,7 +897,7 @@ flowchart TD
 - No SAS token in notebooks.
 - Conditional Access enforced on all human identities accessing Fabric and Azure ML.
 
-### 14.2. Network
+### Network
 
 | Component | Posture |
 |---|---|
@@ -886,14 +907,14 @@ flowchart TD
 | Fabric workspace egress to ADLS Gen2 | **Trusted Workspace Access** on the storage account, scoped to the Fabric workspace. |
 | Cross-tenant access | Disabled by default; audited if enabled. |
 
-### 14.3. Encryption and key management
+### Encryption and key management
 
 - **CMK** on ADLS Gen2 via Key Vault.
 - **CMK** on the AML workspace via Key Vault (one-time setup at workspace creation).
 - Soft delete enabled on the ADLS Gen2 container; blob versioning enabled.
 - Key Vault access policies replaced by **RBAC** (`Key Vault Secrets User`, `Key Vault Crypto Service Encryption User`).
 
-### 14.4. RBAC summary
+### RBAC summary
 
 | Principal | ADLS Gen2 container | Fabric ML workspace | AML workspace | Feature Store workspace |
 |---|---|---|---|---|
@@ -904,7 +925,7 @@ flowchart TD
 | Endpoint MI | Storage Blob Data Reader | n/a | n/a | (read features) |
 | CI/CD identity | Storage Blob Data Contributor | (deploy artifacts) | Contributor | Contributor |
 
-### 14.5. Lineage and audit
+### Lineage and audit
 
 - **Fabric** records the production of each feature table: which notebook, which user, which source business tables.
 - **Azure ML** records the consumption: which `FeatureSet:version` is read by which training run (MLflow), which model artifact is registered, which endpoint serves which version.
@@ -913,7 +934,7 @@ flowchart TD
 
 This unified lineage is what makes the design defensible under the **EU AI Act**: for any prediction served, you can answer *"which model version, trained on which feature versions, computed from which source data, owned by which team, governed by which policy"*.
 
-### 14.6. Reproducibility
+### Reproducibility
 
 - FeatureSets are immutable per version. A new transformation requires a new version.
 - Models in the AML registry are signed and embed their `feature_retrieval_spec.yaml`.
@@ -922,15 +943,34 @@ This unified lineage is what makes the design defensible under the **EU AI Act**
 
 ---
 
-## 15. Decision matrix: feature store vs plain Delta table
+## Decision matrix: feature store vs plain Delta table
 
 > **What you will learn**
 >
-> - A concrete checklist to decide whether the cost of a feature store is justified.
-> - The five conditions that, in combination, tip the balance.
+> - A decision tree to decide whether the cost of a feature store is justified.
+> - A concrete checklist of the conditions that, in combination, tip the balance.
 > - The honest answer for small teams and one-off models.
 
 A feature store is not a dogma. For a single batch model with 15 simple columns and one consumer, a well-governed Delta table in a Fabric Lakehouse is enough. For an industrial AI platform with multiple models, real-time serving, and audit obligations, the feature store earns its keep.
+
+### Decision tree: do I need a feature store?
+
+```mermaid
+flowchart TD
+    Q1{"More than one model<br/>will reuse these variables?"}
+    Q1 -->|Yes| FS["Use Azure ML<br/>Managed Feature Store"]
+    Q1 -->|No| Q2{"Real-time inference<br/>(< 500 ms)?"}
+    Q2 -->|Yes| FS
+    Q2 -->|No| Q3{"Need point-in-time joins<br/>or strict audit lineage<br/>(EU AI Act, model risk)?"}
+    Q3 -->|Yes| FS
+    Q3 -->|No| Q4{"Multiple teams produce<br/>or consume the variables?"}
+    Q4 -->|Yes| FS
+    Q4 -->|No| Delta["Plain Delta table<br/>in Fabric Lakehouse<br/>is enough"]
+    style FS fill:#d5e8d4,stroke:#82b366
+    style Delta fill:#dae8fc,stroke:#6c8ebf
+```
+
+### Reference table
 
 Use a feature store when **at least two of the following** apply:
 
@@ -954,7 +994,53 @@ A pragmatic rule: start with Delta tables, refactor into a feature store when th
 
 ---
 
-## 16. Anti-patterns
+## Interfacing best practices
+
+> **What you will learn**
+>
+> - The non-negotiable rules for connecting Fabric and Azure ML in production.
+> - The three layers where the integration must be made explicit: storage, identity, lineage.
+> - The rules of thumb to avoid the recurring failure modes.
+
+The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit and tested before going to production. Skipping any of them turns a clean architecture into an operational liability within a few months.
+
+### Storage layer — single physical contract
+
+- **One ADLS Gen2 storage account per environment** (Dev / Staging / Prod). Do not mix environments in one account.
+- **Hierarchical namespace enabled**, soft delete on, blob versioning on, **CMK** via Key Vault.
+- **OneLake shortcut on the Fabric side, AzureDataLakeGen2Datastore on the Azure ML side** — both pointing to the same container. Never two stores synchronized via a job.
+- **Predictions are written back to the same ADLS Gen2** in a dedicated folder, then consumed by Fabric via the same shortcut. No second copy.
+
+### Identity layer — Managed Identity, no secrets
+
+- **AML workspace MI** has `Storage Blob Data Contributor` on the container. No account key. No SAS token.
+- **AML endpoint MIs** have `Storage Blob Data Reader` on the container and the role required on the online store.
+- **CI/CD identities** use **workload identity federation** (GitHub OIDC → Entra). No long-lived secret in any pipeline variable.
+- **DS users in Fabric** authenticate with their Entra identity to call Azure ML; they receive `AzureML Data Scientist` on the Feature Store workspace, no more.
+
+### Lineage and observability layer — Purview as the single graph
+
+- **Purview connectors** for Fabric and for Azure ML enabled and scheduled.
+- **Sensitivity labels** flow from Fabric items to ADLS Gen2 to AML datasets without manual re-tagging.
+- **MLflow runs** in AML capture the FeatureSet versions consumed; each model artifact embeds its `feature_retrieval_spec.yaml`.
+- **Application Insights / Azure Monitor** capture endpoint telemetry; alerts on materialization failures, on drift, and on endpoint latency or error rates.
+
+### Rules of thumb
+
+| Rule | Reason |
+|---|---|
+| **One physical store per environment, not per product.** | The whole point of the architecture is *no copy*. Two stores mean two truths and one will drift. |
+| **Managed Identity everywhere; Entra ID for users.** | Removes the operational burden of secret rotation and the audit risk of stored credentials. |
+| **Versioned, immutable artifacts only.** | A FeatureSet is registered with a version; mutating it in place breaks every model trained on the prior version. |
+| **PR gate on `feature_sets/**` and `pipelines/**`.** | A DS notebook is not a deployment surface; the Git repo is. |
+| **Two authoring paths, one storage contract.** | Letting users choose Path A or Path B preserves productivity; the contract on ADLS Gen2 + the AML registry preserves consistency. |
+| **Preview features behind a fallback.** | The Fabric pipeline AML batch activity is in Public preview; production-grade SLAs need an AML-side orchestrator as a backup path. |
+| **Drift monitoring on every model in production.** | Without it, you only learn about a feature regression from the business, not from the platform. |
+| **Document the contract, not the tooling.** | Architecture review will ask "what is the integration?" — answer "shared ADLS Gen2 + Managed Identity"; not "we use the SDK". |
+
+---
+
+## Anti-patterns
 
 > **What you will learn**
 >
@@ -978,7 +1064,7 @@ A pragmatic rule: start with Delta tables, refactor into a feature store when th
 
 ---
 
-## 17. Production checklist
+## Production checklist
 
 > **What you will learn**
 >
@@ -1041,39 +1127,93 @@ A pragmatic rule: start with Delta tables, refactor into a feature store when th
 
 ---
 
-## 18. References
+## Annex — Public references
 
-**Microsoft Learn (primary)**
+> **What you will learn**
+>
+> - Every public source used to build this document, organized by topic.
+> - The official Microsoft pages to cite in an architecture review.
+> - The companion documents in this knowledge base (no private internal documents are listed; this annex is fully reproducible from public sources).
 
-- [Use Microsoft Fabric to access models deployed to Azure Machine Learning batch endpoints](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-batch-fabric?view=azureml-api-2) — the official integration pattern (Preview status of the activity is documented).
-- [Manage feature sets in managed feature store (CLI v2 and SDK v2)](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-feature-sets?view=azureml-api-2)
+### A. Microsoft Learn — primary integration sources
+
+- [Use Microsoft Fabric to access models deployed to Azure Machine Learning batch endpoints](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-batch-fabric?view=azureml-api-2) — **the** canonical page for the Fabric × Azure ML integration. Documents the OneLake / ADLS Gen2 shortcut pattern, the Public-preview status of the Fabric Data Factory `Azure Machine Learning` pipeline activity, and the input/output contract for the activity.
 - [What is managed feature store?](https://learn.microsoft.com/en-us/azure/machine-learning/concept-what-is-managed-feature-store?view=azureml-api-2)
-- [Tutorial: Develop a feature set with custom source](https://learn.microsoft.com/en-us/azure/machine-learning/tutorial-develop-feature-set-with-custom-source?view=azureml-api-2)
+- [Manage feature sets in managed feature store (CLI v2 and SDK v2)](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-manage-feature-sets?view=azureml-api-2)
+- [Tutorial — Develop and register a feature set with managed feature store](https://learn.microsoft.com/en-us/azure/machine-learning/tutorial-get-started-with-feature-store?view=azureml-api-2)
+- [Tutorial — Develop a feature set with custom source](https://learn.microsoft.com/en-us/azure/machine-learning/tutorial-develop-feature-set-with-custom-source?view=azureml-api-2)
+- [Tutorial — Enable recurrent materialization and run batch inference](https://learn.microsoft.com/en-us/azure/machine-learning/tutorial-enable-recurrent-materialization-run-batch-inference?view=azureml-api-2)
+
+### B. Microsoft Learn — Azure ML data and identity
+
 - [Azure Machine Learning datastore concepts](https://learn.microsoft.com/en-us/azure/machine-learning/concept-data?view=azureml-api-2#datastore)
-- [OneLake shortcuts](https://learn.microsoft.com/en-us/fabric/onelake/onelake-shortcuts)
+- [Create an Azure Data Lake Storage Gen2 datastore](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-datastore?view=azureml-api-2)
 - [Identity-based access to storage from Azure ML](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-identity-based-service-authentication?view=azureml-api-2#access-storage-services)
-- [Fabric Trusted Workspace Access](https://learn.microsoft.com/en-us/fabric/security/security-trusted-workspace-access)
+- [Managed identities for Azure resources with Azure Machine Learning](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-identity-based-data-access?view=azureml-api-2)
+- [Azure Machine Learning workspace — customer-managed keys](https://learn.microsoft.com/en-us/azure/machine-learning/concept-customer-managed-keys?view=azureml-api-2)
 
-**Background**
+### C. Microsoft Learn — Azure ML serving and operations
 
-- [Microsoft Tech Community — Build your feature engineering system on AML Managed Feature Store and Microsoft Fabric (2024)](https://techcommunity.microsoft.com/blog/azurearchitectureblog/build-your-feature-engineering-system-on-aml-managed-feature-store-and-microsoft/4076722) — original reference architecture.
-- [Azure Cache for Redis retirement and migration to Azure Managed Redis](https://learn.microsoft.com/en-us/azure/redis/migrate-overview)
+- [Deploy and score a machine learning model with a managed online endpoint](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-deploy-online-endpoints?view=azureml-api-2)
+- [Use batch endpoints for batch scoring](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-batch-endpoint?view=azureml-api-2)
+- [Train and deploy MLflow models](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-mlflow-cli-runs?view=azureml-api-2)
+- [Monitor models in production (data and prediction drift)](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-monitor-model-performance?view=azureml-api-2)
+- [Workload identity federation with GitHub Actions](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation-create-trust)
 
-**Companion documents in this knowledge base**
+### D. Microsoft Learn — Microsoft Fabric
+
+- [What is Microsoft Fabric?](https://learn.microsoft.com/en-us/fabric/fundamentals/microsoft-fabric-overview)
+- [What is OneLake?](https://learn.microsoft.com/en-us/fabric/onelake/onelake-overview)
+- [OneLake shortcuts](https://learn.microsoft.com/en-us/fabric/onelake/onelake-shortcuts)
+- [Create an ADLS Gen2 shortcut in OneLake](https://learn.microsoft.com/en-us/fabric/onelake/create-adls-shortcut)
+- [Fabric workspace identity](https://learn.microsoft.com/en-us/fabric/security/workspace-identity)
+- [Trusted workspace access in Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/security/security-trusted-workspace-access)
+- [Sensitivity labels in Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/governance/information-protection)
+- [Microsoft Purview integration with Microsoft Fabric](https://learn.microsoft.com/en-us/purview/microsoft-fabric)
+- [Use Microsoft Fabric notebooks for data science](https://learn.microsoft.com/en-us/fabric/data-science/python-guide/python-notebooks)
+- [Manage Apache Spark libraries in Microsoft Fabric](https://learn.microsoft.com/en-us/fabric/data-engineering/library-management)
+
+### E. Microsoft Learn — storage and online store
+
+- [Azure Data Lake Storage Gen2 — hierarchical namespace](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-namespace)
+- [Soft delete for blobs](https://learn.microsoft.com/en-us/azure/storage/blobs/soft-delete-blob-overview)
+- [Blob versioning](https://learn.microsoft.com/en-us/azure/storage/blobs/versioning-overview)
+- [Customer-managed keys for Azure Storage](https://learn.microsoft.com/en-us/azure/storage/common/customer-managed-keys-overview)
+- [What is Azure Managed Redis?](https://learn.microsoft.com/en-us/azure/redis/overview)
+- [Migrate from Azure Cache for Redis to Azure Managed Redis](https://learn.microsoft.com/en-us/azure/redis/migrate-overview)
+
+### F. Reference architectures and background
+
+- [Microsoft Tech Community — Build your feature engineering system on AML Managed Feature Store and Microsoft Fabric (2024)](https://techcommunity.microsoft.com/blog/azurearchitectureblog/build-your-feature-engineering-system-on-aml-managed-feature-store-and-microsoft/4076722) — original public reference architecture for the integration.
+- [Microsoft Cloud Adoption Framework — AI workloads on Azure](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/scenarios/ai/)
+- [Azure Architecture Center — Machine learning operations (MLOps)](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/mlops-technical-paper)
+- [Azure Well-Architected Framework — Machine learning workload](https://learn.microsoft.com/en-us/azure/well-architected/ai/)
+
+### G. Standards and compliance
+
+- [EU AI Act — official text (Regulation 2024/1689)](https://eur-lex.europa.eu/eli/reg/2024/1689/oj)
+- [European Commission — AI Act overview](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai)
+- [NIST AI Risk Management Framework (AI RMF 1.0)](https://www.nist.gov/itl/ai-risk-management-framework)
+- [ISO/IEC 23894:2023 — AI risk management](https://www.iso.org/standard/77304.html)
+
+### H. Companion documents in this knowledge base
 
 - `MLinFabric.md` — Best practices for Fabric ML Model Endpoints.
 - `Fabric_Network_Security.md` — Network configurations in Microsoft Fabric (private links, MPE, trusted workspace access).
 - `Fabric_Workspace_MPE_Prerequisites.md` — Workspace Managed Private Endpoint prerequisites.
+- `Foundry_Agent_Development_Guide.md` — Microsoft Foundry agent development patterns.
 
-**Status as of April 2026**
+### I. Status as of April 2026
 
 | Item | Status |
 |---|---|
-| Fabric × Azure ML integration via shared ADLS Gen2 | GA |
+| Fabric × Azure ML integration via shared ADLS Gen2 (OneLake shortcut + AML datastore) | GA |
 | Azure ML Managed Feature Store (offline + online) | GA |
 | Azure ML managed online & batch endpoints | GA |
-| Fabric Data Factory **Azure Machine Learning** activity (calling AML batch endpoints from a Fabric pipeline) | **Public preview** — no SLA |
+| Fabric Data Factory **Azure Machine Learning** pipeline activity (calling AML batch endpoints from a Fabric pipeline) | **Public preview** — no SLA |
 | Online store on Azure Cache for Redis | Retirement announced — migrate to **Azure Managed Redis** |
+
+> **Note on private sources.** Two internal architecture documents informed the early thinking for this guide. They are **not** referenced here, by design: this annex is meant to be reproducible by any reader using public Microsoft documentation alone. If a claim in this guide cannot be traced back to the references above, please open an issue on the knowledge-base repository.
 
 ---
 
