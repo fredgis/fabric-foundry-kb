@@ -214,7 +214,7 @@ R = Responsible · A = Accountable · C = Consulted · I = Informed
 
 ### Handoffs that fail in practice if not named
 
-1. **Who owns the source data quality?** The MLE assumes the DS validated the Gold table; the DS assumes Data Engineering certified it. Name an owner per Gold data product.
+1. **Who owns the source data quality?** The MLE assumes the DS validated the Gold table; the DS assumes Data Engineering certified it. Name an owner per Gold data product **and run a data-contract validation job** (Fabric data quality rules or Great Expectations) before each materialization — see *Data contracts* below.
 2. **Who promotes features Dev → Staging → Prod?** Use a PR gate: the DS opens the PR, the MLE approves and merges. Document the SLA.
 3. **Who pays the materialization compute?** Default to the AML workspace cost center; chargeback only if scale demands it.
 4. **Who decides the online store sizing?** MLE proposes, Platform validates; never let the MLE provision a high-tier Redis without architecture review.
@@ -261,7 +261,7 @@ If you take only one page from this guide, take this one. The rest of the docume
 
 | Domain | Recommendation |
 |---|---|
-| **Storage** | One ADLS Gen2 account per environment (Dev / Staging / Prod), seen by Fabric via a OneLake shortcut and by Azure ML via an `AzureDataLakeGen2Datastore`. No double-write, no sync job. Hierarchical namespace, soft delete, blob versioning, CMK via Key Vault. |
+| **Storage** | One ADLS Gen2 account per environment (Dev / Staging / Prod), seen by Fabric via a OneLake shortcut and by Azure ML via an `AzureDataLakeGen2Datastore`. No double-write, no sync job. Hierarchical namespace, soft delete, **CMK** via Key Vault. **Do not enable blob versioning** on containers that hold Delta tables — Delta manages history through its transaction log, and account-level versioning conflicts with it (see Storage anti-patterns). |
 | **Authoring** | Two paths coexist — Path A (Fabric notebook + SDK) for exploratory and Spark-heavy features, Path B (Azure ML Studio / VS Code + CLI YAML) for MLE/CI-first teams. **Both produce the exact same artifacts in the AML Feature Store.** |
 | **Feature lifecycle** | Azure ML Managed Feature Store is the **single source of truth** for feature definitions, versions, materialization and retrieval specs. A Fabric Lakehouse table is *not* a feature set until it is registered. |
 | **Serving** | Offline store by default. Online store (Azure Managed Redis) only when a synchronous endpoint is required and the latency budget cannot be met by the offline path. |
@@ -308,7 +308,7 @@ flowchart LR
 
 ### Provisioning, in order
 
-1. **Platform team** creates the ADLS Gen2 account (`hierarchical namespace = enabled`), one container per environment (`ml-data-dev`, `ml-data-prod`), enables soft delete and blob versioning, and enforces **CMK** via Key Vault.
+1. **Platform team** creates the ADLS Gen2 account (`hierarchical namespace = enabled`), one container per environment (`ml-data-dev`, `ml-data-prod`), enables **soft delete** (blobs and containers), and enforces **CMK** via Key Vault. **Do not enable blob versioning** on containers that hold Delta tables (the Lakehouse `Tables` area, materialized parquet folders): Delta Lake manages history via its `_delta_log/` transaction log and account-level versioning either duplicates that history at the storage layer or breaks `OPTIMIZE` / `VACUUM` semantics. Soft delete is the right safety net for accidental deletes; blob versioning is not.
 2. **Platform team** enables **private endpoints** on the storage account and on the AML workspace; opens **Trusted Workspace Access** for Fabric egress to the storage account.
 3. **Platform team** assigns the **Managed Identity of the AML workspace** the role `Storage Blob Data Contributor` on the container.
 4. **Platform team** creates the **Lakehouse** in the Fabric ML workspace and creates the **OneLake shortcut** to the ADLS Gen2 container — once, for all DS users.
@@ -350,9 +350,9 @@ The same physical bytes are addressable through two different logical paths:
 
 There is no replication, no synchronization job, no eventual consistency. The reads on the AML side and on the Fabric side hit the same Delta files. This is the whole point.
 
-What is **not** zero-copy:
+What is **not** automatically zero-copy:
 
-- The materialized output of the Azure ML Feature Store is a *new* set of parquet files (partitioned by `index_columns` + `timestamp_column`) written to its own folder on the same ADLS Gen2. It is derived from the source feature tables — by design, because materialization is what guarantees training/serving parity.
+- The materialized output of the Azure ML Feature Store is a *new* set of parquet files (partitioned by `index_columns` + `timestamp_column`) written to its own folder on the same ADLS Gen2. It is derived from the source feature tables — by design, because materialization is what guarantees training/serving parity. **Materialization is, however, optional for the offline path**: if the source Gold table on the Lakehouse already meets the read-throughput requirements of the training job, an Azure ML training script can read it directly through the shared datastore without going through `get_offline_features`. That is a true zero-copy training path, at the cost of giving up point-in-time joins, the retrieval spec contract and the FeatureSet versioning. It is a defensible choice for one-shot models, ad-hoc backfills and exploratory training; it is not the right default for an industrialized model with multiple consumers and audit obligations.
 - The online store (Redis) holds a separate copy optimized for sub-millisecond lookup. Cost and TTL of this copy are deliberate.
 
 ---
@@ -713,6 +713,59 @@ flowchart TD
     style Cache fill:#fff2cc,stroke:#d6b656
 ```
 
+### Real-time / streaming ingestion of features
+
+The default materialization path is batch (Spark on a schedule). Some use cases — fraud detection, anomaly scoring, recommendation, IoT — need features whose latest value is seconds-old, not hours-old. Microsoft Fabric's **Real-Time Intelligence** (RTI) and **Eventstream** components are the natural producers for this case; the Azure ML Feature Store is the natural consumer.
+
+```mermaid
+flowchart LR
+    subgraph SRC["Sources"]
+        IOT["IoT / clickstream /<br/>application events"]
+    end
+
+    subgraph FAB["Fabric — Real-Time Intelligence"]
+        ES["Eventstream<br/>(ingest, transform,<br/>filter)"]
+        EH["Eventhouse / KQL DB<br/>(rolling aggregates,<br/>session features)"]
+        ES --> EH
+    end
+
+    subgraph SHARE["Shared ADLS Gen2"]
+        DELTA[("Delta table<br/>'features_realtime_v1'<br/>OneLake mirror /<br/>shortcut")]
+    end
+
+    subgraph AML["Azure ML"]
+        FS["FeatureSet<br/>'features_realtime_v1'"]
+        OFF[("Offline store<br/>parquet")]
+        ON[("Online store<br/>Managed Redis")]
+        EP["Online endpoint"]
+        FS -->|"materialize<br/>(short cadence,<br/>e.g. 5 min)"| OFF
+        FS -->|"materialize"| ON
+        ON --> EP
+    end
+
+    IOT --> ES
+    EH -->|"OneLake availability /<br/>continuous export"| DELTA
+    DELTA -->|"AML datastore<br/>(same shared ADLS)"| FS
+
+    style ES fill:#dae8fc,stroke:#6c8ebf
+    style EH fill:#dae8fc,stroke:#6c8ebf
+    style DELTA fill:#ffd335,stroke:#a88b00
+    style ON fill:#f8cecc,stroke:#b85450
+    style EP fill:#d5e8d4,stroke:#82b366
+```
+
+**Two production patterns are valid today:**
+
+1. **Eventstream → Eventhouse → Delta on shared ADLS → AML FeatureSet (recommended for now).** Eventstream ingests the source, Eventhouse maintains the rolling/window aggregates as a KQL database, OneLake availability or a continuous export writes the aggregated state to a Delta table on the shared ADLS Gen2, and the AML FeatureSet is materialized from that Delta table on a short cadence (5–15 minutes typically). This keeps the **same storage contract** as the batch path — same ADLS, same datastore, same retrieval spec. It uses the products in their GA roles and avoids preview-only paths.
+2. **Eventstream → custom writer → AML online store directly.** A push pipeline (Stream Analytics job, custom Spark Structured Streaming, or a Function) writes feature rows directly into the Managed Redis online store. This skips the FeatureSet abstraction and gives the lowest latency, at the cost of bypassing point-in-time joins, retrieval spec versioning and Purview lineage. Use it only when sub-second freshness is non-negotiable and the feature has no offline consumer.
+
+**Architecture rules for the streaming path:**
+
+- Materialization cadence on streaming-backed FeatureSets should **not** be tighter than the actual data refresh cadence on the source Delta table. Materializing every minute when the source updates every five minutes only costs Spark, it does not add freshness.
+- The online store remains optional even on streaming features; enable it only when an online endpoint actually consumes the FeatureSet.
+- **Schema and null-ratio validation on the Delta sink** is mandatory before materialization (see *Data contracts*) — streaming sources are noisier than batch sources, and a malformed event burst can poison hours of features without any obvious failure.
+- For anything below ~5 minutes of freshness, validate that the AML Feature Store materialization scheduler in your region supports the cadence you need; some tiers and regions cap the schedule frequency. If it does not, fall back to pattern 2 (direct push to the online store).
+
 ---
 
 ## Training: feature retrieval spec and point-in-time joins
@@ -1000,7 +1053,7 @@ The diagram captures the **mandatory** dependencies between components and the i
 
 - **CMK** on ADLS Gen2 via Key Vault.
 - **CMK** on the AML workspace via Key Vault (one-time setup at workspace creation).
-- Soft delete enabled on the ADLS Gen2 container; blob versioning enabled.
+- **Soft delete** enabled on the ADLS Gen2 container (blobs and containers, 14- to 30-day retention). **Blob versioning is intentionally disabled** on containers holding Delta tables — see Storage anti-patterns. For ancillary, non-Delta containers (raw drops, exports), versioning is allowed.
 - Key Vault access policies replaced by **RBAC** (`Key Vault Secrets User`, `Key Vault Crypto Service Encryption User`).
 
 ### RBAC summary
@@ -1028,7 +1081,30 @@ This unified lineage is what makes the design defensible under the **EU AI Act**
 - FeatureSets are immutable per version. A new transformation requires a new version.
 - Models in the AML registry are signed and embed their `feature_retrieval_spec.yaml`.
 - Point-in-time joins from the offline store let you regenerate an exact training dataset months later.
-- Source data on ADLS Gen2 has soft delete and blob versioning enabled.
+- Source data on ADLS Gen2 has soft delete enabled; on Delta-formatted containers, history is provided by the Delta `_delta_log/` (time travel via `versionAsOf` / `timestampAsOf`), not by blob versioning.
+
+### Data contracts: validation gate before the Feature Store
+
+A feature is only as good as the Gold table it reads from. The split of responsibility between Data Engineering, Data Science and ML Engineering creates a recurring failure mode: **the Gold table silently degrades** (a column starts to be 30 % null, an entity disappears, a schema field changes nullability) and the FeatureSet keeps materializing happily on noise, propagating the regression to every downstream model and prediction.
+
+A data contract is a machine-checkable description of what a Gold table must satisfy in order to be a valid input to a FeatureSet. It is owned by the Data Engineering team that publishes the table; it is enforced by the platform before each materialization run.
+
+**Minimum data contract per Gold table feeding a FeatureSet:**
+
+| Check | Example | Tooling |
+|---|---|---|
+| **Schema** | `customer_id` is `string`, non-nullable; `last_purchase_ts` is `timestamp`, non-nullable | Native Fabric Lakehouse data quality rules; Great Expectations `expect_column_values_to_be_of_type`, `expect_column_values_to_not_be_null` |
+| **Freshness** | `MAX(last_event_ts)` ≥ `now() - 24h` | KQL or SQL probe scheduled with the materialization job |
+| **Cardinality** | `COUNT(DISTINCT customer_id)` is within ±10 % of the 7-day rolling average | Great Expectations `expect_column_unique_value_count_to_be_between` |
+| **Null ratio per column** | Per column, null ratio is within `baseline ± 5 pp` | Great Expectations `expect_column_values_to_not_be_null` with `mostly` |
+| **Distribution** | KS-statistic vs the previous run's distribution is below threshold | Great Expectations custom expectation; or AML Data Drift detector on the source |
+| **Referential integrity** | Every `customer_id` exists in the `customers` dimension | Great Expectations `expect_column_values_to_be_in_set` (where feasible); or a SQL probe |
+
+**Where the validation runs:** as a Fabric notebook step (or a Data Factory activity) **before** the AML Feature Store materialization is triggered. A failed contract halts the materialization, raises an alert to the Gold table owner, and the FeatureSet keeps serving the previous valid materialization until the contract is met again.
+
+**Contract versioning rule:** the contract is committed in Git next to the FeatureSetSpec, with the same versioning policy. A contract change that loosens a check (e.g., raising a null-ratio threshold) requires the same PR review as a code change.
+
+This sub-section is the operational counterpart of the *pre-promotion test gate* in §Operational excellence: that gate validates the FeatureSet itself before promotion to Production; this gate validates the Gold source before each materialization. Together, they bracket the FeatureSet on both sides — the input is contract-checked at every run, the output is test-gated at every promotion.
 
 ---
 
@@ -1040,7 +1116,7 @@ The integration is built on five paid Azure components. Knowing which one moves 
 
 | Component | Cost driver | Lever |
 |---|---|---|
-| **ADLS Gen2 storage** | GB stored × redundancy tier × hot/cool/archive | Lifecycle policy: move materialized partitions older than N months to *cool*. Soft delete and versioning add overhead — calibrate retention. |
+| **ADLS Gen2 storage** | GB stored × redundancy tier × hot/cool/archive | Lifecycle policy: move materialized partitions older than N months to *cool*. Soft delete adds an overhead proportional to its retention window — calibrate (14–30 days is usually enough). Blob versioning is *off* on Delta containers, so it does not contribute to the bill. |
 | **AML materialization compute** | Spark cluster size × runtime per run × frequency | Align frequency with the model's actual freshness need. A churn model rarely needs minute-level features. Right-size compute via auto-scale; consider spot nodes for non-critical materialization. |
 | **AML training compute** | GPU hours × cluster size × experiments per week | Cap experiment quotas per DS; auto-shutdown idle clusters; prefer scheduled training over ad-hoc bursts. |
 | **AML online endpoint** | vCPU/RAM provisioned × hours × instances | Set realistic min/max instances; turn off canary deployments after rollout; keep the autoscale ceiling explicit, not "unlimited". Consider serverless online endpoints for spiky low-volume traffic. |
@@ -1059,6 +1135,24 @@ The integration is built on five paid Azure components. Knowing which one moves 
 
 - **"Always-on" online endpoint with `min_instances=2` for a model called twice a week.** Use serverless online endpoints or scheduled scale-down.
 - **Materializing every FeatureSet on the same hourly cron.** Materialization windows should reflect the source data refresh cadence, not be uniform.
+
+### Chargeback model: Fabric CUs vs Azure ML compute
+
+Fabric and Azure ML have **different billing units**, and a steering committee that does not understand the difference will see the bill move and not know which platform is responsible.
+
+| Platform | Unit | Billing granularity | Who pays in the recommended chargeback |
+|---|---|---|---|
+| **Microsoft Fabric** | Capacity Units (CUs) on a Fabric capacity (F-SKU or Premium per User) | Per-second, against a shared capacity that hosts many workloads | The **business domain** that owns the Lakehouse and the Gold tables. Feature engineering on Fabric Spark consumes Fabric CUs against that capacity. |
+| **Azure ML** | Compute hours on dedicated clusters (CPU/GPU), per-job for batch endpoints, per-instance-hour for online endpoints, per-tier-hour for the online store | Per-second on dedicated clusters, no shared envelope | The **AML workspace cost center** by default; chargeback to the model owner only if a single model dominates the bill. |
+| **Shared infrastructure** | ADLS Gen2, Key Vault, Purview, Application Insights, private endpoints | Per-GB or per-asset, hour-based | The **platform team** budget. Cross-charge by container / by environment if the platform team needs to recover cost. |
+
+**Three chargeback rules to keep the bill explainable:**
+
+1. **Author features close to the cheaper compute.** Exploratory work, ad-hoc analytics and Spark-heavy transformations on Gold data should run on Fabric (Path A) when the team's Fabric capacity has headroom — capacity-based pricing makes incremental usage essentially free up to the SKU ceiling. **Production materialization** runs on AML Spark, where compute is per-cluster and right-sizable per FeatureSet.
+2. **Tag every AML compute target with `cost_center`, `model_name`, `feature_set`.** Without those tags, the AML cost report is opaque and chargeback becomes a negotiation. Same on Fabric for capacity reports — tag the workspace and the items.
+3. **Cap the Fabric capacity for the ML workspace.** A runaway Spark notebook (a DS who left a session running over a weekend) can saturate a capacity used by other Fabric workloads (Power BI, warehousing). Either dedicate a capacity to the ML workspace or set workspace-level item limits.
+
+**Anti-pattern: routing every feature computation through AML compute "to consolidate the bill".** AML dedicated clusters are billed per second of cluster uptime; running short ad-hoc Spark jobs there costs significantly more per CPU-second than the same job on a Fabric capacity that is already paid for. Use the right compute for the right workload, even if it splits the bill.
 
 ---
 
@@ -1174,7 +1268,7 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 ### Storage layer — single physical contract
 
 - **One ADLS Gen2 storage account per environment** (Dev / Staging / Prod). Do not mix environments in one account.
-- **Hierarchical namespace enabled**, soft delete on, blob versioning on, **CMK** via Key Vault.
+- **Hierarchical namespace enabled**, soft delete on, **blob versioning off** on Delta containers (handled by Delta's `_delta_log`), **CMK** via Key Vault.
 - **OneLake shortcut on the Fabric side, AzureDataLakeGen2Datastore on the Azure ML side** — both pointing to the same container. Never two stores synchronized via a job.
 - **Predictions are written back to the same ADLS Gen2** in a dedicated folder, then consumed by Fabric via the same shortcut. No second copy.
 
@@ -1209,12 +1303,13 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 
 ## Anti-patterns
 
-| Anti-pattern | Why it is tempting | Why it bites |
+| **Anti-pattern** | Why it is tempting | Why it bites |
 |---|---|---|
 | *"We don't need a feature store, our Lakehouse table is enough"* (for a real-time multi-model platform) | Lower upfront effort. | No retrieval spec, no point-in-time join, no online serving, no lineage. |
 | Computing features one way for training and another way for serving | Two different teams, two different stacks. | Training/serving skew. The model collapses in production. |
 | Storing features in both Fabric and Azure ML separately, with sync jobs | Each side keeps its tooling. | Two truths, one will drift. Eventually nobody knows which is canonical. |
 | Backing a production workload on the OneLake datastore (Preview) | Architecturally cleaner — one fewer storage account. | Public preview, no SLA, restricted to the `Files` area of the Lakehouse. Use the GA shared-ADLS-Gen2 + shortcut pattern instead. |
+| **Enabling ADLS Gen2 blob versioning on containers that hold Delta tables** | Generic storage best practice; "history is good." | Conflicts with Delta's own transaction log: every Delta write produces version churn at the blob layer, `OPTIMIZE`/`VACUUM` semantics break, storage cost can rise 2–10×. Use Delta time travel for history, soft delete for accidental deletes. |
 | Account keys / SAS tokens in notebooks | Quick to make things work. | Security review will block production. |
 | Service principal with a long-lived secret in CI/CD | Familiar pattern. | Use **workload identity federation** (GitHub OIDC → Entra) instead. |
 | No timestamp column on a feature table | Saves a column. | Leakage. Audit failure. |
@@ -1223,6 +1318,7 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 | Enabling the online store for a batch-only model | "We might need it later." | Pays Redis 24/7 for nothing. Enable on demand. |
 | Direct DS push to production without a PR gate | Faster iteration. | No review, no audit, regulatory exposure. |
 | Backing an external production SLA on the Fabric → AML batch endpoint activity (Preview) | Convenient orchestration. | Preview features carry no SLA. Use AML pipelines for SLA-bound batches. |
+| Registering a Gold table as a FeatureSet **without a data-contract validation gate** (schema, null ratio, freshness) | "The DE team certified the table, that's enough." | Silent data quality regressions in Gold propagate to every model that consumes the FeatureSet. The audit trail says "the model is fine, the data is fine"; the customer says otherwise. Run a validation job (Fabric data quality rules or Great Expectations) before each materialization. |
 
 ---
 
@@ -1233,7 +1329,8 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 - [ ] Hierarchical namespace enabled.
 - [ ] Private endpoint enabled, public access disabled.
 - [ ] CMK via Key Vault enabled.
-- [ ] Soft delete and blob versioning enabled.
+- [ ] Soft delete enabled (blobs and containers, 14–30 day retention).
+- [ ] Blob versioning **disabled** on containers holding Delta tables (Lakehouse `Tables` area, materialized parquet) — Delta `_delta_log` is the source of truth for history.
 - [ ] Trusted Workspace Access configured for the Fabric ML workspace.
 - [ ] Managed Identity of the AML workspace has `Storage Blob Data Contributor` on the container.
 
@@ -1286,6 +1383,15 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 - [ ] Each model has documented owner, business case, training data, retrieval spec, monitoring plan.
 - [ ] Audit log retention configured for at least the regulatory retention period (typically 5 years for EU AI Act high-risk systems).
 - [ ] Quarterly access reviews on the Feature Store workspace and on the ADLS Gen2 container.
+- [ ] **Data contract** (schema, freshness, null ratio, cardinality, distribution) defined per Gold table feeding a FeatureSet, committed in Git, enforced before each materialization run.
+
+**FinOps**
+
+- [ ] Every AML compute target tagged with `cost_center`, `model_name`, `feature_set`.
+- [ ] Fabric workspace and items tagged for capacity-usage reporting.
+- [ ] Fabric capacity ceiling for the ML workspace defined and monitored.
+- [ ] Materialization frequency aligned per FeatureSet with the consuming model's actual freshness need (no uniform hourly cron).
+- [ ] Online store enabled only on FeatureSets consumed by an active synchronous endpoint.
 
 ---
 
@@ -1333,33 +1439,49 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 
 - [Azure Data Lake Storage Gen2 — hierarchical namespace](https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-namespace)
 - [Soft delete for blobs](https://learn.microsoft.com/en-us/azure/storage/blobs/soft-delete-blob-overview)
-- [Blob versioning](https://learn.microsoft.com/en-us/azure/storage/blobs/versioning-overview)
 - [Customer-managed keys for Azure Storage](https://learn.microsoft.com/en-us/azure/storage/common/customer-managed-keys-overview)
 - [What is Azure Managed Redis?](https://learn.microsoft.com/en-us/azure/redis/overview)
 - [Migrate from Azure Cache for Redis to Azure Managed Redis](https://learn.microsoft.com/en-us/azure/redis/migrate-overview)
+- [Delta Lake — table history and time travel](https://docs.delta.io/latest/delta-batch.html#-deltatimetravel)
+- [Delta Lake — VACUUM (and why blob versioning conflicts with it)](https://docs.delta.io/latest/delta-utility.html#-delta-vacuum)
 
-### F. Reference architectures and background
+### F. Microsoft Learn — Fabric Real-Time Intelligence and streaming
+
+- [What is Real-Time Intelligence in Microsoft Fabric?](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/overview)
+- [What is Eventstream in Microsoft Fabric?](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/overview)
+- [Eventhouse and KQL databases overview](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/eventhouse)
+- [OneLake availability for Eventhouse](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-house-onelake-availability)
+- [Continuous export to Delta from Eventhouse](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-house-export-data)
+
+### G. Data quality and contracts
+
+- [Microsoft Fabric — data quality rules in Lakehouse](https://learn.microsoft.com/en-us/fabric/data-engineering/data-quality-overview)
+- [Great Expectations — open-source data validation framework](https://greatexpectations.io/)
+- [Great Expectations — Spark / PySpark integration](https://docs.greatexpectations.io/docs/oss/guides/connecting_to_your_data/in_memory/spark/)
+- [DataHub / OpenLineage — data contract patterns](https://datahubproject.io/docs/data-contract/)
+
+### H. Reference architectures and background
 
 - [Microsoft Tech Community — Build your feature engineering system on AML Managed Feature Store and Microsoft Fabric (2024)](https://techcommunity.microsoft.com/blog/azurearchitectureblog/build-your-feature-engineering-system-on-aml-managed-feature-store-and-microsoft/4076722) — original public reference architecture for the integration.
 - [Microsoft Cloud Adoption Framework — AI workloads on Azure](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/scenarios/ai/)
 - [Azure Architecture Center — Machine learning operations (MLOps)](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/mlops-technical-paper)
 - [Azure Well-Architected Framework — Machine learning workload](https://learn.microsoft.com/en-us/azure/well-architected/ai/)
 
-### G. Standards and compliance
+### I. Standards and compliance
 
 - [EU AI Act — official text (Regulation 2024/1689)](https://eur-lex.europa.eu/eli/reg/2024/1689/oj)
 - [European Commission — AI Act overview](https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai)
 - [NIST AI Risk Management Framework (AI RMF 1.0)](https://www.nist.gov/itl/ai-risk-management-framework)
 - [ISO/IEC 23894:2023 — AI risk management](https://www.iso.org/standard/77304.html)
 
-### H. Companion documents in this knowledge base
+### J. Companion documents in this knowledge base
 
 - `MLinFabric.md` — Best practices for Fabric ML Model Endpoints.
 - `Fabric_Network_Security.md` — Network configurations in Microsoft Fabric (private links, MPE, trusted workspace access).
 - `Fabric_Workspace_MPE_Prerequisites.md` — Workspace Managed Private Endpoint prerequisites.
 - `Foundry_Agent_Development_Guide.md` — Microsoft Foundry agent development patterns.
 
-### I. Status as of April 2026
+### K. Status as of April 2026
 
 | Item | Status |
 |---|---|
