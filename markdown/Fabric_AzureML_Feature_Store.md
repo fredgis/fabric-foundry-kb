@@ -18,12 +18,6 @@ date: "April 2026"
 
 ## Executive summary
 
-> **What you will learn**
->
-> - The pattern Microsoft officially supports for combining Fabric and Azure ML.
-> - Which capabilities are **GA** today and which are still **public preview**.
-> - The 30-second mental model you can give to a steering committee.
-
 Microsoft Fabric and Azure Machine Learning solve **different problems** and are designed to **share the same data, not duplicate it**.
 
 - **Fabric** is the unified data platform: ingestion, Lakehouses, Warehouses, Power BI, notebooks, governance via OneLake, identity via Entra ID. It is where data engineers, data scientists and analysts live.
@@ -50,12 +44,6 @@ Microsoft Fabric and Azure Machine Learning solve **different problems** and are
 
 ## What is a feature?
 
-> **What you will learn**
->
-> - The minimum information a feature must carry to be usable in production ML.
-> - Why a timestamp is not optional.
-> - The difference between a column in a table and a feature ready for a model.
-
 A **feature** is an input variable consumed by a machine learning model.
 
 | Use case | Examples of features |
@@ -80,12 +68,6 @@ The ability to perform a **point-in-time join** — *"give me each feature as it
 ---
 
 ## What is a feature store?
-
-> **What you will learn**
->
-> - The four functions a feature store performs.
-> - The Azure ML object model (Feature Store, Entity, Feature Set, Feature Set Spec, retrieval spec).
-> - Why a Lakehouse table is not a feature store.
 
 A **feature store** is a system that manages the lifecycle of features used by machine learning models. It performs four functions that a plain table cannot:
 
@@ -153,12 +135,6 @@ You can certainly write a Delta table called `customer_features_v1` in a Fabric 
 
 ## The fundamental insight: storage ≠ contract ≠ execution
 
-> **What you will learn**
->
-> - The three layers that connect Fabric to Azure ML.
-> - Why thinking in those three layers prevents most architecture debates.
-> - Where the "feature store" actually sits — and where it does not.
-
 A common confusion is to think the feature store *is* the link between Fabric and Azure ML. It is not. The link is a **three-layer stack**:
 
 | Layer | What it is | Concrete artifact |
@@ -178,12 +154,6 @@ Once you internalize this split, several apparent paradoxes disappear:
 ---
 
 ## Why Fabric and Azure ML are complementary, not redundant
-
-> **What you will learn**
->
-> - The honest list of what each product does well.
-> - The asymmetry between the two work environments.
-> - Why this asymmetry is a feature, not a bug.
 
 | Concern | Fabric | Azure ML |
 |---|---|---|
@@ -210,12 +180,6 @@ This asymmetry is healthy. A data scientist should not have to learn Azure DevOp
 ---
 
 ## Who does what (Data Eng / DS / MLE / Platform)
-
-> **What you will learn**
->
-> - The four roles involved and what each owns.
-> - A RACI table that survives a steering committee review.
-> - The specific handoffs that fail in practice if you don't name them.
 
 Four roles cooperate around the Fabric ↔ Azure ML pattern:
 
@@ -261,12 +225,6 @@ R = Responsible · A = Accountable · C = Consulted · I = Informed
 
 ## Reference architecture
 
-> **What you will learn**
->
-> - The 30-second mental picture of the integration (simple view).
-> - The full reference architecture for an enterprise rollout (detailed view).
-> - What "zero-copy" actually means and the two arrows that matter most.
-
 The architecture is presented at two levels of detail. Read the **simple view** first; it is the version to put in front of a steering committee or a non-technical sponsor. Read the **detailed view** when you need to defend the design at an architecture review.
 
 > **What is officially documented vs derived.** The Microsoft Learn page [`how-to-use-batch-fabric`](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-batch-fabric?view=azureml-api-2) covers exactly **one** thing: how a Fabric Data Factory pipeline calls an already-deployed Azure ML batch endpoint, with the shared ADLS Gen2 (OneLake shortcut + AML datastore) as the data exchange layer. **Feature Store integration with Fabric is not natively documented by Microsoft as of April 2026** — it is a derived pattern that reuses the same shared-storage and identity primitives. This guide is honest about that distinction: the storage and orchestration layers are GA-supported; the Feature Store layer above them requires the AML SDK or CLI and is your own integration work.
@@ -299,12 +257,6 @@ The two arrows that matter most are:
 
 ## Recommended target architecture
 
-> **What you will learn**
->
-> - The single enterprise standard pattern this guide endorses.
-> - The condensed table you can reuse verbatim in an architecture decision record (ADR).
-> - The framing for "best current production pattern" rather than forever-truth.
-
 If you take only one page from this guide, take this one. The rest of the document explains the why; this section states the what. The pattern below is the **best current production pattern as of April 2026**, aligned with what Microsoft documents and supports today. It will evolve when the OneLake datastore reaches GA, when Fabric ships a native feature store, and when the Fabric Data Factory `Azure Machine Learning` activity exits Public preview — but until then, this is the defensible default.
 
 | Domain | Recommendation |
@@ -323,12 +275,6 @@ The remaining sections of this guide validate each row of this table against Mic
 ---
 
 ## The ADLS Gen2 + OneLake shortcut contract
-
-> **What you will learn**
->
-> - The exact integration pattern Microsoft documents and supports today.
-> - The literal Microsoft quote you can use in an architecture review to settle debates.
-> - How to wire the shortcut on the Fabric side and the datastore on the Azure ML side.
 
 The single most important sentence in the entire Microsoft documentation set on this topic comes from `how-to-use-batch-fabric`:
 
@@ -413,13 +359,54 @@ What is **not** zero-copy:
 
 ## Two complementary authoring paths
 
-> **What you will learn**
->
-> - The two officially supported entry points, with code on each side.
-> - That they are **complementary**, not competing — both produce the exact same artifacts.
-> - A decision tree to pick the path for a given feature set, and why offering both is more pragmatic than enforcing one.
-
 There are two officially supported entry points to register a feature set. They produce **identical artifacts in Azure ML** and they consume **identical infrastructure**. The difference is the human who drives them and the local context (notebook environment vs YAML/CLI). They are not in opposition; in real organizations, both paths coexist, sometimes for the same team across different feature sets.
+
+### Underlying architecture of each path
+
+```mermaid
+flowchart TB
+    subgraph PA["Path A — Fabric notebook + SDK (DS-driven)"]
+        direction TB
+        DSA["Data scientist<br/>Entra ID"]
+        FSPARK["Fabric Spark runtime<br/>(notebook session)"]
+        SDKA["azure-ai-ml +<br/>azureml-featurestore<br/>(pip-installed)"]
+        DSA --> FSPARK
+        FSPARK --> SDKA
+    end
+
+    subgraph PB["Path B — Studio / VS Code + CLI YAML (MLE-driven)"]
+        direction TB
+        MLE["ML engineer<br/>Entra ID"]
+        IDE["VS Code or<br/>AML Studio UI"]
+        REPO["Git repo<br/>(FeatureSet YAML +<br/>transform.py)"]
+        CI["CI/CD<br/>(GitHub Actions or<br/>Azure DevOps,<br/>federated workload identity)"]
+        CLI["az ml feature-set<br/>create / update"]
+        MLE --> IDE
+        IDE --> REPO
+        REPO --> CI
+        CI --> CLI
+    end
+
+    subgraph SHARED["Shared destination — same artifacts, same storage"]
+        direction TB
+        FS["AML Managed<br/>Feature Store workspace<br/>(versioned registry of<br/>FeatureSets &amp; Entities)"]
+        AMLSPARK["AML Spark cluster<br/>(materialization compute)"]
+        ADLS[("Shared ADLS Gen2<br/>materialized parquet,<br/>partitioned by index + timestamp")]
+        FS -->|"materialize<br/>(scheduled or on-demand)"| AMLSPARK
+        AMLSPARK -->|"write parquet"| ADLS
+    end
+
+    SDKA -->|"HTTPS<br/>Entra token<br/>(DS user identity)"| FS
+    CLI -->|"HTTPS<br/>Entra federated identity"| FS
+
+    style PA fill:#dae8fc,stroke:#6c8ebf
+    style PB fill:#d5e8d4,stroke:#82b366
+    style SHARED fill:#fff2cc,stroke:#d6b656
+    style ADLS fill:#ffd335,stroke:#a88b00
+    style FS fill:#e1d5e7,stroke:#9673a6
+```
+
+The two paths differ only in the **authoring environment** and the **identity context**. From the AML control plane's perspective, both arrive as `POST /featurestore/featuresets` calls authenticated by an Entra token; the resulting `FeatureSet:version`, `FeatureSetSpec.yaml` and `transform.py` are byte-identical. Materialization is always done by AML Spark, regardless of which side authored the spec — Fabric Spark is **never** the materialization runtime, even in Path A.
 
 ### Path A — From a Fabric notebook (DS-driven, SDK)
 
@@ -520,12 +507,6 @@ flowchart TD
 ---
 
 ## End-to-end flow: from a Fabric notebook to production
-
-> **What you will learn**
->
-> - The five concrete steps that take a feature from idea to production.
-> - The exact code at each step (Path A; Path B is a YAML mirror of the same artifacts).
-> - The PR gate that converts an exploration notebook into a governed feature.
 
 The flow below is the canonical Path A version. Path B is the same artifacts authored from the AML side; the steps after step 4 are identical.
 
@@ -676,12 +657,6 @@ jobs:
 
 ## Materialization: offline vs online stores
 
-> **What you will learn**
->
-> - The difference between offline and online stores and when each is needed.
-> - How materialization scheduling works and what it costs.
-> - The current Microsoft guidance on the online store technology choice.
-
 A registered FeatureSet is just a *definition* until it is **materialized**. Materialization is the act of running the `transform.py` against the source data on a schedule and writing the output to a store optimized for fast reads.
 
 | Store | Where | What it serves | Latency profile |
@@ -742,12 +717,6 @@ flowchart TD
 
 ## Training: feature retrieval spec and point-in-time joins
 
-> **What you will learn**
->
-> - How to consume registered features in a training job.
-> - What the `feature_retrieval_spec.yaml` is and why it ships with the model.
-> - The single concept that prevents most training/serving mistakes: the point-in-time join.
-
 A training job does not consume features by their physical path. It consumes them through a **Feature Retrieval Spec**, which lists the features (by name + version) that the model uses.
 
 ```python
@@ -806,12 +775,6 @@ Without point-in-time joins, you write that logic by hand and you eventually get
 ---
 
 ## Serving the model
-
-> **What you will learn**
->
-> - The three serving modes and which one to use when.
-> - The official Microsoft pattern for calling a batch endpoint from a Fabric pipeline (Preview).
-> - The decision tree for placing the orchestration in Fabric vs Azure ML.
 
 Three serving modes are available, and they are not interchangeable.
 
@@ -920,12 +883,6 @@ flowchart TD
 
 ## Feature lifecycle: versioning, deprecation, decommissioning
 
-> **What you will learn**
->
-> - The compatibility rules between FeatureSet versions, model versions and embedded retrieval specs.
-> - When to deprecate a FeatureSet version and how long to keep it.
-> - The decommission process that does not break models still in production.
-
 Versioning is where a feature platform either stays trustworthy or quietly becomes a liability. The Azure ML Feature Store enforces the right primitive — FeatureSets are immutable per version — but the **operating policy** around it must be made explicit.
 
 ### Compatibility contract
@@ -973,12 +930,6 @@ Every FeatureSet has a documented owner and a registered consumer list. Deprecat
 ---
 
 ## Governance: identity, network, lineage, EU AI Act
-
-> **What you will learn**
->
-> - The minimum security posture required for production.
-> - How identity flows across the two products without service-principal sprawl.
-> - How Purview unifies lineage between the data and ML worlds.
 
 ### Identity
 
@@ -1083,12 +1034,6 @@ This unified lineage is what makes the design defensible under the **EU AI Act**
 
 ## FinOps: cost structure and levers
 
-> **What you will learn**
->
-> - The cost-driving components of the integration and the order of magnitude for each.
-> - The levers a platform team can pull without redesigning the architecture.
-> - The two anti-patterns that cause unnecessary spend.
-
 The integration is built on five paid Azure components. Knowing which one moves the bill helps a steering committee make informed trade-offs without going dark on architecture choices.
 
 ### Cost map
@@ -1118,13 +1063,6 @@ The integration is built on five paid Azure components. Knowing which one moves 
 ---
 
 ## Operational excellence: SLOs, alerts, run evidence
-
-> **What you will learn**
->
-> - The minimum set of SLOs to declare on each feature set and each model.
-> - The alerts that must exist on day one in production.
-> - The evidence a platform owner must be able to produce on demand for an audit.
-> - The pre-promotion test gate that protects production.
 
 A platform that cannot prove what it did under load is not in production. The artifacts below are the minimum to claim "production-grade" without ambiguity.
 
@@ -1186,12 +1124,6 @@ A FeatureSet version that fails any of these tests cannot be promoted to `Produc
 
 ## Decision matrix: feature store vs plain Delta table
 
-> **What you will learn**
->
-> - A decision tree to decide whether the cost of a feature store is justified.
-> - A concrete checklist of the conditions that, in combination, tip the balance.
-> - The honest answer for small teams and one-off models.
-
 A feature store is not a dogma. For a single batch model with 15 simple columns and one consumer, a well-governed Delta table in a Fabric Lakehouse is enough. For an industrial AI platform with multiple models, real-time serving, and audit obligations, the feature store earns its keep.
 
 ### Decision tree: do I need a feature store?
@@ -1237,12 +1169,6 @@ A pragmatic rule: start with Delta tables, refactor into a feature store when th
 
 ## Interfacing best practices
 
-> **What you will learn**
->
-> - The non-negotiable rules for connecting Fabric and Azure ML in production.
-> - The three layers where the integration must be made explicit: storage, identity, lineage.
-> - The rules of thumb to avoid the recurring failure modes.
-
 The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit and tested before going to production. Skipping any of them turns a clean architecture into an operational liability within a few months.
 
 ### Storage layer — single physical contract
@@ -1283,11 +1209,6 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 
 ## Anti-patterns
 
-> **What you will learn**
->
-> - Recurring failure modes seen in enterprise programs.
-> - Why each one looks attractive at first and bites later.
-
 | Anti-pattern | Why it is tempting | Why it bites |
 |---|---|---|
 | *"We don't need a feature store, our Lakehouse table is enough"* (for a real-time multi-model platform) | Lower upfront effort. | No retrieval spec, no point-in-time join, no online serving, no lineage. |
@@ -1306,11 +1227,6 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 ---
 
 ## Production checklist
-
-> **What you will learn**
->
-> - A condensed checklist to validate before going live.
-> - The minimum operational evidence to gather per feature set and per model.
 
 **Storage (ADLS Gen2)**
 
@@ -1374,12 +1290,6 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 ---
 
 ## Annex — Public references
-
-> **What you will learn**
->
-> - Every public source used to build this document, organized by topic.
-> - The official Microsoft pages to cite in an architecture review.
-> - The companion documents in this knowledge base (no private internal documents are listed; this annex is fully reproducible from public sources).
 
 ### A. Microsoft Learn — primary integration sources
 
