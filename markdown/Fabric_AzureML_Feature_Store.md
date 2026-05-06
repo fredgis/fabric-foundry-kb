@@ -42,6 +42,8 @@ Microsoft Fabric and Azure Machine Learning solve **different problems** and are
 
 **The 30-second narrative.**
 
+> *This guide describes the **best current production pattern as of April 2026** — the configuration Microsoft documents and supports today. It will evolve as the OneLake datastore reaches GA, as Fabric ships a native feature store (mentioned at Ignite 2023, not yet shipped), and as the Fabric Data Factory `Azure Machine Learning` activity exits Public preview.*
+
 > Data scientists work in Fabric, close to the governed data, and produce a feature table. The Azure ML Feature Store registers the *definition* of these features (`FeatureSetSpec.yaml` + transformation code), versions it, materializes it to ADLS Gen2 and serves it to training and inference jobs. The same physical ADLS Gen2 is mounted as a OneLake shortcut in Fabric and as an AML datastore in Azure ML. Predictions flow back to OneLake as Gold data products consumed by Power BI, applications and agents.
 
 ---
@@ -292,6 +294,31 @@ The two arrows that matter most are:
 
 1. The **register-spec arrow** from the authoring side (Fabric notebook *or* Azure ML Studio) to the AML Feature Store. The `FeatureSetSpec.yaml` and the `transform.py` are stored as immutable versioned artifacts.
 2. The **materialize arrow** from the AML Feature Store back to ADLS Gen2. AML re-executes the transformation on its own compute and writes parquet partitioned by index keys + timestamp.
+
+---
+
+## Recommended target architecture
+
+> **What you will learn**
+>
+> - The single enterprise standard pattern this guide endorses.
+> - The condensed table you can reuse verbatim in an architecture decision record (ADR).
+> - The framing for "best current production pattern" rather than forever-truth.
+
+If you take only one page from this guide, take this one. The rest of the document explains the why; this section states the what. The pattern below is the **best current production pattern as of April 2026**, aligned with what Microsoft documents and supports today. It will evolve when the OneLake datastore reaches GA, when Fabric ships a native feature store, and when the Fabric Data Factory `Azure Machine Learning` activity exits Public preview — but until then, this is the defensible default.
+
+| Domain | Recommendation |
+|---|---|
+| **Storage** | One ADLS Gen2 account per environment (Dev / Staging / Prod), seen by Fabric via a OneLake shortcut and by Azure ML via an `AzureDataLakeGen2Datastore`. No double-write, no sync job. Hierarchical namespace, soft delete, blob versioning, CMK via Key Vault. |
+| **Authoring** | Two paths coexist — Path A (Fabric notebook + SDK) for exploratory and Spark-heavy features, Path B (Azure ML Studio / VS Code + CLI YAML) for MLE/CI-first teams. **Both produce the exact same artifacts in the AML Feature Store.** |
+| **Feature lifecycle** | Azure ML Managed Feature Store is the **single source of truth** for feature definitions, versions, materialization and retrieval specs. A Fabric Lakehouse table is *not* a feature set until it is registered. |
+| **Serving** | Offline store by default. Online store (Azure Managed Redis) only when a synchronous endpoint is required and the latency budget cannot be met by the offline path. |
+| **Orchestration** | Azure ML pipelines or ADF for any critical or contractually-bound batch (GA, supported SLAs). Fabric Data Factory's `Azure Machine Learning` activity (Public preview) for non-critical, data-centric triggers only. |
+| **Identity** | Managed Identity for all Azure ML compute, endpoints and datastore credentials. Entra ID for human users. Federated workload identity (GitHub OIDC → Entra) for CI/CD. **No SAS, no storage keys, no long-lived secrets.** |
+| **Network** | Private endpoints on ADLS Gen2, Azure ML workspace and online store. Trusted Workspace Access for Fabric egress to ADLS Gen2. Public network access disabled on storage. |
+| **Governance** | Purview ingests both Fabric and Azure ML lineage. Sensitivity labels propagate from Fabric items to ADLS Gen2 to AML datasets. Each model carries a documented owner, business case and retrieval spec embedded in its artifact. |
+
+The remaining sections of this guide validate each row of this table against Microsoft documentation, decision criteria and operational evidence.
 
 ---
 
@@ -885,6 +912,64 @@ flowchart TD
     style AML2 fill:#d5e8d4,stroke:#82b366
 ```
 
+**Architecture rule (to record in the ADR).**
+
+> *Orchestrate in **Fabric Data Factory** for data-centric, non-critical batches that have no external SLA. Orchestrate in **Azure ML pipelines** (triggered by AML schedule or by Azure Data Factory) for any batch that is critical, contractually bound, or runs against a tenant-wide quota that must not collide with ad-hoc DS work. Until the Fabric `Azure Machine Learning` pipeline activity exits Public preview, treat it as best-effort: usable, but with a fallback orchestrator declared in the runbook.*
+
+---
+
+## Feature lifecycle: versioning, deprecation, decommissioning
+
+> **What you will learn**
+>
+> - The compatibility rules between FeatureSet versions, model versions and embedded retrieval specs.
+> - When to deprecate a FeatureSet version and how long to keep it.
+> - The decommission process that does not break models still in production.
+
+Versioning is where a feature platform either stays trustworthy or quietly becomes a liability. The Azure ML Feature Store enforces the right primitive — FeatureSets are immutable per version — but the **operating policy** around it must be made explicit.
+
+### Compatibility contract
+
+| Artifact | Versioned | Bound to |
+|---|---|---|
+| `FeatureSet` (definition + `transform.py`) | Yes — every change is a new version | Source schema, business semantics |
+| Materialized data on ADLS Gen2 | Implicitly versioned by partition path | The `FeatureSet` version that produced it |
+| `feature_retrieval_spec.yaml` | Embedded inside the model artifact at training time | Specific `FeatureSet:version` references |
+| Model artifact in the AML registry | Yes — every training run produces a new candidate | Its embedded `feature_retrieval_spec.yaml` |
+| Online endpoint deployment | Versioned by deployment slot (blue / green / canary) | A specific model version |
+
+**The rule:** a model in production is bound to the exact `FeatureSet:version` references in its embedded retrieval spec. A new `FeatureSet:version` does **not** silently propagate to a deployed model — re-training and re-deployment are required.
+
+### Deprecation policy
+
+A FeatureSet version moves through three states: **Active → Deprecated → Decommissioned**. The transitions are governed, not improvised.
+
+| Stage | Trigger | Required actions |
+|---|---|---|
+| **Active** | Default at registration. | Materialization runs on schedule; consumed by training and serving. |
+| **Deprecated** | A newer version supersedes it, or a defect is found. | Stage moved to `Deprecated` in the registry; materialization continues; no new model trained on this version may be promoted to Production; consumers receive a 90-day migration notice. |
+| **Decommissioned** | All consumers migrated; deprecation grace period elapsed. | Materialization disabled; offline parquet retained per audit policy (typically 5 years for EU AI Act high-risk); registry entry kept for lineage. |
+
+**Minimum grace period:** 90 days from `Deprecated` to `Decommissioned`, longer if a deployed model still references the version. The grace period is not a soft guideline — a model whose retrieval spec points to a decommissioned FeatureSet will fail at inference.
+
+### Schema evolution rules
+
+Not every change is a major version bump. Use the following table to decide:
+
+| Change | Version impact | Rationale |
+|---|---|---|
+| Add a new feature column | **Minor** version (`1.0` → `1.1`) | Backward compatible: existing retrieval specs still resolve. |
+| Remove a feature column | **Major** version (`1.x` → `2.0`) | Breaks every retrieval spec that references it. |
+| Rename a feature column | **Major** version | Breaks every retrieval spec that references it. |
+| Change the transformation logic of an existing column | **Major** version | Same name, different value — silent corruption otherwise. |
+| Change `index_columns` or `timestamp_column` | **New FeatureSet** (not a version) | These define the join contract; changing them is not an evolution. |
+| Change the source path | **New version** (minor or major depending on data semantics) | Lineage clarity. |
+| Tighten data types (e.g., `double` → `float`) | **Major** version | Downstream models may overflow. |
+
+### Producer–consumer notification
+
+Every FeatureSet has a documented owner and a registered consumer list. Deprecation notices flow through the same channel as model owners (typically a service ticket or a Teams notification driven by an Azure Function on registry events). The CI/CD pipeline blocks promotion of any model whose retrieval spec references a `Deprecated` FeatureSet without an owner-approved exception, recorded in the PR.
+
 ---
 
 ## Governance: identity, network, lineage, EU AI Act
@@ -923,6 +1008,43 @@ flowchart TD
 | Fabric workspace egress to ADLS Gen2 | **Trusted Workspace Access** on the storage account, scoped to the Fabric workspace. |
 | Cross-tenant access | Disabled by default; audited if enabled. |
 
+#### Minimum-viable production network flow
+
+```mermaid
+flowchart LR
+    USER["DS / MLE<br/>Entra ID + CA"]
+    APP["Client app /<br/>API / Agent"]
+
+    USER -->|HTTPS| FAB["Fabric workspace"]
+    USER -->|HTTPS<br/>private endpoint| AML["AML workspace"]
+
+    FAB -->|"Trusted Workspace<br/>Access"| ADLS[("ADLS Gen2<br/>private endpoint<br/>public access OFF")]
+
+    AML -->|"private endpoint<br/>+ MI"| ADLS
+    AML --> CPT["AML compute<br/>managed VNet"]
+    AML --> EP["Online endpoint<br/>+ MI"]
+
+    CPT -->|"private endpoint"| ADLS
+    CPT -->|"private endpoint"| KV["Key Vault<br/>CMK + secrets"]
+    CPT -->|"private endpoint"| ACR["ACR<br/>images"]
+
+    EP -->|"private endpoint"| REDIS["Online store<br/>Managed Redis<br/>private endpoint"]
+    EP -->|"private endpoint"| KV
+    APP -->|HTTPS<br/>+ Entra| EP
+
+    AML --> AI["Application Insights<br/>+ Log Analytics"]
+    EP --> AI
+    CPT --> AI
+
+    style ADLS fill:#ffd335,stroke:#a88b00
+    style AML fill:#d5e8d4,stroke:#82b366
+    style FAB fill:#dae8fc,stroke:#6c8ebf
+    style EP fill:#d5e8d4,stroke:#82b366
+    style REDIS fill:#f8cecc,stroke:#b85450
+```
+
+The diagram captures the **mandatory** dependencies between components and the identities used on each edge. A production deployment that lacks any of the private endpoints above, or that exposes ADLS Gen2 publicly, fails an architecture review on day one.
+
 ### Encryption and key management
 
 - **CMK** on ADLS Gen2 via Key Vault.
@@ -956,6 +1078,109 @@ This unified lineage is what makes the design defensible under the **EU AI Act**
 - Models in the AML registry are signed and embed their `feature_retrieval_spec.yaml`.
 - Point-in-time joins from the offline store let you regenerate an exact training dataset months later.
 - Source data on ADLS Gen2 has soft delete and blob versioning enabled.
+
+---
+
+## FinOps: cost structure and levers
+
+> **What you will learn**
+>
+> - The cost-driving components of the integration and the order of magnitude for each.
+> - The levers a platform team can pull without redesigning the architecture.
+> - The two anti-patterns that cause unnecessary spend.
+
+The integration is built on five paid Azure components. Knowing which one moves the bill helps a steering committee make informed trade-offs without going dark on architecture choices.
+
+### Cost map
+
+| Component | Cost driver | Lever |
+|---|---|---|
+| **ADLS Gen2 storage** | GB stored × redundancy tier × hot/cool/archive | Lifecycle policy: move materialized partitions older than N months to *cool*. Soft delete and versioning add overhead — calibrate retention. |
+| **AML materialization compute** | Spark cluster size × runtime per run × frequency | Align frequency with the model's actual freshness need. A churn model rarely needs minute-level features. Right-size compute via auto-scale; consider spot nodes for non-critical materialization. |
+| **AML training compute** | GPU hours × cluster size × experiments per week | Cap experiment quotas per DS; auto-shutdown idle clusters; prefer scheduled training over ad-hoc bursts. |
+| **AML online endpoint** | vCPU/RAM provisioned × hours × instances | Set realistic min/max instances; turn off canary deployments after rollout; keep the autoscale ceiling explicit, not "unlimited". Consider serverless online endpoints for spiky low-volume traffic. |
+| **Online store (Azure Managed Redis)** | Tier × shard count × hours (always-on) | Enable only when an online endpoint is in place. Tune Redis eviction policy and TTL to bound memory. |
+| **AML batch endpoint** | Per-job compute hours | No standing cost; only pays during runs. Cheapest serving mode for non-real-time scoring. |
+| **Network** | Private endpoints (per hour, per endpoint) and egress | One private endpoint per service per environment; egress is dominated by the cross-region case — keep ADLS, AML and Fabric in the same region. |
+| **Purview, Key Vault, App Insights, Log Analytics** | Mostly per-asset and per-GB-ingested | Set retention on Log Analytics aggressively (30–90 days for hot logs, archive beyond). |
+
+### Three structural levers
+
+1. **Disable the online store unless a real-time endpoint is deployed.** This is the single biggest avoidable cost on a feature platform. A batch-only model does not need Redis.
+2. **Right-frequency materialization.** Materializing every minute costs 60× materializing every hour. Tie the frequency to the model's actual decision cadence.
+3. **One ADLS Gen2 account per environment, not per team or per use case.** Every additional storage account adds private endpoints, role assignments and observability scope.
+
+### Two anti-patterns that pad the bill
+
+- **"Always-on" online endpoint with `min_instances=2` for a model called twice a week.** Use serverless online endpoints or scheduled scale-down.
+- **Materializing every FeatureSet on the same hourly cron.** Materialization windows should reflect the source data refresh cadence, not be uniform.
+
+---
+
+## Operational excellence: SLOs, alerts, run evidence
+
+> **What you will learn**
+>
+> - The minimum set of SLOs to declare on each feature set and each model.
+> - The alerts that must exist on day one in production.
+> - The evidence a platform owner must be able to produce on demand for an audit.
+> - The pre-promotion test gate that protects production.
+
+A platform that cannot prove what it did under load is not in production. The artifacts below are the minimum to claim "production-grade" without ambiguity.
+
+### Per-FeatureSet SLOs
+
+| SLO | Target (suggested default) | Why |
+|---|---|---|
+| **Materialization success rate** | ≥ 99 % over 30 days | Primary indicator that the offline store is fresh. |
+| **Materialization end-to-end latency** | P95 ≤ 2× the scheduled interval | A run that takes longer than the cadence will pile up and miss SLAs. |
+| **Feature freshness** (max age of latest partition) | ≤ scheduled interval + 15 min | The contract DS and consumers depend on. |
+| **Null ratio per feature column** | ≤ baseline + 5 pp | A surge of NULLs is the most common silent feature regression. |
+| **Distinct entity count** | within ±10 % of 7-day baseline | Detects upstream filter changes that break joins. |
+
+### Per-model SLOs
+
+| SLO | Target (suggested default) | Why |
+|---|---|---|
+| **Online endpoint availability** | ≥ 99.9 % monthly | Standard for customer-facing endpoints. |
+| **Online endpoint P95 latency** | Defined per use case (e.g., < 200 ms) | Bound the budget for online store + scoring. |
+| **Online endpoint error rate** | < 0.5 % | Catches spec / model mismatches. |
+| **Data drift score** (per top-10 features) | Within trained distribution range | Early warning for re-training. |
+| **Prediction drift** | Within historic prediction distribution | Catches downstream changes the inputs missed. |
+
+### Minimum alert set (day one in production)
+
+- Materialization job failure (Azure Monitor on AML pipeline runs).
+- Materialization run duration > 2× scheduled interval.
+- Online endpoint 5xx rate > 1 % over 5 minutes.
+- Online endpoint P95 latency above SLO for 10 minutes.
+- Online store memory > 80 % capacity.
+- ADLS Gen2 throttling errors above threshold.
+- Failed Entra token acquisitions on AML compute MI.
+- AML quota approaching limit (CPU / GPU cores per region).
+
+### Pre-promotion test gate (CI before stage = Production)
+
+Beyond unit tests on `transform.py` and `az ml feature-set validate`, the CI pipeline must enforce, for any FeatureSet promoted to `Production`:
+
+- **Point-in-time correctness test.** A regenerated training dataset for a fixed observation set must match the dataset captured at the previous trained model — within tolerance for floating-point arithmetic.
+- **Null ratio test.** Per-column null ratio on a sample is within `baseline ± 5 pp`.
+- **Entity cardinality test.** Number of distinct `index_columns` values in the latest partition is within `±10 %` of the 7-day rolling average.
+- **Distribution drift test.** Per top-10 features, KS-statistic vs the previous version is below threshold (e.g., 0.1).
+- **Schema test.** Column names, types and nullability match the registered FeatureSetSpec exactly.
+
+A FeatureSet version that fails any of these tests cannot be promoted to `Production` in the registry without an owner-approved exception, recorded in the PR.
+
+### Audit evidence to retain
+
+| Evidence | Retention | Source |
+|---|---|---|
+| Every model version, its embedded `feature_retrieval_spec.yaml`, training run ID, training dataset hash | ≥ 5 years (EU AI Act high-risk) | AML model registry + MLflow |
+| Every FeatureSet version, its `transform.py` and source path | ≥ 5 years | AML Feature Store + Git |
+| Materialization run logs and outputs | ≥ 1 year hot, archive beyond | Log Analytics + ADLS |
+| Online endpoint request/response samples (sampled per privacy policy) | Per regulatory regime | Application Insights |
+| Lineage graph snapshot (Purview) | Quarterly export | Purview |
+| Access reviews on Feature Store and ADLS Gen2 | Quarterly | Entra ID Access Reviews |
 
 ---
 
@@ -1118,6 +1343,8 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 - [ ] Source path is parameterized per environment (Dev/Staging/Prod).
 - [ ] Materialization schedule defined and aligned with model freshness needs.
 - [ ] Materialization runs are monitored (Azure Monitor alerts on failure).
+- [ ] Pre-promotion test gate enforced (point-in-time correctness, null ratio, entity cardinality, distribution drift, schema — see *Operational excellence*).
+- [ ] Documented owner and registered consumer list for deprecation notifications.
 
 **Per model**
 
@@ -1126,6 +1353,7 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 - [ ] Online endpoint (if applicable) deployed with Managed Identity, blue/green or canary configured.
 - [ ] Drift monitoring (data + performance) enabled with alerts.
 - [ ] Predictions written to ADLS Gen2 path that is exposed to Fabric via the shortcut.
+- [ ] SLOs declared for availability, latency, error rate; alerts wired to Azure Monitor.
 
 **Identity and CI/CD**
 
@@ -1133,6 +1361,7 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 - [ ] PR gates enforced on `feature_sets/**` and `pipelines/**`.
 - [ ] CI runs `az ml feature-set validate` and unit tests on every PR.
 - [ ] CD promotes Dev → Staging → Production by environment, not by long-lived secrets.
+- [ ] CI blocks promotion of any model whose retrieval spec references a `Deprecated` FeatureSet without a recorded exception.
 
 **Governance and audit**
 
@@ -1140,6 +1369,7 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 - [ ] Sensitivity labels propagate from Fabric to ADLS Gen2 to AML datasets.
 - [ ] Each model has documented owner, business case, training data, retrieval spec, monitoring plan.
 - [ ] Audit log retention configured for at least the regulatory retention period (typically 5 years for EU AI Act high-risk systems).
+- [ ] Quarterly access reviews on the Feature Store workspace and on the ADLS Gen2 container.
 
 ---
 
