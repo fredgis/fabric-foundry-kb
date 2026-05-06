@@ -130,13 +130,9 @@ Storage ≠ contract ≠ execution. Three layers, three responsibilities, three 
 
 # Three layers, three roles
 
-![w:1100](images/01-three-layers.png)
+![w:1080](images/01-three-layers.png)
 
-<div class="cards">
-<div class="card"><div class="card-num">STORAGE</div><h3>ADLS Gen2</h3><p>The shared physical layer. Same Delta files. Same bytes. No copy.</p></div>
-<div class="card purple"><div class="card-num">CONTRACT</div><h3>AML Feature Store</h3><p>Versioned FeatureSets. Retrieval spec. Lineage. Schema lock.</p></div>
-<div class="card teal"><div class="card-num">EXECUTION</div><h3>Fabric Spark + AML</h3><p>Fabric for authoring. AML Spark for materialization. AML endpoints for serving.</p></div>
-</div>
+> **Storage** is one product. **Contract** is another. **Execution** is a third. The day someone tries to merge two of them, push back: storage in Fabric, contract in AML, execution split — that is the rule.
 
 <!--
 This is the only architecture diagram you need to memorize. Storage is one product, contract is another, execution is a third. The day someone in your organization tries to merge two of them, you push back: storage in Fabric, contract in AML, execution split — that is the rule.
@@ -173,10 +169,10 @@ One ADLS Gen2 account per environment. Two logical views. Zero duplication. The 
 
 # Reference architecture — simple view
 
-![w:1100](images/architecture-simple.png)
+![h:560](images/architecture-simple.png)
 
 <!--
-This is the architecture you draw on a whiteboard for the steering committee. Three swimlanes: Fabric on the left, the shared ADLS Gen2 in the middle, Azure ML on the right. Both sides see the same physical bytes. There is no sync job and no second copy.
+This is the architecture you draw on a whiteboard for the steering committee. Three swimlanes: Fabric on the left, the shared ADLS Gen2 in the middle, Azure ML on the right. Both sides see the same physical bytes. There is no sync job and no second copy. Says: ADLS Gen2 is the single physical contract; Fabric and AML each see it through their own native object; identity is Entra everywhere; predictions land back on the same ADLS Gen2 and reappear in Fabric via the shortcut.
 -->
 
 ---
@@ -221,7 +217,7 @@ DS-driven from Fabric, MLE-driven from CI. Same artifacts. Same storage. Differe
 
 # Path A vs Path B — both end up in the same place
 
-![w:1000](images/03-paths.png)
+![w:1150](images/03-paths.png)
 
 <!--
 Both paths produce byte-identical artifacts in the AML Feature Store and write to the same ADLS Gen2. The difference is the human plus the local environment. Materialization is always done by AML Spark — never by Fabric Spark, even on Path A. This slide kills the "we have to choose one" debate.
@@ -273,7 +269,7 @@ Where the bytes physically live, and how often they get rewritten. This is where
 
 # Decision tree — enable the online store?
 
-![w:850](images/05-online.png)
+![w:1150](images/05-online.png)
 
 <!--
 The single biggest avoidable cost on a feature platform is enabling Redis for a batch-only model. This decision tree is the rule: no synchronous endpoint => no online store. Period.
@@ -414,7 +410,7 @@ SLOs, alerts, lifecycle. And the question: *do I really need a feature store?*
 
 # Decision tree — feature store or plain Delta table?
 
-![w:850](images/04-decision.png)
+![w:1150](images/04-decision.png)
 
 <!--
 A feature store is not a dogma. For a single batch model with 15 simple columns and one consumer, a well-governed Delta table is enough. For a multi-model platform with real-time serving and audit obligations, the feature store earns its keep.
