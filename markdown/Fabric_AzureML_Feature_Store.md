@@ -36,6 +36,7 @@ Microsoft Fabric and Azure Machine Learning solve **different problems** and are
 | Azure ML Managed Feature Store | GA | Production-ready for feature lifecycle. |
 | Azure ML managed online & batch endpoints | GA | Production-ready for serving. |
 | OneLake shortcut to ADLS Gen2 | GA | Production-ready zero-copy share. |
+| **Azure ML OneLake datastore** (point AML directly at a Fabric Lakehouse) | **Public preview** | Architectural simplicity, but restricted to the `Files` area of the Lakehouse. Stay on the GA shared-ADLS-Gen2 pattern for production. |
 | **Fabric Data Factory pipeline activity calling an AML batch endpoint** | **Public preview** | Usable for non-critical batches; do not back external SLAs on it yet. |
 | Azure Cache for Redis (online store) | Retirement announced | New designs should use **Azure Managed Redis**. |
 
@@ -90,6 +91,8 @@ A **feature store** is a system that manages the lifecycle of features used by m
 2. **Materialize** the values — pre-compute and persist features in a store optimized for either offline (training) or online (low-latency inference) access.
 3. **Serve** features consistently to training and inference, guaranteeing **training/serving parity**.
 4. **Reproduce** historical states — point-in-time joins for training, audit and EU AI Act traceability.
+
+> **A feature store is an Azure ML capability today.** As of April 2026, there is **no Fabric-native feature store**. A Lakehouse table — even Delta, even partitioned — is still a plain table; it becomes a *feature set* only when registered in the Azure ML Managed Feature Store. Microsoft mentioned a Fabric-native feature store as a future direction at Ignite 2023, but no such product has shipped. Plan accordingly: Fabric is where features are *computed*; Azure ML is where they are *registered, versioned, materialized and served*.
 
 ### The Azure ML object model
 
@@ -264,6 +267,8 @@ R = Responsible · A = Accountable · C = Consulted · I = Informed
 
 The architecture is presented at two levels of detail. Read the **simple view** first; it is the version to put in front of a steering committee or a non-technical sponsor. Read the **detailed view** when you need to defend the design at an architecture review.
 
+> **What is officially documented vs derived.** The Microsoft Learn page [`how-to-use-batch-fabric`](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-use-batch-fabric?view=azureml-api-2) covers exactly **one** thing: how a Fabric Data Factory pipeline calls an already-deployed Azure ML batch endpoint, with the shared ADLS Gen2 (OneLake shortcut + AML datastore) as the data exchange layer. **Feature Store integration with Fabric is not natively documented by Microsoft as of April 2026** — it is a derived pattern that reuses the same shared-storage and identity primitives. This guide is honest about that distinction: the storage and orchestration layers are GA-supported; the Feature Store layer above them requires the AML SDK or CLI and is your own integration work.
+
 ### Simple view
 
 A single storage account in ADLS Gen2 is shared between Fabric (via a OneLake shortcut) and Azure ML (via a datastore). Both products see the same physical bytes. Predictions written by Azure ML reappear in Fabric through the same shortcut. Identity is Entra; secrets live in Key Vault; lineage is unified in Purview.
@@ -351,6 +356,17 @@ ml_client.datastores.create_or_update(datastore)
 ```
 
 After this is done, the DS in Fabric sees a folder under `Files/` of the Lakehouse and reads/writes Delta tables on it as if it were native OneLake. The MLE in Azure ML reads the same bytes through the datastore. Neither side ever copies the data.
+
+### Alternative: the OneLake datastore (Public preview)
+
+Azure ML now ships an **OneLake datastore** type, currently in **Public preview**, that lets the AML workspace point directly at a Fabric Lakehouse without the intermediate ADLS Gen2 account. Under the hood it is still ABFS — Azure ML resolves the OneLake artifact URL and treats it as ADLS — but the user sees one fewer storage account.
+
+| Pattern | Status (April 2026) | Strengths | Limits |
+|---|---|---|---|
+| **Shared ADLS Gen2 + OneLake shortcut + AML AzureDataLakeGen2Datastore** | **GA** — recommended for production | Mature, supported, works for files **and** Delta tables, identity via Managed Identity, no preview risk. | One extra storage account to provision and govern. |
+| **OneLake datastore** (`AzureMLOneLakeDatastore` pointing at a Lakehouse artifact) | **Public preview** | Architectural simplicity — one fewer storage account; the AML workspace targets the Lakehouse directly. | Preview, **no SLA**; currently restricted to the **`Files`** area of the Lakehouse (not the registered tables); requires the workspace/artifact GUIDs in the URL; production validation not warranted yet. |
+
+**Recommendation:** stay on the GA pattern (shared ADLS Gen2 + shortcut + datastore) for any production workload until the OneLake datastore reaches GA and lifts the `Files`-only restriction. Use the OneLake datastore in Dev / lab environments where the simplicity payoff matters and the preview risk is acceptable.
 
 ### What "zero-copy" actually means
 
@@ -1052,7 +1068,7 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 | *"We don't need a feature store, our Lakehouse table is enough"* (for a real-time multi-model platform) | Lower upfront effort. | No retrieval spec, no point-in-time join, no online serving, no lineage. |
 | Computing features one way for training and another way for serving | Two different teams, two different stacks. | Training/serving skew. The model collapses in production. |
 | Storing features in both Fabric and Azure ML separately, with sync jobs | Each side keeps its tooling. | Two truths, one will drift. Eventually nobody knows which is canonical. |
-| Trying to make Azure ML read OneLake directly | Sounds elegant. | Not supported by Microsoft. Use the ADLS Gen2 + shortcut pattern. |
+| Backing a production workload on the OneLake datastore (Preview) | Architecturally cleaner — one fewer storage account. | Public preview, no SLA, restricted to the `Files` area of the Lakehouse. Use the GA shared-ADLS-Gen2 + shortcut pattern instead. |
 | Account keys / SAS tokens in notebooks | Quick to make things work. | Security review will block production. |
 | Service principal with a long-lived secret in CI/CD | Familiar pattern. | Use **workload identity federation** (GitHub OIDC → Entra) instead. |
 | No timestamp column on a feature table | Saves a column. | Leakage. Audit failure. |
@@ -1211,6 +1227,7 @@ The Fabric ↔ Azure ML interface lives at three layers. Each must be explicit a
 | Azure ML Managed Feature Store (offline + online) | GA |
 | Azure ML managed online & batch endpoints | GA |
 | Fabric Data Factory **Azure Machine Learning** pipeline activity (calling AML batch endpoints from a Fabric pipeline) | **Public preview** — no SLA |
+| Azure ML **OneLake datastore** (AML pointing directly at a Fabric Lakehouse) | **Public preview** — no SLA, restricted to the `Files` area of the Lakehouse |
 | Online store on Azure Cache for Redis | Retirement announced — migrate to **Azure Managed Redis** |
 
 > **Note on private sources.** Two internal architecture documents informed the early thinking for this guide. They are **not** referenced here, by design: this annex is meant to be reproducible by any reader using public Microsoft documentation alone. If a claim in this guide cannot be traced back to the references above, please open an issue on the knowledge-base repository.
