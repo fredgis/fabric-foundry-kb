@@ -361,6 +361,28 @@ What is **not** automatically zero-copy:
 
 There are two officially supported entry points to register a feature set. They produce **identical artifacts in Azure ML** and they consume **identical infrastructure**. The difference is the human who drives them and the local context (notebook environment vs YAML/CLI). They are not in opposition; in real organizations, both paths coexist, sometimes for the same team across different feature sets.
 
+### Two personas: Data Scientist vs ML Engineer
+
+Path A and Path B are not a matter of taste — they map to two distinct engineering personas with two different success metrics. Forcing a Data Scientist to learn Git+YAML to push an exploratory feature wastes hours; forcing an ML Engineer to industrialize from a notebook breaks their CI/CD discipline. Honoring both ergonomies is what makes the platform actually used.
+
+| Axis | Data Scientist (DS) | ML Engineer (MLE) |
+| --- | --- | --- |
+| **Question they ask** | "Which signal best predicts this business outcome?" | "How does this model run 24/7 without breaking?" |
+| **Primary output** | Notebook + analysis + model proven on a hold-out dataset | Pipeline + endpoint + monitoring in production |
+| **Typical tools** | Notebook (Fabric, Jupyter, Databricks), pandas, scikit-learn, XGBoost, MLflow tracking, ad-hoc SQL | VS Code, Git, CI/CD (Azure DevOps, GitHub Actions), CLI YAML, Docker, Terraform/Bicep, MLflow registry, Kubernetes, AML endpoints |
+| **Strong skills** | Statistics, feature engineering, experimentation, business storytelling | Software engineering, DevOps, observability, scaling, security, FinOps |
+| **Success metric** | Lift / AUC / RMSE on a hold-out dataset | Production SLOs: p95 latency, error rate, cost-per-1k-predictions, feature freshness |
+| **Iteration cadence** | Hours to days, on a frozen dataset | Weeks to months, on a system that must stay up |
+| **Owns when the model drifts** | Diagnosis: *"why is performance dropping?"* | Reaction: alerts, rollback, retraining pipeline |
+| **Persona in this guide** | **Path A** — author from a Fabric notebook, register via SDK | **Path B** — author in YAML/CLI, push via Git + CI/CD |
+
+A concrete example clarifies the handoff:
+
+- The DS says *"I found that `rolling_30d_avg_basket` correlates strongly with churn"* — they prove the value.
+- The MLE says *"OK, I turn that feature into a versioned `FeatureSet:1.2`, materialize it nightly at 2 AM, expose it through an endpoint with a p95 SLO under 50 ms, and alert if the null ratio exceeds 5%"* — they make the value operable and durable.
+
+> **MLOps engineer** is sometimes confused with MLE: it is one notch further to the right. The MLOps engineer owns the *shared tooling* (registry, feature store, training platform) that every MLE in the organization consumes. In a small team, all three roles collapse into one person; on a mature platform, they are three distinct hats — and that platform team is the natural owner of this guide's pattern.
+
 ### Underlying architecture of each path
 
 ```mermaid

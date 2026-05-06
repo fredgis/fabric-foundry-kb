@@ -215,6 +215,26 @@ DS-driven from Fabric, MLE-driven from CI. Same artifacts. Same storage. Differe
 
 ---
 
+# Two personas — Data Scientist vs ML Engineer
+
+| Axis | Data Scientist (Path A) | ML Engineer (Path B) |
+| --- | --- | --- |
+| **Question they ask** | "Which signal predicts this outcome?" | "How does this run 24/7 without breaking?" |
+| **Primary output** | Notebook + analysis + proven model | Pipeline + endpoint + monitoring |
+| **Typical tools** | Fabric notebook, pandas, scikit-learn, MLflow tracking | VS Code, Git, CI/CD, CLI YAML, Docker, MLflow registry |
+| **Strong skills** | Stats, feature engineering, business storytelling | Software eng., DevOps, observability, FinOps |
+| **Success metric** | AUC / RMSE on hold-out | p95 latency · error rate · cost-per-1k · feature freshness |
+| **Iteration cadence** | Hours – days, frozen dataset | Weeks – months, system that must stay up |
+| **Owns when model drifts** | *"Why is performance dropping?"* | Alerts, rollback, retraining pipeline |
+
+> **MLOps engineer** is one notch further: owns the *shared platform tooling* (registry, feature store, training infra) that every MLE consumes. Small team = same person. Mature platform = three distinct hats.
+
+<!--
+This slide is the foundation for the Path A / Path B split. Path A and Path B are not a matter of taste — they map to two engineering personas with two different success metrics. Forcing a DS to learn Git+YAML to push an exploratory feature wastes hours; forcing an MLE to industrialize from a notebook breaks their CI/CD. Honoring both ergonomies is what makes the platform actually used. Concrete handoff example: the DS proves rolling_30d_avg_basket correlates with churn. The MLE turns it into a versioned FeatureSet 1.2, materializes nightly at 2 AM, exposes through an endpoint with p95 SLO under 50 ms, and alerts if null ratio exceeds 5 percent.
+-->
+
+---
+
 # Path A vs Path B — both end up in the same place
 
 ![w:1150](images/03-paths.png)
