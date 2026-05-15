@@ -29,6 +29,12 @@ MiKTeX installs to: `%LOCALAPPDATA%\Programs\MiKTeX\miktex\bin\x64\`
 
 ## Procedure
 
+> 📋 **Non-negotiable flags for this repo** (do not skip when invoking pandoc):
+> - `--shift-heading-level-by=-1` — markdown content starts at `##`; without this, TOC numbering breaks (`0.1`, `0.2`…).
+> - `--include-in-header=header.tex` — required for the branded cover page.
+> - YAML frontmatter must include **all three** of `title`, `subtitle`, `date` (see Step 2).
+> - Always verify the generated TOC numbering (Step 4b) before considering the build done.
+
 ### Step 1 — Add MiKTeX to PATH
 
 ```powershell
@@ -81,9 +87,18 @@ Set-Content -Path "RESOLVED.md" -Value $newMd
 
 ### Step 4 — Generate PDF with pandoc + xelatex
 
+> ⚠️ **CRITICAL — Heading numbering:** All markdown documents in this repository start their content at level `##` because `#` is reserved for the YAML-driven title.
+>
+> You **must** pass `--shift-heading-level-by=-1` to pandoc. Without it, pandoc 3.6+ maps `##` to `\subsection`, producing broken TOC numbering like `0.1`, `0.2`, `0.3`… instead of `1`, `2`, `3`…
+>
+> Same rule applies if you ever call `pandoc` outside of this skill (e.g., via the repo Makefile or one-off rebuilds).
+
+> ⚠️ **CRITICAL — Custom title page:** If the repo provides a `header.tex` (it does), pass `--include-in-header=header.tex`. It defines the branded cover page (`\renewcommand{\maketitle}`) used with the YAML `title` / `subtitle` / `date` fields. Omitting it gives you the default pandoc cover.
+
 ```powershell
 pandoc RESOLVED.md -o OUTPUT.pdf `
     --pdf-engine=xelatex `
+    --include-in-header=header.tex `
     --shift-heading-level-by=-1 `
     --toc `
     --toc-depth=3 `
@@ -99,7 +114,15 @@ pandoc RESOLVED.md -o OUTPUT.pdf `
     -V toccolor:black
 ```
 
-> **Note on `--shift-heading-level-by=-1`:** Documents in this repo start their content at `##` (level 2) because `#` is reserved for the YAML-driven title. Without the shift, pandoc 3.6+ maps `##` to `\subsection`, producing TOC entries like `0.1`, `0.2`… Shifting by `-1` makes `##` become `\section`, restoring proper `1`, `2`, `3`… numbering.
+### Step 4b — Verify numbering before declaring success
+
+After generating the PDF, extract the first page of the TOC with `pdftotext` and confirm top-level entries are numbered `1`, `2`, `3`… **not** `0.1`, `0.2`, `0.3`…
+
+```powershell
+pdftotext OUTPUT.pdf - | Select-Object -First 15
+```
+
+If you see `0.1 Overview` instead of `1 Overview`, the shift flag was missed — rebuild.
 
 ### Step 5 — Cleanup
 
@@ -110,7 +133,7 @@ Remove-Item "RESOLVED.md" -Force -ErrorAction SilentlyContinue
 
 ## Options
 
-- If the repo contains a `header.tex`, add `--include-in-header=header.tex` for custom styling
-- If the repo contains a Lua filter (`filters/mermaid.lua`), try `--lua-filter=filters/mermaid.lua` first — fall back to the 2-step PNG approach if pandoc crashes
-- For Linux/macOS, use `DejaVu Sans` / `DejaVu Sans Mono` fonts instead of Segoe UI / Cascadia Mono
-- Emoji characters in headings won't render in xelatex PDF — shows as warnings but doesn't break the build
+- The repo's `header.tex` is **required** (see Step 4) — not optional.
+- If the repo contains a Lua filter (`filters/mermaid.lua`), you can try `--lua-filter=filters/mermaid.lua` first and skip Step 3 — fall back to the 2-step PNG approach if pandoc crashes.
+- For Linux/macOS, use `DejaVu Sans` / `DejaVu Sans Mono` fonts instead of Segoe UI / Cascadia Mono.
+- Emoji and some Unicode symbols (e.g., ✔ U+2714, ✘ U+2718) won't render in xelatex with Segoe UI — shows as warnings but doesn't break the build.
