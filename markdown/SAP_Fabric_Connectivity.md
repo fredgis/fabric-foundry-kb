@@ -1,7 +1,7 @@
 ---
 title: "SAP to Fabric Connectivity"
 subtitle: "Architecture Patterns — Complete Reference Guide"
-date: "April 2026"
+date: "May 2026"
 ---
 
 ## Overview
@@ -265,7 +265,7 @@ graph LR
 
 ## Method 3 -- Copy Job CDC for SAP
 
-Introduced at **Ignite 2025**, Copy Job supports **Change Data Capture (CDC)** for SAP via Datasphere. This capability is currently in **Preview** (as of April 2026). Unlike Mirroring (autonomous), Copy Job CDC provides **explicit orchestration control** within a Data Factory pipeline.
+Introduced at **Ignite 2025**, Copy Job supports **Change Data Capture (CDC)** for SAP via Datasphere. This capability is currently in **Preview** (as of May 2026). Unlike Mirroring (autonomous), Copy Job CDC provides **explicit orchestration control** within a Data Factory pipeline.
 
 ```mermaid
 graph LR
@@ -673,7 +673,9 @@ The Open Mirroring partner ecosystem continues to grow. The following are notabl
 
 ## Method 8 -- SAP Business Data Cloud Connect for Fabric (Preview -- GA Q3 2026)
 
-SAP Business Data Cloud (BDC) Connect for Microsoft Fabric is a **joint SAP-Microsoft capability** that enables **bi-directional, zero-copy data sharing** between SAP BDC and OneLake. Announced at **Ignite 2025**, it is expected to reach general availability in Q3 2026.
+SAP Business Data Cloud (BDC) Connect for Microsoft Fabric is a **joint SAP-Microsoft capability** that enables **bi-directional, zero-copy data sharing** between SAP BDC and OneLake. Announced at **Ignite 2025** and **reaffirmed at SAP Sapphire 2026**, with delta sharing arriving in the second half of 2026, it is expected to reach general availability in Q3 2026.
+
+> **Azure region expansion (Sapphire 2026 update):** SAP BDC is already deployed in 8 Azure regions. **Japan** is added by end of May 2026 and **Germany** in June 2026. Three additional Azure deployments are planned, bringing the total to **13 Azure regions by end of 2026** to support SAP BDC customer analytics.
 
 This represents a paradigm shift: rather than extracting or replicating SAP data, Fabric and SAP BDC share a **unified data foundation** where SAP data products are natively accessible in OneLake, and conversely, OneLake datasets can be consumed by SAP applications.
 
@@ -736,7 +738,7 @@ Unlike all other methods in this document, BDC Connect does not physically move 
 
 ### Limitations (Preview Phase)
 
-- Feature is in **Preview** as of April 2026 -- not yet recommended for production workloads
+- Feature is in **Preview** as of May 2026 -- not yet recommended for production workloads
 - Supported SAP data product types may be limited during preview
 - Query performance depends on cross-platform network latency
 - Bi-directional writes may have eventual consistency semantics
@@ -907,7 +909,7 @@ flowchart TD
 | Feature | Status | Coverage |
 |---------|:---:|---------|
 | **Mirroring for SAP** | ◑ Preview | S/4HANA, BW, BW/4HANA, SuccessFactors, Ariba |
-| **Copy Job CDC for SAP** | ◑ Preview | SAP via Datasphere to Lakehouse (CDC in Copy Job remains Preview as of April 2026) |
+| **Copy Job CDC for SAP** | ◑ Preview | SAP via Datasphere to Lakehouse (CDC in Copy Job remains Preview as of May 2026) |
 
 ### FabCon 2026 -- March 2026
 
@@ -916,6 +918,21 @@ flowchart TD
 | **Mirroring for SAP** | ✔ GA | + SAP ECC, + Concur. Up to 1,000 tables. |
 | **Copy Job enhancements** | ✔ GA | Auto-partitioning, audit columns, zero-cost |
 | **Direct Lake in OneLake** | ✔ GA | Semantic models read Delta tables directly from OneLake |
+
+### SAP Sapphire 2026 -- May 2026
+
+At **SAP Sapphire 2026**, Microsoft and SAP reaffirmed and extended their joint roadmap for enterprise AI on Azure. The announcements most relevant to SAP-to-Fabric connectivity and data integration:
+
+| Announcement | Status | Implication for Fabric Connectivity |
+|--------------|:---:|-------------------------------------|
+| **SAP Business Data Cloud Connect for Microsoft Fabric** | Confirmed -- delta sharing arriving H2 2026 | Bi-directional, zero-copy delta sharing between SAP BDC and OneLake reconfirmed as the strategic long-term integration pattern (see Method 8). Unified foundation for SAP + non-SAP data, AI, and analytics. |
+| **SAP BDC Azure region expansion** | Active rollout | SAP BDC deployed in 8 Azure regions, with **Japan added by end of May 2026** and **Germany in June 2026**. Three additional regions planned, reaching **13 Azure regions by end of 2026** to support SAP BDC analytics scenarios. |
+| **Agent-to-Agent (A2A) between Microsoft 365 Copilot and SAP Joule** | Announced | Connected AI experiences across Copilot and Joule -- relevant for Fabric scenarios where SAP data products surfaced via BDC Connect are reasoned over jointly by both AI agents. |
+| **RISE with SAP on SAP Sovereign Cloud running on Azure** | Expanding (AU, NZ, CA, IN, EU, UK) | Extends Fabric-eligible SAP landscapes to sovereign workloads. Mirroring, Datasphere, and BDC patterns remain available subject to sovereign region availability. |
+| **SAP BTP on Azure** | 12 regions live | Reinforces availability of SAP Event Mesh and BTP services used by Method 6 (Event-Driven) across more Azure regions. |
+| **Cloud Acceleration Factory expansion** | Announced | Prebuilt Copilot Studio / Foundry agents for SAP + Microsoft Sentinel for SAP -- complements analytics integration with governed AI and security. |
+
+> **Source:** [Advancing enterprise AI: new SAP on Azure announcements from SAP Sapphire 2026](https://azure.microsoft.com/en-us/blog/advancing-enterprise-ai-new-sap-on-azure-announcements-from-sap-sapphire-2026/)
 
 > **Docs:** [Microsoft Fabric Mirrored Databases From SAP](https://learn.microsoft.com/fabric/mirroring/sap)
 
