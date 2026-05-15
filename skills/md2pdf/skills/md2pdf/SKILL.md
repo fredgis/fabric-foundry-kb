@@ -84,6 +84,7 @@ Set-Content -Path "RESOLVED.md" -Value $newMd
 ```powershell
 pandoc RESOLVED.md -o OUTPUT.pdf `
     --pdf-engine=xelatex `
+    --shift-heading-level-by=-1 `
     --toc `
     --toc-depth=3 `
     --number-sections `
@@ -97,6 +98,8 @@ pandoc RESOLVED.md -o OUTPUT.pdf `
     -V urlcolor:blue `
     -V toccolor:black
 ```
+
+> **Note on `--shift-heading-level-by=-1`:** Documents in this repo start their content at `##` (level 2) because `#` is reserved for the YAML-driven title. Without the shift, pandoc 3.6+ maps `##` to `\subsection`, producing TOC entries like `0.1`, `0.2`… Shifting by `-1` makes `##` become `\section`, restoring proper `1`, `2`, `3`… numbering.
 
 ### Step 5 — Cleanup
 
