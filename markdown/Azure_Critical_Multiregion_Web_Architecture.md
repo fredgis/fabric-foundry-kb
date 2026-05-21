@@ -38,24 +38,28 @@ Trois axes d'architecture en découlent :
 
 ### Vue d'ensemble
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  1. Edge & routage global  (DNS, Front Door, WAF)       │
-├─────────────────────────────────────────────────────────┤
-│  2. Topologie multi-régions (stamps, AZ, hub-spoke)     │
-├─────────────────────────────────────────────────────────┤
-│  3. Compute (App Service / AKS / Container Apps)        │
-├─────────────────────────────────────────────────────────┤
-│  4. Données (Cosmos / HorizonDB / SQL / Redis / Storage)│
-├─────────────────────────────────────────────────────────┤
-│  5. Sécurité & identité (Entra ID, MI, Key Vault, PE)   │
-├─────────────────────────────────────────────────────────┤
-│  6. Observabilité (Monitor, App Insights, Sentinel)     │
-├─────────────────────────────────────────────────────────┤
-│  7. DevOps & résilience (IaC, rings, chaos)             │
-├─────────────────────────────────────────────────────────┤
-│  8. Gouvernance (Policy, Mgmt Groups, Cost, RBAC)       │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    L1["<b>1. Edge & routage global</b><br/>DNS · Front Door · WAF"]
+    L2["<b>2. Topologie multi-régions</b><br/>Stamps · Availability Zones · Hub-Spoke"]
+    L3["<b>3. Compute</b><br/>App Service · AKS · Container Apps"]
+    L4["<b>4. Données</b><br/>Cosmos · HorizonDB · SQL · Redis · Storage"]
+    L5["<b>5. Sécurité & identité</b><br/>Entra ID · Managed Identity · Key Vault · Private Endpoints"]
+    L6["<b>6. Observabilité</b><br/>Monitor · App Insights · Sentinel"]
+    L7["<b>7. DevOps & résilience</b><br/>IaC · Deployment Rings · Chaos Studio"]
+    L8["<b>8. Gouvernance</b><br/>Policy · Management Groups · Cost · RBAC"]
+    L1 --- L2 --- L3 --- L4 --- L5 --- L6 --- L7 --- L8
+
+    classDef edge fill:#1e88e5,stroke:#0d47a1,color:#fff
+    classDef compute fill:#43a047,stroke:#1b5e20,color:#fff
+    classDef data fill:#fb8c00,stroke:#e65100,color:#fff
+    classDef cross fill:#8e24aa,stroke:#4a148c,color:#fff
+    classDef ops fill:#546e7a,stroke:#263238,color:#fff
+    class L1,L2 edge
+    class L3 compute
+    class L4 data
+    class L5,L6 cross
+    class L7,L8 ops
 ```
 
 ### Détail par couche
@@ -167,27 +171,26 @@ Mettre APIM **devant le front statique** apporterait :
 
 ### Le bon pattern : deux chemins parallèles sous Front Door
 
-```
-                  ┌─────────────────────────────┐
-                  │     FRONT DOOR + WAF        │
-                  │   (entrée unique Internet)  │
-                  └──────┬──────────────┬───────┘
-                         │              │
-        Host: app.xxx.com│              │Host: api.xxx.com
-        Path: /*         │              │Path: /*
-        (statique, SPA)  │              │(API JSON)
-                         ▼              ▼
-            ┌────────────────────┐  ┌──────────────────────┐
-            │  FRONTEND          │  │   APIM Premium       │
-            │  Static Web App /  │  │   • JWT / OAuth2     │
-            │  App Service       │  │   • Rate limit       │
-            │  (HTML, JS, CSS)   │  │   • Cache / Transform│
-            └────────────────────┘  └──────────┬───────────┘
-                                               │ Private Endpoint
-                                               ▼
-                                    ┌─────────────────────┐
-                                    │  BACKEND (AKS/ACA)  │
-                                    └─────────────────────┘
+```mermaid
+flowchart TB
+    U["👤 Utilisateurs"]
+    FD["🛡️ <b>Front Door + WAF</b><br/>(entrée unique Internet)"]
+    SWA["📄 <b>Frontend</b><br/>Static Web App / App Service<br/>HTML · JS · CSS"]
+    APIM["🚪 <b>APIM Premium</b><br/>JWT / OAuth2 · Rate limit<br/>Cache · Transform"]
+    BE["⚙️ <b>Backend</b><br/>AKS / Container Apps"]
+    U --> FD
+    FD -- "Host: app.xxx.com<br/>(statique, SPA)" --> SWA
+    FD -- "Host: api.xxx.com<br/>(API JSON)" --> APIM
+    APIM -- "Private Endpoint" --> BE
+
+    classDef edge fill:#1e88e5,stroke:#0d47a1,color:#fff
+    classDef front fill:#43a047,stroke:#1b5e20,color:#fff
+    classDef api fill:#fb8c00,stroke:#e65100,color:#fff
+    classDef back fill:#8e24aa,stroke:#4a148c,color:#fff
+    class FD edge
+    class SWA front
+    class APIM api
+    class BE back
 ```
 
 Côté Front Door, deux origin groups :
@@ -237,72 +240,81 @@ Côté Front Door, deux origin groups :
 
 ### Tiers et responsabilités
 
-```
-┌─────────────────┬─────────────────┬─────────────────┬─────────────────┐
-│   Front Door    │   Frontend SWA  │      APIM       │     Backend     │
-├─────────────────┼─────────────────┼─────────────────┼─────────────────┤
-│ • TLS termination│ • Sert HTML/JS  │ • Valide JWT    │ • Logique métier│
-│ • WAF global    │ • SPA routing   │ • Rate limit    │ • Accès DB      │
-│ • DDoS          │ • Auth redirect │ • Quotas        │ • Events        │
-│ • CDN cache     │ • CSP headers   │ • Transform     │ • Transactions  │
-│ • Geo-routing   │                 │ • Cache API     │                 │
-│ • Health probes │                 │ • Versioning    │                 │
-└─────────────────┴─────────────────┴─────────────────┴─────────────────┘
-   couche Edge      Présentation       Contrat API       Implémentation
-```
+| Front Door (Edge) | Frontend SWA (Présentation) | APIM (Contrat API) | Backend (Implémentation) |
+|---|---|---|---|
+| TLS termination | Sert HTML / JS / CSS | Valide JWT | Logique métier |
+| WAF global | SPA routing | Rate limit | Accès DB |
+| DDoS L3-L7 | Auth redirect OIDC | Quotas | Events |
+| CDN cache | CSP headers | Transformation | Transactions |
+| Geo-routing | — | Cache API | — |
+| Health probes | — | Versioning | — |
 
 ### Flux d'authentification (OAuth2 PKCE)
 
 Le SPA fait un **redirect OIDC vers Entra ID** (PKCE, pas de secret côté client), récupère un access token, et l'envoie sur les appels API :
 
-```
-[Browser] ──login──► [Entra ID]  (PKCE)
-                          │
-                          └─── access_token ──► [Browser]
-                                                    │
-                                                    └─ Bearer token ──► [APIM]
-                                                                          │
-                                                                          └─► [Backend]
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as 🌐 Browser (SPA)
+    participant E as 🔐 Entra ID
+    participant A as 🚪 APIM
+    participant K as ⚙️ Backend
+    B->>E: Redirect login (PKCE, sans secret)
+    E-->>B: access_token (JWT)
+    B->>A: GET /api/* + Bearer token
+    A->>A: Validate JWT (signature, audience, scopes)
+    A->>A: Rate limit / Quota
+    A->>K: Forward (Private Endpoint)
+    K-->>A: Response
+    A-->>B: Response (cache possible)
 ```
 
 ### Schéma complet 4-tiers avec data layer
 
-```
-                              ┌─────────────────────────────────┐
-                              │      UTILISATEURS / B2B         │
-                              └────────────────┬────────────────┘
-                                               │ HTTPS
-                                               ▼
-              ╔════════════════════════════════════════════════════════╗
-              ║       AZURE FRONT DOOR PREMIUM   +   WAF   +   DDoS    ║
-              ╚═══════════════╦════════════════════════════════╦═══════╝
-                              │                                │
-       ┌──────────────────────┼───────────┐  ┌─────────────────┼───────────────────┐
-       │  RÉGION 1            │           │  │  RÉGION 2       │                   │
-       │                      ▼           │  │                 ▼                   │
-       │  ╔════════════════════════════╗  │  │  ╔════════════════════════════╗     │
-       │  ║  TIER 1 — FRONTEND         ║  │  │  ║  TIER 1 — FRONTEND         ║     │
-       │  ║  Static Web App / AppSvc   ║  │  │  ║  Static Web App / AppSvc   ║     │
-       │  ╚══════════════╦═════════════╝  │  │  ╚══════════════╦═════════════╝     │
-       │                 │                 │  │                 │                   │
-       │                 ▼                 │  │                 ▼                   │
-       │  ╔════════════════════════════╗  │  │  ╔════════════════════════════╗     │
-       │  ║  TIER 2 — APIM Premium     ║◄─╫──┼──╫─►  TIER 2 — APIM Premium    ║     │
-       │  ║  JWT, rate limit, cache    ║  │  │  ║  (multi-region sync)         ║     │
-       │  ╚══════════════╦═════════════╝  │  │  ╚══════════════╦═════════════╝     │
-       │                 │ PE              │  │                 │ PE                │
-       │                 ▼                 │  │                 ▼                   │
-       │  ╔════════════════════════════╗  │  │  ╔════════════════════════════╗     │
-       │  ║ TIER 3 — BACKEND (AKS/ACA) ║  │  │  ║ TIER 3 — BACKEND (AKS/ACA) ║     │
-       │  ╚══════════════╦═════════════╝  │  │  ╚══════════════╦═════════════╝     │
-       │                 │ PE              │  │                 │ PE                │
-       │                 ▼                 │  │                 ▼                   │
-       │  ╔════════════════════════════╗  │  │  ╔════════════════════════════╗     │
-       │  ║ TIER 4 — DATA              ║  │  │  ║ TIER 4 — DATA              ║     │
-       │  ║ HorizonDB / SQL / Cosmos / ║◄─╫──┼──╫─►  (geo-replication)         ║     │
-       │  ║ Redis A/A / Storage / SB   ║  │  │  ║                              ║     │
-       │  ╚════════════════════════════╝  │  │  ╚════════════════════════════╝     │
-       └──────────────────────────────────┘  └─────────────────────────────────────┘
+```mermaid
+flowchart TB
+    U["👤 Utilisateurs / B2B"]
+    FD["🛡️ <b>Azure Front Door Premium</b><br/>WAF · DDoS · CDN"]
+
+    subgraph R1["🌍 RÉGION 1"]
+        direction TB
+        FE1["<b>TIER 1 — Frontend</b><br/>Static Web App / App Service"]
+        APIM1["<b>TIER 2 — APIM Premium</b><br/>JWT · Rate limit · Cache"]
+        BE1["<b>TIER 3 — Backend</b><br/>AKS / Container Apps"]
+        DATA1["<b>TIER 4 — Data</b><br/>HorizonDB · Cosmos · Redis · Storage · SB"]
+        FE1 --> APIM1
+        APIM1 -- PE --> BE1
+        BE1 -- PE --> DATA1
+    end
+
+    subgraph R2["🌍 RÉGION 2"]
+        direction TB
+        FE2["<b>TIER 1 — Frontend</b><br/>Static Web App / App Service"]
+        APIM2["<b>TIER 2 — APIM Premium</b><br/>(multi-region sync)"]
+        BE2["<b>TIER 3 — Backend</b><br/>AKS / Container Apps"]
+        DATA2["<b>TIER 4 — Data</b><br/>(geo-replication)"]
+        FE2 --> APIM2
+        APIM2 -- PE --> BE2
+        BE2 -- PE --> DATA2
+    end
+
+    U --> FD
+    FD --> FE1
+    FD --> FE2
+    APIM1 <-. "multi-region sync" .-> APIM2
+    DATA1 <-. "geo-replication" .-> DATA2
+
+    classDef edge fill:#1e88e5,stroke:#0d47a1,color:#fff
+    classDef front fill:#43a047,stroke:#1b5e20,color:#fff
+    classDef api fill:#fb8c00,stroke:#e65100,color:#fff
+    classDef back fill:#8e24aa,stroke:#4a148c,color:#fff
+    classDef data fill:#d81b60,stroke:#880e4f,color:#fff
+    class FD edge
+    class FE1,FE2 front
+    class APIM1,APIM2 api
+    class BE1,BE2 back
+    class DATA1,DATA2 data
 ```
 
 ---
@@ -377,56 +389,73 @@ Motivations :
 
 ### Schéma Active/Passive (write) + Multi-Read
 
-```
-                            ┌──────────────────────────────────┐
-                            │     UTILISATEURS  /  B2B         │
-                            └────────────────┬─────────────────┘
-                                             │ HTTPS
-                                             ▼
-        ╔══════════════════════════════════════════════════════════════════╗
-        ║         AZURE FRONT DOOR PREMIUM   +   WAF   +   DDoS            ║
-        ║                                                                  ║
-        ║   Origin group "frontend"   Origin group "api"                   ║
-        ║   P1 = WE  (active)         P1 = WE  APIM (active)               ║
-        ║   P2 = SE  (standby)        P2 = SE  APIM (standby)              ║
-        ║   Probes /health 15s        Probes /health 15s                   ║
-        ╚════════════════╦═════════════════════════════════════╦═══════════╝
-              ACTIVE     │                                     │   STANDBY
-                         ▼                                     ▼
-   ┌─────────────────────────────────────────┐   ┌─────────────────────────────────────────┐
-   │   RÉGION PRIMAIRE — WEST EUROPE         │   │   RÉGION SECONDAIRE — SWEDEN CENTRAL    │
-   │   Rôle : WRITE + READ + traitement      │   │   Rôle : READ-only + hot standby write  │
-   │                                         │   │                                         │
-   │  ╔═══════════════════════════════════╗  │   │  ╔═══════════════════════════════════╗  │
-   │  ║ TIER 1 — FRONTEND (zone-redund.)  ║  │   │  ║ TIER 1 — FRONTEND (zone-redund.)  ║  │
-   │  ╚═══════════════════════════════════╝  │   │  ╚═══════════════════════════════════╝  │
-   │  ╔═══════════════════════════════════╗  │   │  ╔═══════════════════════════════════╗  │
-   │  ║ TIER 2 — APIM Premium (multi-AZ)  ║◄─╫───┼──╫►  APIM gateway secondaire           ║  │
-   │  ╚═════════════════╦═════════════════╝  │   │  ╚═════════════════╦═════════════════╝  │
-   │                    ▼                     │   │                    ▼                    │
-   │  ╔═══════════════════════════════════╗  │   │  ╔═══════════════════════════════════╗  │
-   │  ║ TIER 3 — BACKEND (AKS / ACA)      ║  │   │  ║ TIER 3 — BACKEND (AKS / ACA)      ║  │
-   │  ║ WRITES + READS                    ║  │   │  ║ READS only (avant promotion)      ║  │
-   │  ╚═════════════════╦═════════════════╝  │   │  ╚═════════════════╦═════════════════╝  │
-   │                    ▼                     │   │                    ▼                    │
-   │  ╔═══════════════════════════════════╗  │   │  ╔═══════════════════════════════════╗  │
-   │  ║ TIER 4 — DATA                     ║  │   │  ║ TIER 4 — DATA (lectures + DR)     ║  │
-   │  ║  HorizonDB / SQL HS  (PRIMARY R/W)│──╫──►│──╫──►  Read replica (async, promotable)║  │
-   │  ║  Cosmos DB (write region = WE)    │──╫──►│──╫──►  Cosmos DB read region (local)   ║  │
-   │  ║  Redis Enterprise A/A             │◄─╫──┼───┼──╫──►  Redis Enterprise A/A (CRDT)  ║  │
-   │  ║  Storage GZRS + Object Replication│──╫──►│──╫──►  Storage GZRS destination        ║  │
-   │  ║  Service Bus Premium + Geo-DR     │──╫──►│──╫──►  Service Bus secondary namespace ║  │
-   │  ║  Key Vault Premium (HSM)          │◄─╫──┼───┼──╫──►  Key Vault Premium (read mirror)║  │
-   │  ╚═══════════════════════════════════╝  │   │  ╚═══════════════════════════════════╝  │
-   └─────────────────────────────────────────┘   └─────────────────────────────────────────┘
-                       ▲                                            ▲
-                       └────────────────────┬───────────────────────┘
-                                            ▼
-        ╔══════════════════════════════════════════════════════════════════╗
-        ║   PLATEFORME TRANSVERSE (région tertiaire pour observabilité)    ║
-        ║   Entra ID │ Monitor + Log Analytics │ App Insights │ Sentinel   ║
-        ║   Chaos Studio │ Automation runbooks │ Bicep/Terraform stamps    ║
-        ╚══════════════════════════════════════════════════════════════════╝
+```mermaid
+flowchart TB
+    U["👤 Utilisateurs / B2B"]
+
+    subgraph FDS["🛡️ AZURE FRONT DOOR PREMIUM + WAF + DDoS"]
+        direction LR
+        OG1["<b>Origin group 'frontend'</b><br/>P1 = WE active<br/>P2 = SE standby<br/>Probes /health 15s"]
+        OG2["<b>Origin group 'api'</b><br/>P1 = WE APIM active<br/>P2 = SE APIM standby<br/>Probes /health 15s"]
+    end
+
+    subgraph WE["🌍 PRIMAIRE — WEST EUROPE (active write + read)"]
+        direction TB
+        FE_WE["<b>TIER 1</b> — Frontend (multi-AZ)"]
+        APIM_WE["<b>TIER 2</b> — APIM Premium (multi-AZ)"]
+        BE_WE["<b>TIER 3</b> — Backend AKS/ACA<br/>WRITES + READS"]
+        subgraph D_WE["<b>TIER 4 — DATA</b>"]
+            direction TB
+            HZ_WE["HorizonDB / SQL HS<br/><b>PRIMARY R/W</b>"]
+            CX_WE["Cosmos DB<br/>(write region)"]
+            RD_WE["Redis Enterprise A/A"]
+            ST_WE["Storage GZRS<br/>+ Object Replication"]
+            SB_WE["Service Bus Premium<br/>+ Geo-DR alias"]
+            KV_WE["Key Vault Premium HSM"]
+        end
+        FE_WE --> APIM_WE
+        APIM_WE -- PE --> BE_WE
+        BE_WE -- PE --> D_WE
+    end
+
+    subgraph SE["🌍 SECONDAIRE — SWEDEN CENTRAL (read + standby)"]
+        direction TB
+        FE_SE["<b>TIER 1</b> — Frontend (multi-AZ)"]
+        APIM_SE["<b>TIER 2</b> — APIM gateway secondaire"]
+        BE_SE["<b>TIER 3</b> — Backend AKS/ACA<br/>READS only (avant promotion)"]
+        subgraph D_SE["<b>TIER 4 — DATA</b>"]
+            direction TB
+            HZ_SE["HorizonDB read replica<br/>(promotable)"]
+            CX_SE["Cosmos DB read region"]
+            RD_SE["Redis Enterprise A/A<br/>(CRDT convergence)"]
+            ST_SE["Storage GZRS destination"]
+            SB_SE["Service Bus secondary"]
+            KV_SE["Key Vault Premium<br/>(read mirror)"]
+        end
+        FE_SE --> APIM_SE
+        APIM_SE -- PE --> BE_SE
+        BE_SE -- PE --> D_SE
+    end
+
+    U --> FDS
+    OG1 ==>|active| FE_WE
+    OG1 -.->|standby| FE_SE
+    OG2 ==>|active| APIM_WE
+    OG2 -.->|standby| APIM_SE
+    APIM_WE <-. "multi-region sync" .-> APIM_SE
+    HZ_WE -. "async replication" .-> HZ_SE
+    CX_WE -. "geo-replication" .-> CX_SE
+    RD_WE <-. "CRDT bidirectionnel" .-> RD_SE
+    ST_WE -. "Object Replication" .-> ST_SE
+    SB_WE -. "Geo-DR pairing" .-> SB_SE
+    KV_WE <-. "mirror auto" .-> KV_SE
+
+    classDef edge fill:#1e88e5,stroke:#0d47a1,color:#fff
+    classDef active fill:#43a047,stroke:#1b5e20,color:#fff
+    classDef standby fill:#fb8c00,stroke:#e65100,color:#fff
+    class FDS,OG1,OG2 edge
+    class FE_WE,APIM_WE,BE_WE,HZ_WE,CX_WE,RD_WE,ST_WE,SB_WE,KV_WE active
+    class FE_SE,APIM_SE,BE_SE,HZ_SE,CX_SE,RD_SE,ST_SE,SB_SE,KV_SE standby
 ```
 
 ### Modes de fonctionnement
@@ -442,28 +471,51 @@ Motivations :
 
 #### Mode failover
 
-```
-1. Front Door détecte la primaire KO via health probes (≤ 30 s)
-2. Bascule auto trafic vers la secondaire (priority 2)
-3. Runbook Automation déclenche :
-   ├─ SQL/HorizonDB : promotion du replica → primary (auto-failover-group)
-   ├─ Cosmos DB     : repointage write region
-   ├─ Service Bus   : alias geo-DR re-pointé
-   └─ Storage       : applis lisent depuis le compte secondaire (feature flag)
-4. Backend secondaire passe en R/W (toggle via App Configuration)
-5. Notification équipe via Action Groups → validation humaine
+```mermaid
+sequenceDiagram
+    autonumber
+    participant FD as 🛡️ Front Door
+    participant WE as 🌍 Région WE (down)
+    participant SE as 🌍 Région SE
+    participant Auto as 🤖 Automation Runbook
+    participant Ops as 👥 Équipe Ops
+    FD->>WE: Health probe /health
+    WE--xFD: timeout (3x consécutifs)
+    Note over FD: Détection KO en ≤ 30 s
+    FD->>SE: Bascule trafic (priority 2)
+    FD->>Auto: Trigger DR runbook
+    par Promotion data tier
+        Auto->>SE: SQL/HorizonDB → promote replica
+    and
+        Auto->>SE: Cosmos DB → repoint write region
+    and
+        Auto->>SE: Service Bus → switch geo-DR alias
+    and
+        Auto->>SE: Storage → toggle feature flag
+    end
+    Auto->>SE: Backend → R/W mode (App Configuration)
+    Auto->>Ops: Notification Action Group
+    Ops->>SE: Validation humaine
 ```
 
 **RTO cible** : 5–10 min · **RPO** : 0–60 s (selon datastore)
 
 #### Failback
 
-```
-1. Région primaire rétablie → re-synchronisation données (reverse replication)
-2. Validation cohérence (checksum, comparaison)
-3. Bascule planifiée hors heures de pointe
-4. Front Door priority 1 → primaire de nouveau
-5. Secondaire redevient standby R/O
+```mermaid
+sequenceDiagram
+    autonumber
+    participant SE as 🌍 Région SE (primaire temporaire)
+    participant WE as 🌍 Région WE (rétablie)
+    participant Ops as 👥 Équipe Ops
+    participant FD as 🛡️ Front Door
+    WE-->>Ops: Région rétablie
+    SE->>WE: Re-synchronisation (reverse replication)
+    Ops->>Ops: Validation cohérence (checksum)
+    Note over Ops: Attente fenêtre planifiée hors heures de pointe
+    Ops->>FD: Bascule priority 1 → WE
+    FD->>WE: Trafic R/W vers WE
+    SE->>SE: Redevient standby R/O
 ```
 
 ### Tableau des datastores multi-read
@@ -516,9 +568,28 @@ Motivations :
 - En **Standard** : Front Door appelle ton backend via **Internet public** (même si protégé par firewall/IP allowlist)
 - En **Premium** : Front Door se connecte aux origines (App Service, APIM, Storage, Load Balancer) via **Private Link** → **aucune IP publique exposée**
 
-```
-Standard :   FD ──► Internet ──► [IP publique App Service]  (surface d'attaque)
-Premium  :   FD ══► Private Link ══► [App Service privé]    (zéro IP publique)
+```mermaid
+flowchart LR
+    subgraph STD["⚠️ Standard"]
+        direction LR
+        FD1["Front Door<br/>Standard"]
+        INT["🌐 Internet public"]
+        APP1["App Service<br/>IP publique exposée"]
+        FD1 --> INT --> APP1
+    end
+
+    subgraph PRM["✅ Premium"]
+        direction LR
+        FD2["Front Door<br/>Premium"]
+        PL["🔒 Private Link"]
+        APP2["App Service<br/>0 IP publique"]
+        FD2 ==> PL ==> APP2
+    end
+
+    classDef bad fill:#e53935,stroke:#b71c1c,color:#fff
+    classDef good fill:#43a047,stroke:#1b5e20,color:#fff
+    class FD1,INT,APP1 bad
+    class FD2,PL,APP2 good
 ```
 
 Sur du critique, exposer une IP publique sortie de backend = non-conforme à la plupart des politiques sécu (CIS, ISO 27001, PCI-DSS).
@@ -564,37 +635,32 @@ Front Door a un SLA 99,99 % mais peut tomber (incidents 2022, 2023, 2024). Sur d
 
 Traffic Manager arbitre entre **Front Door** (chemin nominal) et **Application Gateway** régionaux (chemin de secours).
 
-```
-                          ┌──────────────────────────────────┐
-                          │     UTILISATEURS                 │
-                          └────────────────┬─────────────────┘
-                                           │ DNS lookup
-                                           ▼
-                  ╔════════════════════════════════════════════╗
-                  ║   AZURE DNS  +  TRAFFIC MANAGER            ║
-                  ║   Profil : Priority routing                ║
-                  ║   TTL : 30-60 s                            ║
-                  ║                                            ║
-                  ║   Endpoint P1 : Front Door (CNAME)         ║
-                  ║   Endpoint P2 : AppGw WE  (IP publique)    ║
-                  ║   Endpoint P3 : AppGw SE  (IP publique)    ║
-                  ║                                            ║
-                  ║   Health probes HTTPS /health              ║
-                  ╚═══╦═══════════════════╦═══════════════════╦╝
-                      │ P1 nominal        │ P2 fallback       │ P3 fallback
-                      ▼                   │                   │
-       ╔═══════════════════════════╗      │                   │
-       ║   FRONT DOOR PREMIUM      ║      │                   │
-       ║   WAF managé + DDoS + CDN ║      │                   │
-       ╚═══╦═══════════════════════╝      │                   │
-           │ Private Link                  │                   │
-           ▼                               ▼                   ▼
-   ┌───────────────────────┐   ┌───────────────────────┐  ┌──────────────────────┐
-   │  RÉGIONS (APIM + back)│   │  AppGw v2 + WAF v2    │  │  AppGw v2 + WAF v2   │
-   │                       │   │  (zone-redundant) WE  │  │  (zone-redundant) SE │
-   └───────────────────────┘   └──────────┬────────────┘  └──────────┬───────────┘
-                                          ▼                          ▼
-                                     APIM + backends             APIM + backends
+```mermaid
+flowchart TB
+    U["👤 Utilisateurs"]
+    DNS["<b>Azure DNS + Traffic Manager</b><br/>Priority routing · TTL 30-60 s<br/>Probes HTTPS /health"]
+    FD["<b>P1 — Front Door Premium</b><br/>(nominal)<br/>WAF · DDoS · CDN"]
+    AG_WE["<b>P2 — AppGw v2 + WAF v2</b><br/>West Europe (fallback)<br/>zone-redundant"]
+    AG_SE["<b>P3 — AppGw v2 + WAF v2</b><br/>Sweden Central (fallback)<br/>zone-redundant"]
+    APIM_WE["APIM + Backend WE"]
+    APIM_SE["APIM + Backend SE"]
+    U --> DNS
+    DNS ==>|"P1 — nominal"| FD
+    DNS -.->|"P2 — FD KO"| AG_WE
+    DNS -.->|"P3 — FD+WE KO"| AG_SE
+    FD ==>|Private Link| APIM_WE
+    FD ==>|Private Link| APIM_SE
+    AG_WE -->|Private Endpoint| APIM_WE
+    AG_SE -->|Private Endpoint| APIM_SE
+
+    classDef dns fill:#1e88e5,stroke:#0d47a1,color:#fff
+    classDef primary fill:#43a047,stroke:#1b5e20,color:#fff
+    classDef fallback fill:#fb8c00,stroke:#e65100,color:#fff
+    classDef back fill:#8e24aa,stroke:#4a148c,color:#fff
+    class DNS dns
+    class FD primary
+    class AG_WE,AG_SE fallback
+    class APIM_WE,APIM_SE back
 ```
 
 #### Mode opératoire
@@ -616,24 +682,27 @@ Traffic Manager arbitre entre **Front Door** (chemin nominal) et **Application G
 
 Traffic Manager arbitre entre **Front Door** et un **CDN tiers** (Akamai, Cloudflare, Fastly).
 
-```
-        ┌──────────────────────────────────┐
-        │     UTILISATEURS                 │
-        └────────────────┬─────────────────┘
-                         ▼
-        ╔═══════════════════════════════════╗
-        ║   TRAFFIC MANAGER (priority)      ║
-        ║   P1 : Front Door Premium         ║
-        ║   P2 : Cloudflare / Akamai        ║
-        ╚═══╦═══════════════════════════╦═══╝
-            ▼                           ▼
-   ┌─────────────────┐         ┌─────────────────┐
-   │  Front Door     │         │  Cloudflare     │
-   │  Premium        │         │  (WAF + CDN)    │
-   └────────┬────────┘         └────────┬────────┘
-            │ Private Link              │ HTTPS (mTLS + IP allowlist)
-            ▼                           ▼
-              Origines : APIM / AppGw / App Service
+```mermaid
+flowchart TB
+    U["👤 Utilisateurs"]
+    TM["<b>Traffic Manager</b><br/>(priority routing)"]
+    FD["<b>P1 — Front Door Premium</b><br/>(nominal)"]
+    CF["<b>P2 — Cloudflare / Akamai</b><br/>WAF + CDN tiers"]
+    O["<b>Origines</b><br/>APIM / AppGw / App Service<br/>IP allowlist + mTLS"]
+    U --> TM
+    TM ==>|nominal| FD
+    TM -.->|fallback| CF
+    FD ==>|Private Link| O
+    CF -->|HTTPS + mTLS| O
+
+    classDef dns fill:#1e88e5,stroke:#0d47a1,color:#fff
+    classDef primary fill:#43a047,stroke:#1b5e20,color:#fff
+    classDef thirdparty fill:#fb8c00,stroke:#e65100,color:#fff
+    classDef back fill:#8e24aa,stroke:#4a148c,color:#fff
+    class TM dns
+    class FD primary
+    class CF thirdparty
+    class O back
 ```
 
 #### Avantages
@@ -655,21 +724,26 @@ Traffic Manager arbitre entre **Front Door** et un **CDN tiers** (Akamai, Cloudf
 
 Pas de Front Door : Traffic Manager fait le routage géo entre AppGw par région.
 
-```
-        ┌──────────────────────────────────┐
-        │     UTILISATEURS                 │
-        └────────────────┬─────────────────┘
-                         ▼
-        ╔═══════════════════════════════════╗
-        ║   TRAFFIC MANAGER (performance)   ║
-        ╚═══╦═══════════════════════════╦═══╝
-            ▼                           ▼
-   ┌─────────────────┐         ┌─────────────────┐
-   │  AppGw v2 WAFv2 │         │  AppGw v2 WAFv2 │
-   │  WE             │         │  SE             │
-   └────────┬────────┘         └────────┬────────┘
-            ▼                           ▼
-        backends                    backends
+```mermaid
+flowchart TB
+    U["👤 Utilisateurs"]
+    TM["<b>Traffic Manager</b><br/>(performance routing)"]
+    AG_WE["<b>AppGw v2 + WAF v2</b><br/>West Europe"]
+    AG_SE["<b>AppGw v2 + WAF v2</b><br/>Sweden Central"]
+    BE_WE["Backends WE"]
+    BE_SE["Backends SE"]
+    U --> TM
+    TM -->|géo nearest| AG_WE
+    TM -->|géo nearest| AG_SE
+    AG_WE --> BE_WE
+    AG_SE --> BE_SE
+
+    classDef dns fill:#1e88e5,stroke:#0d47a1,color:#fff
+    classDef gw fill:#fb8c00,stroke:#e65100,color:#fff
+    classDef back fill:#8e24aa,stroke:#4a148c,color:#fff
+    class TM dns
+    class AG_WE,AG_SE gw
+    class BE_WE,BE_SE back
 ```
 
 #### Quand l'envisager
@@ -692,10 +766,20 @@ Traffic Manager dépend lui-même d'Azure DNS. Si paranoïaque :
 - Azure DNS + DNS secondaire (NS1, Route 53, Dyn) via zone transfer (AXFR)
 - Ou utiliser Cloudflare DNS / Route 53 comme primaire avec failover vers les endpoints Azure
 
-```
-[Browser] → [Cloudflare DNS / Route 53] → CNAME → [Traffic Manager Azure]
-                                                     │
-                                         (bascule indépendante du DNS Azure)
+```mermaid
+flowchart LR
+    B["🌐 Browser"]
+    DNS["<b>Cloudflare DNS / Route 53</b><br/>(primaire indépendant d'Azure)"]
+    TM["<b>Traffic Manager Azure</b>"]
+    O["Origines Azure"]
+    B --> DNS
+    DNS -->|CNAME| TM
+    TM --> O
+
+    classDef ext fill:#fb8c00,stroke:#e65100,color:#fff
+    classDef azure fill:#1e88e5,stroke:#0d47a1,color:#fff
+    class DNS ext
+    class TM,O azure
 ```
 
 ### Recommandation par niveau de criticité
