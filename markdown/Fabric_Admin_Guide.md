@@ -101,7 +101,7 @@ Chaque item (Lakehouse, Warehouse, Semantic model, Notebook, KQL DB) supporte de
 
 1. **Moindre privilège** : préférer Contributor à Member quand l'utilisateur n'a pas besoin de gérer les permissions.
 2. **Délégation par domaine** : utiliser les Domain Admins pour décentraliser la gouvernance.
-3. **Groupes Entra ID** plutôt que des comptes individuels dans les rôles workspace/capacity.
+3. **Groupes Entra ID partout** : ne **jamais** référencer des comptes individuels dans les rôles workspace/capacity ni dans les tenant settings. Toujours passer par des **groupes de sécurité Entra ID**. Cela permet de **déléguer la gestion des accès au niveau Entra** (le Fabric Admin ne configure qu'une fois "tenant setting → groupe X" ; ensuite, qui est dans le groupe X est piloté par l'owner Entra, RH, IAM, Access Reviews, PIM, lifecycle workflows). Voir Section 3.10 pour le pattern complet.
 4. **Séparation des rôles** : éviter qu'un même compte soit Fabric Admin + Capacity Admin + Workspace Admin.
 5. **Audit** : activer les logs unifiés Microsoft 365 / Purview pour tracer les actions admin.
 
@@ -380,6 +380,198 @@ Pour donner aux admins d'un pays un accès Admin API limité à leur périmètre
 - **Service principal global + filtrage applicatif** : un SP global consomme les Admin APIs, puis votre middleware filtre par pays (basé sur le naming ou le domaine) avant d'exposer aux admins locaux.
 
 Aujourd'hui, les Admin APIs globales (`/admin/*`) nécessitent toujours le rôle Fabric Administrator au niveau tenant — il n'y a pas de RBAC granulaire "Admin API scopé par domaine". Le filtrage doit donc se faire côté application.
+
+## 3.10 Pattern fondamental — Déléguer la gestion d'accès via groupes Entra ID
+
+Ce pattern est **le pilier de la gouvernance Fabric à l'échelle**. Il s'applique aux Admin APIs, aux tenant settings, aux rôles workspace, aux capacités et aux domaines.
+
+### 3.10.1 Le problème à résoudre
+
+Sans ce pattern, **chaque ajout/retrait d'un utilisateur** à une fonctionnalité Fabric impose au Fabric Admin de :
+
+1. Ouvrir l'Admin portal.
+2. Localiser le tenant setting concerné.
+3. Modifier la liste des comptes autorisés.
+4. Recommencer pour chaque autre setting concerné.
+
+À 50, 500 ou 5 000 utilisateurs, cela devient ingérable, non auditable, et le Fabric Admin devient un goulot d'étranglement RH/IAM.
+
+### 3.10.2 Le pattern recommandé
+
+**Référencer uniquement des groupes de sécurité Entra ID** dans Fabric, **jamais des comptes individuels**. Le Fabric Admin n'intervient plus que pour configurer le **mapping setting → groupe** une seule fois. La gestion quotidienne du "qui a accès" est ensuite **entièrement pilotée au niveau Entra ID**, par les équipes IAM/RH/managers, **sans aucun droit sur Fabric**.
+
+```
++----------------------------------------+
+|   Fabric Tenant Settings (configuré    |
+|   une seule fois par le Fabric Admin)  |
+|                                        |
+|   Setting "SP can use Fabric APIs"     |
+|        -> grp-fabric-sp-api            |
+|                                        |
+|   Setting "Create workspaces"          |
+|        -> grp-fabric-workspace-creators|
+|                                        |
+|   Setting "Publish to web"             |
+|        -> grp-fabric-publish-web       |
++----------------+-----------------------+
+                 |
+                 v  (référence)
++----------------------------------------+
+|     Entra ID Security Groups           |
+|     (gestion délégée IAM/RH/manager)   |
+|                                        |
+|   grp-fabric-sp-api                    |
+|     owner = Equipe Plateforme Data     |
+|     membres = SP CI/CD + SP audit      |
+|                                        |
+|   grp-fabric-workspace-creators        |
+|     owner = Lead Data FR/DE/ES         |
+|     membres = data engineers          |
+|                                        |
+|   grp-fabric-publish-web               |
+|     owner = DPO / Compliance           |
+|     membres = utilisateurs autorisés   |
++----------------------------------------+
+```
+
+### 3.10.3 Bénéfices
+
+| Bénéfice | Description |
+|----------|-------------|
+| **Single source of truth** | Entra ID devient la seule source d'autorisation. Plus de double-saisie. |
+| **Pas de droit Fabric pour gérer les accès** | Les owners de groupes Entra ajoutent/retirent sans rôle Fabric Admin. |
+| **Lifecycle automatisé** | Joiner/Mover/Leaver via Entra ID Lifecycle Workflows : un nouveau data engineer FR est automatiquement ajouté au bon groupe à son arrivée, retiré à son départ. |
+| **Access Reviews** | Revues trimestrielles automatiques (PIM Access Reviews) : "tous les membres de `grp-fabric-publish-web` confirment leur besoin sous 14 j ou sont retirés". |
+| **PIM (Privileged Identity Management)** | Activation just-in-time : un membre n'est admin Fabric que pour 4 h, sur demande approuvée, avec MFA. |
+| **Audit centralisé** | Tous les changements de membership sont dans les Entra ID audit logs (`Add member to group`). |
+| **Conditional Access** | Politiques d'accès conditionnel (MFA, IP, device compliant) appliquées au groupe. |
+| **Dynamic groups** | Membership calculée automatiquement : `user.department -eq "Data Engineering FR"`. |
+| **Provisioning RH** | Workday/SuccessFactors/SAP HR → Entra ID → Fabric. Aucune action manuelle. |
+| **Délégation par pays** | Chaque pays a son owner de groupe sans toucher au tenant Fabric. |
+
+### 3.10.4 Convention de nommage suggérée
+
+Une convention claire évite l'explosion des groupes et facilite l'audit.
+
+```
+grp-fabric-<scope>-<role>[-<location>]
+```
+
+| Pattern | Exemple | Rôle |
+|---------|---------|------|
+| `grp-fabric-admin-tenant` | grp-fabric-admin-tenant | Fabric Administrators globaux |
+| `grp-fabric-admin-domain-<pays>` | grp-fabric-admin-domain-fr | Domain Admins France |
+| `grp-fabric-admin-capacity-<pays>` | grp-fabric-admin-capacity-fr | Capacity Admins France |
+| `grp-fabric-sp-api-readonly` | grp-fabric-sp-api-readonly | SP pour lecture Admin APIs |
+| `grp-fabric-sp-api-write` | grp-fabric-sp-api-write | SP pour écriture Admin APIs |
+| `grp-fabric-sp-cicd-<env>` | grp-fabric-sp-cicd-prod | SP CI/CD par environnement |
+| `grp-fabric-workspace-creators-<pays>` | grp-fabric-workspace-creators-fr | Création de workspaces FR |
+| `grp-fabric-publish-web` | grp-fabric-publish-web | Autorisés à publier sur le web |
+| `grp-fabric-export-data` | grp-fabric-export-data | Autorisés à exporter données |
+| `grp-fabric-external-sharing` | grp-fabric-external-sharing | Partage avec externes B2B |
+| `grp-fabric-copilot-users` | grp-fabric-copilot-users | Accès aux features Copilot |
+| `grp-fabric-developer-mode` | grp-fabric-developer-mode | Mode développeur, .pbip, Git |
+
+### 3.10.5 Tenant settings à câbler sur des groupes Entra
+
+Les settings ci-dessous **doivent impérativement** être restreints à un groupe Entra (jamais "the entire organization") :
+
+| Tenant setting | Groupe recommandé |
+|---------------|-------------------|
+| Service principals can use Fabric APIs | grp-fabric-sp-api |
+| Service principals can access read-only admin APIs | grp-fabric-sp-api-readonly |
+| Service principals can access admin APIs used for updates | grp-fabric-sp-api-write |
+| Allow service principals to create and use profiles | grp-fabric-sp-profiles |
+| Create workspaces (new workspace experience) | grp-fabric-workspace-creators |
+| Allow Microsoft Entra B2B guest users to access Fabric | grp-fabric-b2b-allowed |
+| Invite external users to your organization | grp-fabric-b2b-inviters |
+| Share content with external users | grp-fabric-external-sharing |
+| Publish to web | grp-fabric-publish-web |
+| Allow specific users to turn on external data sharing | grp-fabric-external-data-shares |
+| Export to Excel / CSV / PowerPoint / PDF | grp-fabric-export-data |
+| Copilot and Azure OpenAI features | grp-fabric-copilot-users |
+| Users can export items to Power BI Project files (.pbip) | grp-fabric-developer-mode |
+| Users can synchronize workspace items with Git | grp-fabric-developer-mode |
+| Embed content in apps | grp-fabric-embed |
+| XMLA endpoints and Analyze in Excel | grp-fabric-xmla |
+| Allow DirectQuery connections to Power BI datasets | grp-fabric-directquery |
+| Users can apply sensitivity labels | grp-fabric-label-applier |
+| Information protection / encryption | grp-fabric-mip |
+
+### 3.10.6 Modèle de délégation des owners de groupes
+
+Chaque groupe Entra a un (ou plusieurs) **owner** qui peut ajouter/retirer des membres sans aucun droit Fabric :
+
+| Type de groupe | Owners suggérés | Justification |
+|----------------|-----------------|---------------|
+| `grp-fabric-admin-tenant` | Direction IT + sécurité | Approbation au plus haut niveau |
+| `grp-fabric-admin-domain-<pays>` | Responsable Data pays | Décentralisation par pays |
+| `grp-fabric-sp-*` | Équipe Plateforme Data | Maîtrise des SP et du CI/CD |
+| `grp-fabric-publish-web` | DPO / Compliance | Risque RGPD/exposition publique |
+| `grp-fabric-export-data` | Sécurité + DPO | Sensibilité des données |
+| `grp-fabric-b2b-*` | Sécurité + Direction Légale | Contrats avec partenaires |
+| `grp-fabric-copilot-users` | IA Officer + Compliance | Conformité IA / EU AI Act |
+| `grp-fabric-workspace-creators-<pays>` | Lead Data pays | Connaissance des projets locaux |
+| `grp-fabric-developer-mode` | Lead Engineering | Maîtrise du DevOps |
+
+### 3.10.7 Groupes dynamiques (recommandé)
+
+Pour les groupes dont l'appartenance est déterministe (lié au département, au pays, au job title), utiliser des **dynamic groups** Entra ID :
+
+```
+# grp-fabric-data-engineers-fr (dynamic)
+(user.department -eq "Data Engineering") -and (user.country -eq "FR")
+
+# grp-fabric-copilot-users (dynamic)
+(user.extensionAttribute1 -eq "AI-approved") -and (user.accountEnabled -eq true)
+
+# grp-fabric-workspace-creators-fr (dynamic)
+(user.jobTitle -contains "Data") -and (user.officeLocation -eq "Paris")
+```
+
+Avantage : zéro action manuelle, la membership suit automatiquement la fiche utilisateur (mise à jour par RH).
+
+### 3.10.8 Combiner avec Privileged Identity Management (PIM)
+
+Pour les rôles sensibles (Fabric Administrator, Capacity Admin, accès SP write APIs), activer le groupe via **PIM for Groups** :
+
+- L'utilisateur n'est **pas** membre permanent.
+- Il **active** son appartenance pour une durée limitée (1 à 8 h).
+- L'activation peut nécessiter : justification, MFA, approbation, ticket.
+- Toutes les activations sont auditées.
+
+```
+Utilisateur ──► Demande PIM "grp-fabric-admin-tenant" pour 4h
+                ├── Justification : "Incident INC0042"
+                ├── MFA challenge
+                ├── Approbation : Manager + Sécurité
+                └── Active → membre 4h → expire automatiquement
+```
+
+### 3.10.9 Procédure de mise en place
+
+1. **Inventaire** des tenant settings à configurer (cf. tableau 3.10.5).
+2. **Création des groupes Entra** suivant la convention de nommage.
+3. **Affectation des owners** (par groupe).
+4. **Configuration unique** dans Admin portal : chaque setting → "Apply to specific security groups" → coller le groupe.
+5. **Documentation** : page wiki listant `setting → groupe → owner → cas d'usage`.
+6. **PIM** activé sur les groupes admin sensibles.
+7. **Access Reviews** trimestriels sur les groupes "permissifs" (publish-web, export-data, b2b, copilot).
+8. **Lifecycle Workflows** pour automatiser joiner/leaver.
+9. **Audit** : alerte sur `Add member to group` pour les groupes admin (via Sentinel ou Logic App).
+
+### 3.10.10 Anti-patterns à éviter
+
+| À ne pas faire | Pourquoi |
+|----------------|----------|
+| Ajouter des comptes individuels directement aux tenant settings | Maintenance impossible, pas d'audit, le Fabric Admin devient un goulot |
+| Utiliser "The entire organization" sur les settings sensibles | Risque RGPD, surface d'attaque maximale |
+| Un seul méga-groupe `grp-fabric-all-permissions` | Pas de séparation des privilèges, pas de moindre privilège |
+| Groupes nommés `groupe1`, `test-fabric`, `fabric-admin-2024-temp` | Pas de convention = perte de traçabilité |
+| Owners = "IT générique" sans responsable identifié | Personne ne gouverne, les accès s'accumulent |
+| Pas de date d'expiration ni d'Access Review | Accès "fantômes" qui survivent au turnover |
+| Service principals membres permanents de groupes admin | Devrait passer par PIM aussi, ou par un groupe distinct read-only |
+| Référencer un groupe Entra non monitoré dans l'audit | Une modification du groupe = changement Fabric invisible |
 
 \newpage
 
@@ -1060,15 +1252,18 @@ Puis Fabric → workspace → Source control → Azure DevOps → branche `main`
 ### A.2 Checklist de mise en place "admin par pays"
 
 1. Définir la liste des pays et la convention de nommage.
-2. Créer les groupes Entra ID par pays.
-3. Provisionner les capacités F SKU dans les régions cibles.
-4. Créer les domaines Fabric et assigner les Domain Admins.
-5. Déléguer les tenant settings utiles (endorsement, export, Copilot, dataflows).
-6. Créer les workspaces avec convention de nommage, assigner capacité + domaine.
-7. Configurer les rôles workspace via groupes Entra.
-8. Déployer le service principal CI/CD et activer les tenant settings associés.
-9. Mettre en place le pipeline d'audit Activity Log → Lakehouse par pays.
-10. Documenter la politique de gouvernance (catalogue d'items autorisés, sensibilité, RLS).
+2. Créer les **groupes Entra ID** par pays (admins, contributors, viewers, SP CI/CD, SP audit, publishers, exporters, Copilot users…) et **affecter des owners métier** (lead data pays, DPO, sécurité).
+3. **Câbler tous les tenant settings sensibles** sur ces groupes Entra (jamais sur des comptes individuels, jamais sur "the entire organization") — cf. Section 3.10.5.
+4. Provisionner les capacités F SKU dans les régions cibles.
+5. Créer les domaines Fabric et assigner les Domain Admins **via groupes Entra**.
+6. Déléguer les tenant settings utiles (endorsement, export, Copilot, dataflows).
+7. Créer les workspaces avec convention de nommage, assigner capacité + domaine, et **rôles via groupes Entra**.
+8. Déployer le service principal CI/CD et activer les tenant settings associés (restreints au groupe `grp-fabric-sp-cicd-*`).
+9. Activer **PIM for Groups** sur les groupes admin sensibles (`grp-fabric-admin-tenant`, capacity admin, SP write APIs).
+10. Configurer **Access Reviews** trimestriels sur les groupes permissifs (publish-web, export-data, b2b, copilot).
+11. Brancher **Entra ID Lifecycle Workflows** pour automatiser joiner/mover/leaver.
+12. Mettre en place le pipeline d'audit Activity Log → Lakehouse par pays, et alertes sur `Add member to group` pour les groupes admin Fabric.
+13. Documenter la politique de gouvernance (catalogue d'items autorisés, sensibilité, RLS, mapping setting → groupe → owner).
 
 ### A.3 Références utiles
 
@@ -1077,6 +1272,11 @@ Puis Fabric → workspace → Source control → Azure DevOps → branche `main`
 - Microsoft Learn — *Delegate Fabric settings to domain or capacity admins*
 - Microsoft Learn — *Fabric REST API reference*
 - Microsoft Learn — *Power BI Admin REST API*
+- Microsoft Learn — *Microsoft Entra ID groups management*
+- Microsoft Learn — *Privileged Identity Management (PIM) for Groups*
+- Microsoft Learn — *Entra ID Lifecycle Workflows*
+- Microsoft Learn — *Entra ID Access Reviews*
+- Microsoft Learn — *Dynamic membership rules for groups*
 - GitHub — *microsoft/fabric-cicd*
 - Microsoft Learn — *Git integration in Microsoft Fabric*
 - Microsoft Learn — *Deployment pipelines in Microsoft Fabric*
