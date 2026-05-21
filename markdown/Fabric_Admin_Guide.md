@@ -2,19 +2,15 @@
 title: "Guide d'administration de Microsoft Fabric"
 subtitle: "Rôles, scopes, gouvernance et CI/CD"
 date: "Mai 2026"
+abstract: |
+  Ce document rassemble un panorama complet de l'administration de Microsoft Fabric : rôles disponibles, périmètres d'action, délégation des paramètres tenant, gestion par pays/business unit, accès programmatique via les Admin APIs, gouvernance des logs, restrictions de création d'artefacts et intégration CI/CD via GitLab.
+
+  Il s'adresse aux Fabric Administrators, Capacity Administrators, Domain Administrators, ainsi qu'aux architectes data et équipes plateforme qui conçoivent la gouvernance d'un tenant Fabric à l'échelle d'une organisation.
 ---
 
-## Introduction
+## Rôles d'administration et périmètres
 
-Ce document rassemble un panorama complet de l'administration de **Microsoft Fabric** : rôles disponibles, périmètres d'action, délégation des paramètres tenant, gestion par pays/business unit, accès programmatique via les Admin APIs, gouvernance des logs, restrictions de création d'artefacts et intégration CI/CD via GitLab.
-
-Il s'adresse aux **Fabric Administrators**, **Capacity Administrators**, **Domain Administrators**, ainsi qu'aux **architectes data** et **équipes plateforme** qui conçoivent la gouvernance d'un tenant Fabric à l'échelle d'une organisation.
-
-\newpage
-
-## Section 1 — Rôles d'administration et périmètres
-
-### 1.1 Hiérarchie des scopes
+### Hiérarchie des scopes
 
 Microsoft Fabric s'appuie sur une hiérarchie de rôles d'administration, du plus large (tenant) au plus restreint (item) :
 
@@ -26,7 +22,7 @@ Tenant (Entra ID)
                 └── Item (Lakehouse, Notebook, Report, etc.)
 ```
 
-### 1.2 Rôles au niveau Tenant
+### Rôles au niveau Tenant
 
 Ces rôles proviennent de **Microsoft Entra ID** (anciennement Azure AD) ou de Microsoft 365.
 
@@ -40,7 +36,7 @@ Ces rôles proviennent de **Microsoft Entra ID** (anciennement Azure AD) ou de M
 
 Pour accéder au contenu utilisateur, un Fabric Admin doit explicitement activer *Admin access to workspaces* ou prendre la propriété d'un workspace.
 
-### 1.3 Domain Admin et Domain Contributor
+### Domain Admin et Domain Contributor
 
 Les **domaines** regroupent des workspaces par unité métier (Finance, RH, etc.) — clé pour OneLake et le data mesh.
 
@@ -51,7 +47,7 @@ Les **domaines** regroupent des workspaces par unité métier (Finance, RH, etc.
 
 Configurable depuis **Admin portal → Domains**.
 
-### 1.4 Capacity Admin
+### Capacity Admin
 
 Une capacité (F2 à F2048, P1 à P5, EM, A SKU) héberge l'exécution des workloads.
 
@@ -65,7 +61,7 @@ Pour les **F SKU**, les rôles Azure RBAC s'ajoutent :
 - **Owner / Contributor** (Azure) : pause/resume, scale, suppression de la ressource.
 - **Reader** : lecture des paramètres Azure.
 
-### 1.5 Rôles Workspace
+### Rôles Workspace
 
 Quatre rôles, du plus puissant au plus limité :
 
@@ -78,14 +74,14 @@ Quatre rôles, du plus puissant au plus limité :
 
 Le workspace **My workspace** est personnel et n'a pas de rôles.
 
-### 1.6 Permissions au niveau item
+### Permissions au niveau item
 
 Chaque item (Lakehouse, Warehouse, Semantic model, Notebook, KQL DB) supporte des permissions granulaires :
 
 - **Read / ReadAll / ReadData / Build / Share / Reshare / Execute / Write**
 - Pour Lakehouse / Warehouse / SQL endpoint : permissions SQL (`GRANT SELECT`, `GRANT EXECUTE`), OneLake security (RBAC sur dossiers/tables), Row-Level / Column-Level / Object-Level Security.
 
-### 1.7 Tableau synthétique des scopes
+### Tableau synthétique des scopes
 
 | Rôle | Niveau | Paramètres tenant | Accès contenu | Facturation |
 |------|--------|------------------|---------------|-------------|
@@ -97,7 +93,7 @@ Chaque item (Lakehouse, Warehouse, Semantic model, Notebook, KQL DB) supporte de
 | Workspace Admin | Workspace | Non | Oui (workspace) | Non |
 | Workspace Member / Contributor / Viewer | Workspace | Non | Oui (selon rôle) | Non |
 
-### 1.8 Bonnes pratiques
+### Bonnes pratiques
 
 1. **Moindre privilège** : préférer Contributor à Member quand l'utilisateur n'a pas besoin de gérer les permissions.
 2. **Délégation par domaine** : utiliser les Domain Admins pour décentraliser la gouvernance.
@@ -107,13 +103,13 @@ Chaque item (Lakehouse, Warehouse, Semantic model, Notebook, KQL DB) supporte de
 
 \newpage
 
-## Section 2 — Mettre en place une administration par pays
+## Mettre en place une administration par pays
 
-### 2.1 Constat
+### Constat
 
 Microsoft Fabric n'a **pas de rôle natif "Country Admin"**. Il faut donc modéliser cette segmentation via les briques existantes (domaines, capacités, workspaces, groupes Entra ID).
 
-### 2.2 Option 1 — Domaines par pays (recommandée)
+### Option 1 — Domaines par pays (recommandée)
 
 Approche la plus alignée avec la philosophie data mesh de Fabric.
 
@@ -136,7 +132,7 @@ Approche la plus alignée avec la philosophie data mesh de Fabric.
 - Un workspace n'appartient qu'à un seul domaine à la fois.
 - Le Domain Admin ne contrôle pas la capacité ni les permissions internes aux workspaces.
 
-### 2.3 Option 2 — Capacités par pays
+### Option 2 — Capacités par pays
 
 Pour isoler la facturation et les ressources de calcul.
 
@@ -155,7 +151,7 @@ Pour isoler la facturation et les ressources de calcul.
 
 Cette option est souvent **combinée à l'Option 1**.
 
-### 2.4 Option 3 — Workspaces avec admins locaux
+### Option 3 — Workspaces avec admins locaux
 
 Pour les organisations plus petites ou les pays avec peu de workloads.
 
@@ -165,7 +161,7 @@ Pour les organisations plus petites ou les pays avec peu de workloads.
 
 Limite : ne couvre pas les paramètres tenant ni l'endorsement.
 
-### 2.5 Architecture cible recommandée (combinée)
+### Architecture cible recommandée (combinée)
 
 ```
 Tenant
@@ -187,7 +183,7 @@ Tenant
       +-- Workspaces ws-ES-*
 ```
 
-### 2.6 Tableau récapitulatif
+### Tableau récapitulatif
 
 | Besoin | Solution Fabric |
 |--------|-----------------|
@@ -197,7 +193,7 @@ Tenant
 | Sécurité du contenu | Rôles Workspace + groupes Entra par pays |
 | Résidence des données / souveraineté | Multi-Geo (capacités dans la région du pays) |
 
-### 2.7 Souveraineté et résidence des données
+### Souveraineté et résidence des données
 
 Si le besoin est lié à la **souveraineté des données** (RGPD, lois locales) :
 
@@ -205,7 +201,7 @@ Si le besoin est lié à la **souveraineté des données** (RGPD, lois locales) 
 - **Tenant settings** : configurer la région par défaut.
 - **OneLake** : les données restent dans la région de la capacité hôte du workspace.
 
-### 2.8 Étapes de mise en œuvre
+### Étapes de mise en œuvre
 
 1. Créer les **groupes Entra ID** par pays (`grp-fabric-admin-XX`, `grp-fabric-contrib-XX`).
 2. Provisionner une **capacité F SKU** par pays dans la région cible.
@@ -217,9 +213,9 @@ Si le besoin est lié à la **souveraineté des données** (RGPD, lois locales) 
 
 \newpage
 
-## Section 3 — Accès programmatique aux Admin APIs
+## Accès programmatique aux Admin APIs
 
-### 3.1 Deux familles d'API
+### Deux familles d'API
 
 | Famille | Endpoint racine | Usage |
 |---------|-----------------|-------|
@@ -228,7 +224,7 @@ Si le besoin est lié à la **souveraineté des données** (RGPD, lois locales) 
 
 Les deux coexistent — certaines fonctions ne sont disponibles que dans l'une ou l'autre.
 
-### 3.2 Pré-requis côté identité
+### Pré-requis côté identité
 
 | Identité | Rôle requis |
 |---------|-------------|
@@ -236,7 +232,7 @@ Les deux coexistent — certaines fonctions ne sont disponibles que dans l'une o
 | **Service Principal** | Voir section 3.3. |
 | **Managed Identity** (Azure) | Supportée comme service principal depuis 2024. |
 
-### 3.3 Activer un Service Principal
+### Activer un Service Principal
 
 Méthode recommandée pour l'automatisation (CI/CD, scripts planifiés, Azure Functions).
 
@@ -267,7 +263,7 @@ Pour chacun, **restreindre au groupe** `grp-fabric-admin-api`.
 
 **Entra ID → Roles and administrators → Fabric Administrator** : ajouter le service principal comme membre. Requis pour certaines opérations sensibles.
 
-### 3.4 Acquérir un token
+### Acquérir un token
 
 | Audience | Scope |
 |----------|-------|
@@ -317,7 +313,7 @@ r = requests.get(
 print(r.json())
 ```
 
-### 3.5 Endpoints fréquemment utilisés
+### Endpoints fréquemment utilisés
 
 #### Power BI Admin
 
@@ -345,14 +341,14 @@ print(r.json())
 | `GET /v1/admin/labels` | Sensitivity labels appliqués |
 | `GET /v1/admin/externalDataShares` | Partages externes OneLake |
 
-### 3.6 Limites et quotas
+### Limites et quotas
 
 - **Throttling** : 200 req/h pour la plupart des Admin APIs en lecture.
 - **Scanner API** : environ 500 workspaces par appel `getInfo`, max 16 appels parallèles.
 - **Audit activityevents** : 200 appels/heure, fenêtre max 1 jour par appel, historique 90 jours.
 - Toujours implémenter un **retry exponentiel** sur `429 Too Many Requests` (header `Retry-After`).
 
-### 3.7 Outils prêts à l'emploi
+### Outils prêts à l'emploi
 
 | Outil | Description |
 |-------|-------------|
@@ -362,7 +358,7 @@ print(r.json())
 | Fabric CLI (`fab`) | Préfixe `fab admin ...` pour certaines opérations. |
 | Microsoft Purview | Consomme les Admin APIs (Scanner) pour le catalogage. |
 
-### 3.8 Bonnes pratiques sécurité
+### Bonnes pratiques sécurité
 
 1. **Secrets dans Key Vault**, jamais dans le code.
 2. Préférer **certificat** ou **Federated Identity Credentials** (workload identity) plutôt qu'un client secret.
@@ -372,7 +368,7 @@ print(r.json())
 6. **Rotation** des secrets (≤ 6 mois) et alerte sur expiration.
 7. **Least privilege** : si seules les lectures sont nécessaires, activer uniquement *read-only admin APIs*.
 
-### 3.9 Cas "admin par pays"
+### Cas "admin par pays"
 
 Pour donner aux admins d'un pays un accès Admin API limité à leur périmètre :
 
@@ -381,11 +377,11 @@ Pour donner aux admins d'un pays un accès Admin API limité à leur périmètre
 
 Aujourd'hui, les Admin APIs globales (`/admin/*`) nécessitent toujours le rôle Fabric Administrator au niveau tenant — il n'y a pas de RBAC granulaire "Admin API scopé par domaine". Le filtrage doit donc se faire côté application.
 
-## 3.10 Pattern fondamental — Déléguer la gestion d'accès via groupes Entra ID
+### Pattern fondamental — Déléguer la gestion d'accès via groupes Entra ID
 
 Ce pattern est **le pilier de la gouvernance Fabric à l'échelle**. Il s'applique aux Admin APIs, aux tenant settings, aux rôles workspace, aux capacités et aux domaines.
 
-### 3.10.1 Le problème à résoudre
+#### Le problème à résoudre
 
 Sans ce pattern, **chaque ajout/retrait d'un utilisateur** à une fonctionnalité Fabric impose au Fabric Admin de :
 
@@ -396,7 +392,7 @@ Sans ce pattern, **chaque ajout/retrait d'un utilisateur** à une fonctionnalit�
 
 À 50, 500 ou 5 000 utilisateurs, cela devient ingérable, non auditable, et le Fabric Admin devient un goulot d'étranglement RH/IAM.
 
-### 3.10.2 Le pattern recommandé
+#### Le pattern recommandé
 
 **Référencer uniquement des groupes de sécurité Entra ID** dans Fabric, **jamais des comptes individuels**. Le Fabric Admin n'intervient plus que pour configurer le **mapping setting → groupe** une seule fois. La gestion quotidienne du "qui a accès" est ensuite **entièrement pilotée au niveau Entra ID**, par les équipes IAM/RH/managers, **sans aucun droit sur Fabric**.
 
@@ -434,7 +430,7 @@ Sans ce pattern, **chaque ajout/retrait d'un utilisateur** à une fonctionnalit�
 +----------------------------------------+
 ```
 
-### 3.10.3 Bénéfices
+#### Bénéfices
 
 | Bénéfice | Description |
 |----------|-------------|
@@ -449,7 +445,7 @@ Sans ce pattern, **chaque ajout/retrait d'un utilisateur** à une fonctionnalit�
 | **Provisioning RH** | Workday/SuccessFactors/SAP HR → Entra ID → Fabric. Aucune action manuelle. |
 | **Délégation par pays** | Chaque pays a son owner de groupe sans toucher au tenant Fabric. |
 
-### 3.10.4 Convention de nommage suggérée
+#### Convention de nommage suggérée
 
 Une convention claire évite l'explosion des groupes et facilite l'audit.
 
@@ -472,7 +468,7 @@ grp-fabric-<scope>-<role>[-<location>]
 | `grp-fabric-copilot-users` | grp-fabric-copilot-users | Accès aux features Copilot |
 | `grp-fabric-developer-mode` | grp-fabric-developer-mode | Mode développeur, .pbip, Git |
 
-### 3.10.5 Tenant settings à câbler sur des groupes Entra
+#### Tenant settings à câbler sur des groupes Entra
 
 Les settings ci-dessous **doivent impérativement** être restreints à un groupe Entra (jamais "the entire organization") :
 
@@ -498,7 +494,7 @@ Les settings ci-dessous **doivent impérativement** être restreints à un group
 | Users can apply sensitivity labels | grp-fabric-label-applier |
 | Information protection / encryption | grp-fabric-mip |
 
-### 3.10.6 Modèle de délégation des owners de groupes
+#### Modèle de délégation des owners de groupes
 
 Chaque groupe Entra a un (ou plusieurs) **owner** qui peut ajouter/retirer des membres sans aucun droit Fabric :
 
@@ -514,7 +510,7 @@ Chaque groupe Entra a un (ou plusieurs) **owner** qui peut ajouter/retirer des m
 | `grp-fabric-workspace-creators-<pays>` | Lead Data pays | Connaissance des projets locaux |
 | `grp-fabric-developer-mode` | Lead Engineering | Maîtrise du DevOps |
 
-### 3.10.7 Groupes dynamiques (recommandé)
+#### Groupes dynamiques (recommandé)
 
 Pour les groupes dont l'appartenance est déterministe (lié au département, au pays, au job title), utiliser des **dynamic groups** Entra ID :
 
@@ -531,7 +527,7 @@ Pour les groupes dont l'appartenance est déterministe (lié au département, au
 
 Avantage : zéro action manuelle, la membership suit automatiquement la fiche utilisateur (mise à jour par RH).
 
-### 3.10.8 Combiner avec Privileged Identity Management (PIM)
+#### Combiner avec Privileged Identity Management (PIM)
 
 Pour les rôles sensibles (Fabric Administrator, Capacity Admin, accès SP write APIs), activer le groupe via **PIM for Groups** :
 
@@ -548,7 +544,7 @@ Utilisateur ──► Demande PIM "grp-fabric-admin-tenant" pour 4h
                 └── Active → membre 4h → expire automatiquement
 ```
 
-### 3.10.9 Procédure de mise en place
+#### Procédure de mise en place
 
 1. **Inventaire** des tenant settings à configurer (cf. tableau 3.10.5).
 2. **Création des groupes Entra** suivant la convention de nommage.
@@ -560,7 +556,7 @@ Utilisateur ──► Demande PIM "grp-fabric-admin-tenant" pour 4h
 8. **Lifecycle Workflows** pour automatiser joiner/leaver.
 9. **Audit** : alerte sur `Add member to group` pour les groupes admin (via Sentinel ou Logic App).
 
-### 3.10.10 Anti-patterns à éviter
+#### Anti-patterns à éviter
 
 | À ne pas faire | Pourquoi |
 |----------------|----------|
@@ -575,15 +571,15 @@ Utilisateur ──► Demande PIM "grp-fabric-admin-tenant" pour 4h
 
 \newpage
 
-## Section 4 — Délégation des tenant settings
+## Délégation des tenant settings
 
-### 4.1 Mécanique de délégation
+### Mécanique de délégation
 
 - **Admin portal → Tenant settings** : certains paramètres affichent une case **Delegate to capacity admins** et/ou **Delegate to domain admins**.
 - Une fois délégué, le Capacity/Domain Admin voit le paramètre dans son panneau (Capacity settings ou Domain settings) et peut l'activer/désactiver pour son scope, le restreindre à un groupe.
 - La délégation est **descendante et restrictive** : le Fabric Admin pose un plafond, les admins inférieurs peuvent durcir mais pas relâcher.
 
-### 4.2 Tenant settings délégables (Capacity et Domain)
+### Tenant settings délégables (Capacity et Domain)
 
 | Catégorie | Tenant setting | Capacity | Domain |
 |-----------|----------------|----------|--------|
@@ -626,7 +622,7 @@ Utilisateur ──► Demande PIM "grp-fabric-admin-tenant" pour 4h
 | Git integration | Synchronize workspace items with Git repositories | Oui | Oui |
 | Git integration | Export items to Power BI Project files (.pbip) | Oui | Oui |
 
-### 4.3 Settings délégables uniquement aux Domain Admins
+### Settings délégables uniquement aux Domain Admins
 
 | Catégorie | Tenant setting |
 |-----------|----------------|
@@ -636,7 +632,7 @@ Utilisateur ──► Demande PIM "grp-fabric-admin-tenant" pour 4h
 
 Ces trois settings sont **les plus utiles à déléguer à un Domain Admin** par pays/BU : chaque domaine peut certifier/promouvoir son propre contenu sans intervention de l'équipe centrale.
 
-### 4.4 Settings non délégables
+### Settings non délégables
 
 Réservés au Fabric Admin / tenant uniquement :
 
@@ -650,7 +646,7 @@ Réservés au Fabric Admin / tenant uniquement :
 - Trial / free license auto-provisioning.
 - La plupart des paramètres **security-critical** (private links, IP allowlists, MFA enforcement).
 
-### 4.5 Procédure d'activation
+### Procédure d'activation
 
 1. **Admin portal → Tenant settings**.
 2. Localiser le paramètre.
@@ -660,7 +656,7 @@ Réservés au Fabric Admin / tenant uniquement :
 6. Côté Capacity Admin : **Admin portal → Capacity settings → \<ma capacité\> → Delegated tenant settings**.
 7. Côté Domain Admin : **Admin portal → Domains → \<mon domaine\> → Settings → Delegated settings**.
 
-### 4.6 Recommandations pour le scénario "admin par pays"
+### Recommandations pour le scénario "admin par pays"
 
 Pour un Domain Admin pays, déléguer en priorité :
 
@@ -681,7 +677,7 @@ Pour un Capacity Admin pays, déléguer surtout :
 - Export / sharing.
 - Audit logs internes.
 
-### 4.7 Audit via API
+### Audit via API
 
 ```text
 GET https://api.fabric.microsoft.com/v1/admin/tenantsettings
@@ -689,7 +685,7 @@ GET https://api.fabric.microsoft.com/v1/admin/capacities/{capacityId}/delegatedT
 GET https://api.fabric.microsoft.com/v1/admin/domains/{domainId}/delegatedTenantSettingOverrides
 ```
 
-### 4.8 Points d'attention
+### Points d'attention
 
 - La liste **évolue régulièrement** : vérifier la doc *Delegate Fabric settings to domain/capacity admins*.
 - **Précédence** : si un setting est délégué à la fois au Capacity Admin et au Domain Admin et qu'un workspace est dans les deux, le réglage le plus **restrictif** s'applique.
@@ -698,9 +694,9 @@ GET https://api.fabric.microsoft.com/v1/admin/domains/{domainId}/delegatedTenant
 
 \newpage
 
-## Section 5 — Logs d'utilisation et gouvernance
+## Logs d'utilisation et gouvernance
 
-### 5.1 Sources de logs
+### Sources de logs
 
 | Source | Contenu | Rétention | Accès |
 |--------|---------|-----------|-------|
@@ -713,7 +709,7 @@ GET https://api.fabric.microsoft.com/v1/admin/domains/{domainId}/delegatedTenant
 | Purview Audit | Vue unifiée des logs | Selon licence Purview | Purview admin |
 | Log Analytics workspace (par capacité) | Logs détaillés moteur AS / Semantic models | Configurable | Azure RBAC sur LA workspace |
 
-### 5.2 Visibilité par rôle
+### Visibilité par rôle
 
 #### Fabric Administrator (tenant)
 
@@ -746,7 +742,7 @@ GET https://api.fabric.microsoft.com/v1/admin/domains/{domainId}/delegatedTenant
 
 - Aucun accès aux logs.
 
-### 5.3 Tenant settings liés aux logs
+### Tenant settings liés aux logs
 
 | Tenant setting | Capacity | Domain | Effet |
 |----------------|----------|--------|-------|
@@ -758,7 +754,7 @@ GET https://api.fabric.microsoft.com/v1/admin/domains/{domainId}/delegatedTenant
 
 Les paramètres **Usage metrics for content creators** sont particulièrement utiles à déléguer aux Domain Admins par pays : chaque pays peut décider d'afficher ou non les noms des consommateurs (sensible RGPD).
 
-### 5.4 APIs pour récupérer les logs
+### APIs pour récupérer les logs
 
 #### Activity Log (Power BI / Fabric)
 
@@ -801,7 +797,7 @@ PowerBIDatasetsWorkspace
 | summarize count(), avg(DurationMs) by Workspace, User
 ```
 
-### 5.5 Architecture conseillée pour des logs par pays
+### Architecture conseillée pour des logs par pays
 
 Il n'existe pas de log scopé par domaine nativement. Pattern habituel :
 
@@ -826,7 +822,7 @@ Fabric Admin (SP global)
 4. Row-Level Security sur le semantic model : `[Country] = USERPRINCIPALNAME() -> mapping`.
 5. Workspace pays (`ws-FR-audit`) avec un rapport Power BI partagé aux Domain Admins locaux.
 
-### 5.6 Points d'attention
+### Points d'attention
 
 - **Rétention** : 30 j sur l'API Activity → archiver obligatoirement dans OneLake pour un historique long.
 - **RGPD** : les logs contiennent UPN et IP → prévoir purge / pseudonymisation, et déclarer le traitement.
@@ -835,7 +831,7 @@ Fabric Admin (SP global)
 - **Capacity Metrics App** : rétention 14/30 j figée — pas d'API pour l'historiser, dériver de l'Activity Log ou de Log Analytics.
 - **Workspace Usage Metrics report** : dataset par workspace, propriétaire = créateur, non auditable centralement.
 
-### 5.7 TL;DR
+### TL;DR
 
 | Besoin | Solution |
 |--------|----------|
@@ -849,9 +845,9 @@ Fabric Admin (SP global)
 
 \newpage
 
-## Section 6 — Restreindre la création d'artefacts
+## Restreindre la création d'artefacts
 
-### 6.1 Constat : pas de blocklist granulaire native
+### Constat : pas de blocklist granulaire native
 
 Microsoft Fabric ne propose pas aujourd'hui un tenant setting du type *"Disable Lakehouse creation for group X"*.
 
@@ -867,7 +863,7 @@ Microsoft Fabric ne propose pas aujourd'hui un tenant setting du type *"Disable 
 
 Pour les items Fabric "data engineering / data science", la création se contrôle indirectement.
 
-### 6.2 Levier 1 — Désactiver les expériences Fabric pour un groupe
+### Levier 1 — Désactiver les expériences Fabric pour un groupe
 
 Tenant setting : **Users can create Fabric items** (anciennement *Enable Microsoft Fabric*).
 
@@ -878,13 +874,13 @@ Tenant setting : **Users can create Fabric items** (anciennement *Enable Microso
 
 Limite : c'est "tout ou rien" — on ne peut pas dire "Lakehouse oui, Warehouse non".
 
-### 6.3 Levier 2 — Rôle workspace insuffisant
+### Levier 2 — Rôle workspace insuffisant
 
 Seuls Admin / Member / Contributor peuvent créer des items. Viewer ne peut rien créer.
 
 Donner Viewer au lieu de Contributor empêche la création — mais alors plus rien ne peut être créé.
 
-### 6.4 Levier 3 — Workloads désactivés sur la capacité
+### Levier 3 — Workloads désactivés sur la capacité
 
 Au niveau Capacity Admin : **Admin portal → Capacity settings → \<ma capacité\> → Workloads**.
 
@@ -901,24 +897,24 @@ Granularité : par workload (pas par item individuel), et par capacité (pas par
 
 Sur les F SKU récents, la granularité est moins exposée qu'à l'époque P SKU.
 
-### 6.5 Levier 4 — Pas de capacité Fabric assignée au workspace
+### Levier 4 — Pas de capacité Fabric assignée au workspace
 
 Un workspace en Pro / PPU (pas sur capacité Fabric) ne permet que les items Power BI. Les items Fabric (Lakehouse, Warehouse, Notebook) sont bloqués automatiquement.
 
 Très efficace pour les workspaces "BI only".
 
-### 6.6 Levier 5 — Restriction de la création de workspaces
+### Levier 5 — Restriction de la création de workspaces
 
 Tenant setting : **Create workspaces (new workspace experience)** (délégable Capacity et Domain).
 
 Si l'utilisateur ne peut pas créer de workspace, il ne peut créer d'items que dans les workspaces existants où il a un rôle Contributor+.
 
-### 6.7 Levier 6 — Sensitivity labels et Information Protection
+### Levier 6 — Sensitivity labels et Information Protection
 
 - Sensitivity labels avec encryption : empêche la consommation, pas la création.
 - Information Protection policies : peuvent bloquer le downgrade d'un label, l'export, le partage externe — mais pas la création d'un type d'item.
 
-### 6.8 Levier 7 — Détection plutôt que prévention
+### Levier 7 — Détection plutôt que prévention
 
 Quand aucun levier natif ne convient :
 
@@ -938,7 +934,7 @@ PowerBIActivity
 | where UserId !in (allowlist)
 ```
 
-### 6.9 Recommandations par cas d'usage
+### Recommandations par cas d'usage
 
 | Objectif | Levier recommandé |
 |----------|-------------------|
@@ -951,7 +947,7 @@ PowerBIActivity
 | Bloquer un workload entier sur une capacité | Capacity settings → Workloads → off |
 | Cantonner des utilisateurs à Power BI | Pas dans workspaces sur capacité Fabric + setting off pour leur groupe |
 
-### 6.10 Application au scénario "admin par pays"
+### Application au scénario "admin par pays"
 
 Pour qu'un Domain Admin pays puisse interdire un type d'item localement :
 
@@ -960,7 +956,7 @@ Pour qu'un Domain Admin pays puisse interdire un type d'item localement :
 3. **Pipeline de détection** scopé par domaine.
 4. **Politique documentée** + sensitivity labels + endorsement.
 
-### 6.11 Synthèse
+### Synthèse
 
 Seuls Dataflow, Datamart, Template app, Workspace, Power BI Project et Fabric items (en bloc) peuvent être bloqués nativement via tenant settings. Pour interdire spécifiquement **Lakehouse, Warehouse, Notebook, KQL DB, ML model**, il faut combiner :
 
@@ -969,9 +965,9 @@ Seuls Dataflow, Datamart, Template app, Workspace, Power BI Project et Fabric it
 
 \newpage
 
-## Section 7 — Intégration CI/CD avec GitLab
+## Intégration CI/CD avec GitLab
 
-### 7.1 État des lieux des connecteurs Git
+### État des lieux des connecteurs Git
 
 | Fournisseur Git | Connexion native Fabric | Statut |
 |----------------|------------------------|--------|
@@ -982,7 +978,7 @@ Seuls Dataflow, Datamart, Template app, Workspace, Power BI Project et Fabric it
 
 Pour utiliser GitLab, il faut **piloter le déploiement via API** (Fabric REST APIs ou Deployment Pipelines) depuis un pipeline GitLab CI/CD, sans passer par "Source control" dans l'UI Fabric.
 
-### 7.2 Architecture cible recommandée
+### Architecture cible recommandée
 
 ```
 Développeurs
@@ -1003,7 +999,7 @@ GitLab CI/CD Runner
 Fabric Workspaces (Dev -> Test -> Prod)
 ```
 
-### 7.3 Que stocker dans GitLab
+### Que stocker dans GitLab
 
 | Item | Format export |
 |------|---------------|
@@ -1038,7 +1034,7 @@ fabric-items/
   +-- .gitlab-ci.yml
 ```
 
-### 7.4 Authentification depuis GitLab vers Fabric
+### Authentification depuis GitLab vers Fabric
 
 #### Option A — Service Principal Entra ID
 
@@ -1059,7 +1055,7 @@ Depuis 2024, Entra ID supporte les Federated Credentials pour GitLab :
 4. **Audience** : `api://AzureADTokenExchange`.
 5. Dans `.gitlab-ci.yml`, utiliser `id_tokens:` pour obtenir un JWT GitLab puis l'échanger contre un token Entra — aucun secret stocké.
 
-### 7.5 Exemple `.gitlab-ci.yml`
+### Exemple `.gitlab-ci.yml`
 
 ```yaml
 stages:
@@ -1140,7 +1136,7 @@ deploy-prod:
     - ./scripts/deploy.sh "$PROD_WORKSPACE_ID" "$TOKEN" "./workspaces/dev"
 ```
 
-### 7.6 Script `deploy.sh` — appels Fabric REST API
+### Script `deploy.sh` — appels Fabric REST API
 
 ```bash
 WORKSPACE_ID=$1
@@ -1179,7 +1175,7 @@ done
 | `POST /deploymentPipelines/{id}/deploy` | Promouvoir Dev→Test→Prod |
 | `POST /workspaces/{id}/jobs/instances?jobType=Pipeline` | Déclencher un pipeline |
 
-### 7.7 Outils et alternatives
+### Outils et alternatives
 
 | Outil | Description |
 |-------|-------------|
@@ -1202,7 +1198,7 @@ mirror-to-azdo:
 
 Puis Fabric → workspace → Source control → Azure DevOps → branche `main`. Les Sync/Update se font dans Fabric UI.
 
-### 7.8 Workflow Git recommandé
+### Workflow Git recommandé
 
 1. **Branche par feature** (`feature/<jira>`) avec MR.
 2. **Branche `main`** protégée → déploie automatiquement vers workspace **Dev**.
@@ -1210,7 +1206,7 @@ Puis Fabric → workspace → Source control → Azure DevOps → branche `main`
 4. **Deployment Pipelines Fabric** orchestrent la promotion entre stages (paramètres : connexion, capacity binding).
 5. **MR review** : check de format `.pbip` / `.ipynb` + tests Pester / pytest sur scripts.
 
-### 7.9 Points d'attention
+### Points d'attention
 
 - **Pas de Sync bidirectionnel** : avec GitLab, les modifications faites dans l'UI Fabric ne reviennent pas automatiquement vers le repo. Solution : `GET /items/{id}/getDefinition` régulier + commit auto, ou interdire les modifications UI en Prod (workspace Viewer pour les devs).
 - **Secrets / connections** : ne pas commit les chaînes de connexion ; utiliser Variable Libraries Fabric (preview) ou paramètres de Deployment Pipelines.
@@ -1218,7 +1214,7 @@ Puis Fabric → workspace → Source control → Azure DevOps → branche `main`
 - **Limites API** : 200 req/h sur certains endpoints admin ; batcher.
 - **Compatibilité .pbip** : activer le tenant setting *Users can export items to Power BI Project files*.
 
-### 7.10 Récapitulatif
+### Récapitulatif
 
 | Approche | Effort | Bidirectionnel | Recommandé pour |
 |----------|--------|----------------|------------------|
@@ -1232,7 +1228,7 @@ Puis Fabric → workspace → Source control → Azure DevOps → branche `main`
 
 ## Annexe — Synthèse globale
 
-### A.1 Capacités d'administration par rôle
+### Capacités d'administration par rôle
 
 | Capacité | Global Admin | Fabric Admin | Capacity Admin | Domain Admin | Workspace Admin |
 |----------|:------------:|:------------:|:--------------:|:------------:|:---------------:|
@@ -1249,7 +1245,7 @@ Puis Fabric → workspace → Source control → Azure DevOps → branche `main`
 | Accéder aux Admin APIs | Oui | Oui | Non | Domain APIs uniquement | Non |
 | Configurer Git integration | Oui | Oui | Si délégué | Si délégué | Oui (workspace) |
 
-### A.2 Checklist de mise en place "admin par pays"
+### Checklist de mise en place "admin par pays"
 
 1. Définir la liste des pays et la convention de nommage.
 2. Créer les **groupes Entra ID** par pays (admins, contributors, viewers, SP CI/CD, SP audit, publishers, exporters, Copilot users…) et **affecter des owners métier** (lead data pays, DPO, sécurité).
@@ -1265,7 +1261,7 @@ Puis Fabric → workspace → Source control → Azure DevOps → branche `main`
 12. Mettre en place le pipeline d'audit Activity Log → Lakehouse par pays, et alertes sur `Add member to group` pour les groupes admin Fabric.
 13. Documenter la politique de gouvernance (catalogue d'items autorisés, sensibilité, RLS, mapping setting → groupe → owner).
 
-### A.3 Références utiles
+### Références utiles
 
 - Microsoft Learn — *Fabric admin overview*
 - Microsoft Learn — *Domains in Fabric*
