@@ -3,7 +3,7 @@ marp: true
 theme: fabric-editorial
 paginate: true
 header: 'From SI to System Agency · Fabric Storyboard Copilot'
-footer: 'April 2026 · fredgis'
+footer: 'May 2026 · fredgis'
 ---
 
 <!-- _class: lead -->
@@ -11,7 +11,7 @@ footer: 'April 2026 · fredgis'
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-<div class="tag">Case Study · April 2026</div>
+<div class="tag">Case Study · May 2026</div>
 
 # From SI to System Agency.
 
@@ -373,7 +373,7 @@ _Spec is the deliverable. Forge engineers context. Store compounds across projec
 <div class="card teal">
 <div class="card-num">PILLAR 2</div>
 <h3>Agent Forge</h3>
-<p>Context engineering — rules, memory, knowledge, MCP bindings. <strong>Forge produces the agent.</strong></p>
+<p>Context engineering toolkit (Microsoft, open source). Multi-agent pipeline — plans, generates, validates and installs <code>.agent.md</code>, <code>SKILL.md</code>, <code>.instructions.md</code>, MCP bindings. <strong>Greenfield or Brownfield.</strong></p>
 </div>
 
 <div class="card purple">
@@ -436,11 +436,11 @@ What changes when delivery cost drops by an order of magnitude.
 
 ---
 
-# Cost Tiers — Premium vs Standard
+# Cost Tiers — AI Credits (since June 2026)
 
 ![w:1100](images/cost-tiers.png)
 
-_Heavy reasoning on Opus / Sonnet · structural work on Haiku · caching + RAG do the rest._
+_GitHub Copilot bills in **AI Credits** (1 credit = $0.01, metered by token). Heavy reasoning on Opus / Sonnet · structural work on Haiku · caching + RAG do the rest._
 
 ---
 

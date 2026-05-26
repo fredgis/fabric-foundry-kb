@@ -2,7 +2,7 @@
 title: "From SI to System Agency"
 subtitle: "Fabric Storyboard Copilot — a Microsoft Fabric × PowerPoint case study built with Squad + Copilot CLI"
 author: "fredgis"
-date: "April 2026"
+date: "May 2026"
 ---
 
 ## Context
@@ -95,7 +95,7 @@ req.userToken = token; // forwarded to OBO
 
 ![Squad of agents](../images/officeaddin/squad-agents.png)
 
-The Squad is a roster of eight Copilot agents, each with a narrow role, tuned model, and curated context. Models are picked per role: heavy reasoning runs on Sonnet 4 / Opus 4.6, repetitive structural work runs on Haiku 4.5.
+The Squad is a roster of eight Copilot agents, each with a narrow role, tuned model, and curated context. Models are picked per role: heavy reasoning runs on Sonnet 4 / Opus 4.6, repetitive structural work runs on Haiku 4.5. Squad ships with five canonical roles (Lead, Frontend, Backend, Tester, Scribe); we extended the roster with **Auth, AI, Infra and Coordinator** agents pulled from the Agent Store to match the surface area of an Entra-protected Fabric add-in.
 
 | Agent | Model | Mission |
 |-------|-------|---------|
@@ -155,7 +155,7 @@ The Copilot CLI plays a different role than the Squad agents. The Squad produces
 ![Toolchain](../images/officeaddin/toolchain.png)
 
 - **Spec Kit** — structured markdown spec (problem, scope, contracts, acceptance criteria). The deliverable is the spec; the code is generated from it. Spec-first inverts the traditional flow.
-- **Agent Forge** — context engineering: rules, memory, knowledge base, MCP server bindings. The forge produces the agent definition; the agent produces the code.
+- **Agent Forge** — context engineering toolkit (Microsoft, open source): a multi-agent pipeline that plans, generates, validates and installs Copilot customisation artifacts (`.agent.md`, `.prompt.md`, `.instructions.md`, `SKILL.md`, `.vscode/mcp.json`, hooks). Two modes: **Greenfield** (from a text description) and **Brownfield** (scans an existing codebase). The forge produces the agent definition; the agent produces the code.
 - **Agent Store** — reusable domain agents (Auth, Power BI, Fluent UI, Bicep). Pulled into the Squad for any project that touches the same surface area. Compounds across projects.
 
 ### 3.3 Fleet vs Squad
@@ -181,16 +181,18 @@ The right pattern is Agent + Skill: the agent reasons about *what* and *why*, th
 
 ![Cost tiers](../images/officeaddin/cost-tiers.png)
 
-### 4.1 Premium requests
+### 4.1 AI Credits
 
-The Copilot subscription bills on **premium requests** — heavy-reasoning calls (Opus, Sonnet thinking modes). Repetitive structural work (Haiku) is much cheaper. Optimising the model mix is half the cost story; the other half is **caching, RAG, and prompt economy**.
+Since **June 1, 2026**, the Copilot subscription bills on **GitHub AI Credits** (1 credit = $0.01 USD), replacing the previous "premium request" model. Consumption is metered in **tokens** (input, output, cached) at per-model published rates, with monthly allotments by plan: Pro 1 000 credits, Pro+ 3 900, Business 1 900/seat, Enterprise 3 900/seat. Code completions and Next Edit suggestions remain **unlimited** and do not consume credits.
+
+Heavy-reasoning calls (Opus 4.7, GPT-5.4) burn credits 5–10× faster than structural work on Haiku 4.5 or GPT-5.4-mini. Cached input tokens are billed up to 10× cheaper than fresh input. Optimising the model mix is half the cost story; the other half is **caching, RAG, and prompt economy** — which become first-class IP assets under token-based billing, on par with the agents themselves.
 
 ### 4.2 Cost comparison
 
 | | Traditional SI | System Agency |
 |---|---|---|
 | Effort | 43 man-days | 13.3 h human + agent compute |
-| Loaded cost | ~ $31,000 (3 senior devs × 5 days × $720 + 2 specialists × $720 × 4 + PM 2 days) | ~ $2,340 ($1,800 compute + $540 human) |
+| Loaded cost | ~ $31,000 (3 senior devs × 5 days × $720 + 2 specialists × $720 × 4 + PM 2 days) | ~ $2,340 ($1,800 compute ≈ 180 000 AI credits — ~60 % Sonnet/Opus reasoning, ~30 % Haiku structural, ~10 % cached input — plus $540 human supervision) |
 | Margin | ~ 30 % on T&M | ~ 92 % on outcome billing |
 | Lead time | 6-8 weeks calendar | 2 days |
 
@@ -267,8 +269,11 @@ The same playbook scales. The compression is real. The margin shift is structura
 ## Resources
 
 - Source repository — <https://github.com/fredgis/OfficeAddin>
-- GitHub Copilot CLI — <https://github.com/github/gh-copilot>
+- GitHub Copilot CLI — <https://github.com/github/copilot-cli>
 - Spec Kit — <https://github.com/github/spec-kit>
+- Agent Forge — <https://github.com/microsoft/agent-forge>
+- Squad — <https://github.com/bradygaster/squad>
+- GitHub Copilot AI Credits billing — <https://docs.github.com/en/copilot/concepts/billing>
 - Microsoft Fabric — <https://learn.microsoft.com/fabric/>
 - Power BI Export API — <https://learn.microsoft.com/rest/api/power-bi/reports/export-to-file>
 - Office Add-ins (manifest, taskpane, SSO) — <https://learn.microsoft.com/office/dev/add-ins/>
