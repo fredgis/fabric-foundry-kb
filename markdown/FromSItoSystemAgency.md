@@ -190,14 +190,106 @@ Squads compose into Fleets **without changing the substrate**. The same agent de
 
 **Fleet ≠ N Squads in parallel.** A Fleet shares state across Squads: when the Auth agent learns a new tenant-isolation pattern in Squad A, every Squad B running tomorrow picks it up. That cross-Squad compounding is what makes Fleet a qualitatively different pattern — not just "more developers".
 
-### 3.4 Agents vs Skills
+### 3.4 Spec-Driven Development — making the spec the source of truth
+
+The Squad pattern only works if the agents have a single, unambiguous reference. That reference is the spec. **Spec-Driven Development (SDD)** is the discipline that turns this from a convention into an engineering process — the same way DevOps turned ad-hoc scripts into pipelines.
+
+For an enterprise system (React frontends + backend services + data layer + shared libs + AI agents), Microsoft now recommends layered, modular specs rather than a single monolithic document. The fit with multi-agent development is exact: agents consume structured context best, and machine-readable specs *are* that context.[^sdd]
+
+[^sdd]: Adapted from Lee Stott, *Spec-Driven Development for AI-Enabled Enterprise Systems*, Microsoft Tech Community, May 2026 — <https://techcommunity.microsoft.com/blog/educatordeveloperblog/spec-driven-development-for-ai-enabled-enterprise-systems/4520807>.
+
+#### Three spec layers
+
+1. **Business & domain layer** — technology-agnostic. Captures business capabilities, domain language (DDD bounded contexts), business rules, non-functional requirements (perf, security, compliance, SLAs).
+2. **Solution & architecture layer** — system context (C4 diagrams), service boundaries and ownership, integration patterns, event flows, data ownership and high-level models.
+3. **Implementation-oriented specs per component** — one focused spec per:
+   - **Frontend / UI (React)**: screen catalogue, UX flows, state contracts, API dependencies, validation rules, accessibility, performance budgets.
+   - **API / service**: OpenAPI or AsyncAPI contracts, error models, auth, rate limits, SLAs, observability requirements.
+   - **Database / schema**: logical data model, ownership per service, migration strategy, retention, indexing, partitioning.
+   - **Shared libraries**: responsibilities, versioning policy, compatibility matrix.
+   - **Integrations**: protocols, payloads, sequencing, idempotency, retry/backoff, failure modes.
+
+In practice: **one master business + architecture spec per domain**, **separate specs per service / module**, everything linked via stable IDs (`REQ-123`, `SVC-ORDER-001`) so you can trace a requirement to its spec, its implementation, and its tests.
+
+#### Base template (every spec)
+
+Purpose & scope · Stakeholders & dependencies · Requirements mapping (IDs covered) · Architecture & interaction overview · Contracts (APIs, events, data) · Non-functional requirements · Risks & open questions · Test & acceptance criteria.
+
+Each component type extends this base with its own sections (UX flows for frontend, OpenAPI link for API, schema + migration plan for DB, sequence diagrams + idempotency rules for integrations).
+
+#### Contracts are first-class citizens
+
+- API contracts via **OpenAPI / AsyncAPI** — the spec is the source of truth, not the code.
+- **Contract tests** keep providers and consumers aligned.
+- Versioning is **explicit** (`v1`, `v2`) — never breaking changes in place.
+- Database migrations are **code** (EF Core, Flyway, Liquibase) and documented backward-compatibility windows let APIs serve old + new fields for a defined period.
+- Prefer sharing **contracts** (OpenAPI, JSON Schema) over large shared code libraries; when code must be shared, version the library independently and document compatibility (`Service A supports SharedLib 2.x`).
+
+#### The SDD workflow
+
+```
+Discovery → Business & Architecture specs → Contract design (OpenAPI / events / schemas)
+   → Task generation (AI agent reads spec → emits work items)
+   → Implementation (code satisfies spec; spec stays the reference)
+   → Validation (contract tests, unit, integration, E2E — all trace back to spec IDs)
+   → Architecture review against the spec; update spec if reality diverges
+   → Release + observability (dashboards / alerts tied to specified SLIs and SLOs)
+```
+
+#### Suggested repository layout
+
+```
+/docs
+  /business
+  /architecture
+  /decisions          ← Architecture Decision Records (ADRs)
+/specs
+  /frontend
+  /services
+    /orders
+    /customers
+  /integrations
+  /data
+/src
+  /frontend
+  /services
+  /shared
+/tests
+/ops
+  /pipelines
+  /infra-as-code
+```
+
+#### Governance — avoiding drift
+
+- **Traceability** — IDs everywhere: requirement → spec section → task → PR → test → release.
+- **ADRs** — Architecture Decision Records for every non-trivial design choice.
+- **Spec checks in CI** — API implementation must match OpenAPI, DB schema must match migration plan, generated clients must be up to date; CI **fails** when they diverge.
+- **Definition of Done** — spec updated · tests linked · contracts validated.
+- **Spec health reviews** — recurring sweep for drift and stale sections.
+
+#### Agents + SDD = high-fidelity context
+
+This is the punchline for our Squad model:
+
+- **MCP servers expose the spec repo** as tools (`get_openapi(service, version)`, `get_adrs(domain)`, `get_requirements(id)`). Agents query the **true** source of truth instead of hallucinating.
+- The Squad maps cleanly onto the SDD pipeline:
+  - **Spec agent** reads and validates specs · **Implementation agent** generates code against the OpenAPI · **Test agent** generates contract + unit tests from acceptance criteria · **Review agents** check spec ↔ code conformance.
+- **Constrain agents to spec-linked files only.** An agent working on `SVC-ORDER-001` should not edit files outside that spec's scope.
+- Add **automated checks** that compare generated code to contracts and fail the build when they diverge.
+
+#### Where to start — don't boil the ocean
+
+Pick **one domain** (e.g. `Orders`), design a thin end-to-end SDD flow — spec → contract → tasks → code → tests — run it with agents in the loop, learn, iterate. Roll out the patterns once the first slice feels natural. The Spec Kit (§ 3.2) is the right tool to bootstrap this first slice.
+
+### 3.5 Agents vs Skills
 
 - **Agents** are autonomous, model-driven, with tools and memory. They reason, plan, ask questions.
 - **Skills** are declarative scripts the agent calls. They are deterministic and cheap.
 
 The right pattern is Agent + Skill: the agent reasons about *what* and *why*, the skill executes the *how* reproducibly.
 
-### 3.5 Coding with agents — best practices
+### 3.6 Coding with agents — best practices
 
 Three patterns that compressed the 7.5-hour integration phase described in § 2.3 — and that we now apply by default.
 
@@ -234,7 +326,7 @@ The most common failure mode is to ask eight agents to build eight verticals on 
 
 This is the same walking-skeleton pattern that works for multi-human teams. It scales to multi-agent teams **without modification** — because the constraint is identical: shared contracts must exist *before* parallel work pays off.
 
-### 3.6 Testing strategy
+### 3.7 Testing strategy
 
 Tests are not an afterthought — they are how the Squad knows it is done.
 
@@ -354,6 +446,10 @@ The same playbook scales. The compression is real. The margin shift is structura
 - Agent Forge — <https://github.com/microsoft/agent-forge>
 - Squad — <https://github.com/bradygaster/squad>
 - GitHub Copilot AI Credits billing — <https://docs.github.com/en/copilot/concepts/billing>
+- Spec-Driven Development for AI-Enabled Enterprise Systems (Microsoft Tech Community, May 2026) — <https://techcommunity.microsoft.com/blog/educatordeveloperblog/spec-driven-development-for-ai-enabled-enterprise-systems/4520807>
+- Azure microservices & DDD — <https://learn.microsoft.com/azure/architecture/microservices/>
+- Azure API design best practices — <https://learn.microsoft.com/azure/architecture/best-practices/api-design>
+- Model Context Protocol (MCP) for beginners — <https://aka.ms/mcp-for-beginners>
 - Microsoft Fabric — <https://learn.microsoft.com/fabric/>
 - Power BI Export API — <https://learn.microsoft.com/rest/api/power-bi/reports/export-to-file>
 - Office Add-ins (manifest, taskpane, SSO) — <https://learn.microsoft.com/office/dev/add-ins/>

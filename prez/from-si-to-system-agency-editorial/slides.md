@@ -366,8 +366,8 @@ _Spec is the deliverable. Forge engineers context. Store compounds across projec
 
 <div class="card">
 <div class="card-num">PILLAR 1</div>
-<h3>Spec Kit</h3>
-<p>Structured markdown spec — problem, scope, contracts, acceptance criteria. <strong>Spec-first inverts the flow.</strong></p>
+<h3>Spec Kit + SDD</h3>
+<p>Structured spec — problem, scope, contracts (OpenAPI/AsyncAPI), acceptance criteria. <strong>Spec-Driven Development</strong> makes the spec the single source of truth, not the code.</p>
 </div>
 
 <div class="card teal">
@@ -459,6 +459,100 @@ Open-source toolkit by Microsoft (`microsoft/agent-forge`). A **multi-agent pipe
 <div class="card-num">MODE 2 · BROWNFIELD</div>
 <h3>From an existing codebase</h3>
 <p>Scans structure, infers domains, maps to personas, preserves existing conventions.</p>
+</div>
+
+</div>
+
+</div>
+
+---
+
+# Spec-Driven Development — specs as the source of truth
+
+<div class="split right-wide">
+
+<div>
+
+The Squad only works if every agent reads the **same** unambiguous reference. **SDD** turns that into a discipline.
+
+**Three layered specs:**
+
+1. **Business & domain** — capabilities, DDD bounded contexts, NFRs (perf, security, compliance, SLAs)
+2. **Solution & architecture** — C4 diagrams, service boundaries, integration patterns, event flows
+3. **Per-component** — frontend (UX flows, state contracts), API (OpenAPI/AsyncAPI), DB (schema + migration), libs (versioning policy), integrations (idempotency, retry)
+
+One **master** spec per domain. **Separate** specs per service. Linked via stable IDs (`REQ-123`, `SVC-ORDER-001`).
+
+</div>
+
+<div>
+
+<div class="card">
+<div class="card-num">CONTRACT-FIRST</div>
+<h3>OpenAPI / AsyncAPI</h3>
+<p>Spec is the source of truth, not the code. Contract tests keep providers and consumers aligned. Versions <strong>v1, v2</strong> — never break in place.</p>
+</div>
+
+<div class="card teal" style="margin-top:14px">
+<div class="card-num">MIGRATIONS</div>
+<h3>Schema = code</h3>
+<p>EF Core · Flyway · Liquibase. Documented backward-compat windows.</p>
+</div>
+
+</div>
+
+</div>
+
+_Source: Lee Stott, Microsoft Tech Community, May 2026._
+
+---
+
+# SDD workflow & how the Squad plugs in
+
+<div class="split">
+
+<div>
+
+### The workflow
+
+```
+Discovery
+   ↓
+Business + Architecture specs
+   ↓
+Contract design (OpenAPI, events, schemas)
+   ↓
+Task generation (AI reads spec → work items)
+   ↓
+Implementation (spec stays the reference)
+   ↓
+Validation (tests trace to spec IDs)
+   ↓
+Review against spec · Release + SLI/SLO
+```
+
+</div>
+
+<div>
+
+### Squad ↔ SDD mapping
+
+<div class="card">
+<div class="card-num">SPEC AGENT</div>
+<h3>Reads & validates specs</h3>
+<p>MCP tools expose <code>get_openapi()</code>, <code>get_adrs()</code>, <code>get_requirements()</code>.</p>
+</div>
+
+<div class="card teal" style="margin-top:10px">
+<div class="card-num">IMPL + TEST AGENTS</div>
+<h3>Code against OpenAPI · tests from contracts</h3>
+<p>Constrain agents to spec-linked files only. CI fails when code ↔ contract diverge.</p>
+</div>
+
+<div class="card purple" style="margin-top:10px">
+<div class="card-num">START SMALL</div>
+<h3>One domain end-to-end</h3>
+<p>Spec → contract → tasks → code → tests. Then roll out. <strong>Don't boil the ocean.</strong></p>
 </div>
 
 </div>
