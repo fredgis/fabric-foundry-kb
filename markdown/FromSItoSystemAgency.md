@@ -154,21 +154,41 @@ The Copilot CLI plays a different role than the Squad agents. The Squad produces
 
 ![Toolchain](../images/officeaddin/toolchain.png)
 
-- **Spec Kit** — structured markdown spec (problem, scope, contracts, acceptance criteria). The deliverable is the spec; the code is generated from it. Spec-first inverts the traditional flow.
-- **Agent Forge** — context engineering toolkit (Microsoft, open source): a multi-agent pipeline that plans, generates, validates and installs Copilot customisation artifacts (`.agent.md`, `.prompt.md`, `.instructions.md`, `SKILL.md`, `.vscode/mcp.json`, hooks). Two modes: **Greenfield** (from a text description) and **Brownfield** (scans an existing codebase). The forge produces the agent definition; the agent produces the code.
-- **Agent Store** — reusable domain agents (Auth, Power BI, Fluent UI, Bicep). Pulled into the Squad for any project that touches the same surface area. Compounds across projects.
+The toolchain is layered. Spec Kit captures intent; Agent Forge engineers the context the agents will see; the Agent Store keeps the reusable pieces alive across projects.
 
-### 3.3 Fleet vs Squad
+**Spec Kit** — structured markdown spec (problem, scope, contracts, acceptance criteria). The deliverable is the spec; the code is generated from it. Spec-first inverts the traditional flow.
+
+**Agent Forge** — open-source context engineering toolkit from Microsoft (`microsoft/agent-forge`). A multi-agent pipeline that *plans → generates → validates → installs* the Copilot customisation surface of a project. It emits a coherent set of artifacts:
+
+- `.agent.md` — agent persona, model, tools, and responsibilities
+- `.prompt.md` — slash-command (e.g. `/refactor`, `/spec`) routed to an agent
+- `.instructions.md` — quality rules scoped by file glob (e.g. all `*.tsx` files)
+- `SKILL.md` — reusable domain procedure called by agents
+- `.vscode/mcp.json` — Model Context Protocol server bindings
+- hooks — automation triggered by repo events (pre-commit, post-merge)
+
+Two modes:
+
+- **Greenfield** — Agent Forge takes a text description ("PowerPoint add-in with Power BI export and GPT-4o Vision insights"), decomposes it into domains, dispatches specialist sub-agents to each domain, and emits the full `.github/` + `.vscode/` configuration.
+- **Brownfield** — Agent Forge scans an existing repo, infers domains from the structure (auth, services, infra, tests, docs), maps them to agent personas, and generates the same artifacts while preserving existing conventions.
+
+A post-generation validator auto-fixes YAML front-matter, tool names, glob patterns, and content quality. The output is ready to commit.
+
+**Agent Store** — reusable domain agents (Auth, Power BI, Fluent UI, Bicep). Pulled into the Squad for any project that touches the same surface area. Every project enriches the Store; every Store reuse compresses the next project. **The Store is the moat.**
+
+### 3.3 Fleet vs Squad — three patterns, one substrate
 
 ![Scaling](../images/officeaddin/scaling.png)
 
-| Pattern | When | Example |
-|---------|------|---------|
-| **Solo** | One agent, one task | "Add a settings page" |
-| **Squad** | 5-10 agents, one project | This add-in: 8 agents, 13.3 h |
-| **Fleet** | 50-500 agents, one programme | Enterprise migration: per-team Squads, shared Agent Store |
+| Pattern | Scale | Coordination | Memory | Example |
+|---------|-------|--------------|--------|---------|
+| **Solo** | 1 agent, 1 task | None | Single session | "Add a settings page" |
+| **Squad** | 5–10 agents, 1 project | Lead + Coordinator + CLI | Repo-resident (`.squad/`, `.github/agents/`) | This add-in: 8 agents, 13.3 h |
+| **Fleet** | 50–500 agents, 1 programme | Per-team Squad, central Agent Store, shared review pipeline | Org-wide Agent Store + per-repo memory | Enterprise migration across 30 services |
 
-Squads compose into Fleets. The same agent definitions, memory, and review pipeline scale from one developer to an enterprise programme.
+Squads compose into Fleets **without changing the substrate**. The same agent definitions, prompts, memory and review pipeline scale from one developer to an enterprise programme. What changes between Squad and Fleet is **governance**, not technology: a Fleet needs explicit Store curation, signed agent versions, and a central review board for shared agents — a Squad does not.
+
+**Fleet ≠ N Squads in parallel.** A Fleet shares state across Squads: when the Auth agent learns a new tenant-isolation pattern in Squad A, every Squad B running tomorrow picks it up. That cross-Squad compounding is what makes Fleet a qualitatively different pattern — not just "more developers".
 
 ### 3.4 Agents vs Skills
 
@@ -176,6 +196,63 @@ Squads compose into Fleets. The same agent definitions, memory, and review pipel
 - **Skills** are declarative scripts the agent calls. They are deterministic and cheap.
 
 The right pattern is Agent + Skill: the agent reasons about *what* and *why*, the skill executes the *how* reproducibly.
+
+### 3.5 Coding with agents — best practices
+
+Three patterns that compressed the 7.5-hour integration phase described in § 2.3 — and that we now apply by default.
+
+**1. Start every feature with a `plan.md`.**
+
+Before issuing code-generation calls, the conductor (or the Lead agent) writes a `plan.md` capturing:
+
+- The user-visible outcome ("the user clicks Insert, a PNG lands in the slide")
+- The contracts at each seam (REST routes, JWT claims, environment variables, Bicep outputs)
+- An **explicit task split** — one task per agent — with the **parallelisable subset clearly marked**
+- Acceptance tests per task
+
+The `plan.md` is the single source of truth. Agents read from it. Re-runs read from it. Cost is dominated by re-prompting; a good `plan.md` eliminates ~80 % of re-prompts.
+
+**2. Explicitly mark parallel vs sequential work.**
+
+```markdown
+## Plan — feature: workspace browser
+- [P] Frontend: workspace tree component             (Frontend agent)
+- [P] Backend: /api/workspaces route + service       (Backend agent)
+- [P] Infra:   Bicep module for Static Web App       (Infra agent)
+- [S] Auth:    OBO token wiring through middleware   (Auth agent — depends on Backend)
+- [S] Tests:   Jest + Playwright                      (Tester agent — depends on Frontend + Backend)
+```
+
+`[P]` = parallel, `[S]` = sequential. The CLI dispatches `[P]` tasks concurrently and serialises `[S]` ones. Without this annotation, the Lead agent has to infer the dependency graph from prose — error-prone and token-expensive.
+
+**3. Kernel first, then reason by feature (multi-developer pattern).**
+
+The most common failure mode is to ask eight agents to build eight verticals on day one. They produce eight locally-correct fragments with eight different contracts. The pattern that works:
+
+- **Day 1 — Kernel.** Frontend shell, one backend route, auth middleware, deploy pipeline, smoke test. **One vertical end-to-end.** All agents converge on the same contracts.
+- **Day 2+ — Features.** Once the kernel exists, every new feature is a focused Squad sprint: one `plan.md`, one parallel fan-out, one merge. Contracts are inherited from the kernel.
+
+This is the same walking-skeleton pattern that works for multi-human teams. It scales to multi-agent teams **without modification** — because the constraint is identical: shared contracts must exist *before* parallel work pays off.
+
+### 3.6 Testing strategy
+
+Tests are not an afterthought — they are how the Squad knows it is done.
+
+| Layer | Tool | Generated by | Run by |
+|-------|------|--------------|--------|
+| Unit | Jest | Tester agent | CI on every PR |
+| Integration | Jest + supertest (API routes) | Tester agent | CI on every PR |
+| E2E (UI) | Playwright | Tester agent | CI on `main` push |
+| Contract (OBO scopes, Bicep outputs) | Skills (deterministic scripts) | Infra / Auth agents | CI + pre-deploy |
+| Smoke (post-deploy) | `Invoke-RestMethod /api/health` | Conductor | After `azd up` |
+
+In this project, the Tester agent produced **68 tests** during the scaffold phase. They drove the bug discovery in § 2.3: every fix landed with a failing test first, a passing test second.
+
+**Three rules for agent-generated tests:**
+
+1. **Tests must come from a different agent than the code.** The Tester is a separate persona with its own context — it reads the spec, not the implementation. If the same agent writes both, it tests what it wrote, not what was specified.
+2. **Coverage is a leading indicator, not a goal.** The Tester reports coverage; the Conductor uses it to spot under-tested modules but does not chase 100 %.
+3. **The AI code review pass owns test review.** One of the four review agents explicitly asks: *are the tests testing the spec, or are they testing the implementation?*
 
 ## 4. The Cost Model
 
@@ -254,11 +331,14 @@ The competitive moat shifts from *people* to **agent definitions, prompts, knowl
 
 ### 5.8 Lessons learned
 
-- **Scaffold is free, integration is the work.** Plan time accordingly.
+- **Scaffold is free, integration is the work.** Plan calendar around the seams between agent outputs.
 - **Pick the right model per role.** Haiku for structure, Sonnet/Opus for reasoning.
 - **AI code review is non-negotiable.** Four parallel agents catch what one human misses.
 - **The CLI is the conductor.** Don't let the agents run unsupervised on critical paths.
 - **Spec quality dominates.** A bad spec produces eight bad agents in parallel.
+- **One `plan.md` per feature.** Mark every task `[P]` or `[S]`. The CLI parallelises on the annotation, not on guesses.
+- **Build the kernel first.** One end-to-end vertical before fanning out — same walking-skeleton pattern as multi-human teams.
+- **Different agents for code and tests.** The Tester reads the spec, not the diff.
 
 ## 6. Conclusion
 

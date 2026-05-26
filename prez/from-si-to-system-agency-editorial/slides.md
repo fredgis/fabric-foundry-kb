@@ -394,6 +394,79 @@ _Solo (1 task) → Squad (one project, 5-10 agents) → Fleet (one programme, 50
 
 ---
 
+# Squad vs Fleet — what actually scales
+
+<div class="two-col">
+
+<div>
+
+### Squad
+
+- 5–10 agents · one project
+- Coordinator + Lead + CLI
+- Memory in `.squad/` and `.github/agents/`
+- One developer steers
+- **Constraint**: shared spec
+
+</div>
+
+<div>
+
+### Fleet
+
+- 50–500 agents · one programme
+- Per-team Squads, central Store
+- Shared review board for cross-team agents
+- Signed agent versions
+- **Constraint**: governance
+
+</div>
+
+</div>
+
+> **Fleet ≠ N Squads in parallel.** Fleets share state: a fix to the Auth agent in Squad A reaches Squad B tomorrow. That is the qualitative difference.
+
+---
+
+# Agent Forge — context engineering, automated
+
+<div class="split right-wide">
+
+<div>
+
+Open-source toolkit by Microsoft (`microsoft/agent-forge`). A **multi-agent pipeline** that plans → generates → validates → installs the full Copilot customisation surface.
+
+**Artifacts emitted:**
+
+- `.agent.md` · persona, model, tools
+- `.prompt.md` · slash-commands
+- `.instructions.md` · per-glob rules
+- `SKILL.md` · reusable procedures
+- `.vscode/mcp.json` · MCP bindings
+- hooks · repo automation
+
+</div>
+
+<div>
+
+<div class="card">
+<div class="card-num">MODE 1 · GREENFIELD</div>
+<h3>From a text description</h3>
+<p>Decomposes into domains, dispatches specialist sub-agents, emits the full <code>.github/</code> + <code>.vscode/</code>.</p>
+</div>
+
+<div class="card teal" style="margin-top:18px">
+<div class="card-num">MODE 2 · BROWNFIELD</div>
+<h3>From an existing codebase</h3>
+<p>Scans structure, infers domains, maps to personas, preserves existing conventions.</p>
+</div>
+
+</div>
+
+</div>
+
+---
+
 # Agents vs Skills
 
 <div class="two-col">
@@ -423,6 +496,108 @@ _Solo (1 task) → Squad (one project, 5-10 agents) → Fleet (one programme, 50
 </div>
 
 > **Right pattern: Agent + Skill.** Agent decides *what* and *why*. Skill executes *how* reproducibly.
+
+---
+
+# Best practice — `plan.md` per feature
+
+<div class="split right-wide">
+
+<div>
+
+Before any code call, the Lead writes a `plan.md` capturing:
+
+- The user-visible outcome
+- Contracts at every seam (routes, JWT, env vars, Bicep outputs)
+- **Explicit task split** — one task per agent
+- **`[P]` parallel · `[S]` sequential** annotations
+- Acceptance tests per task
+
+A good `plan.md` eliminates **~80 % of re-prompts**. Cost is dominated by re-prompting.
+
+</div>
+
+<div>
+
+```markdown
+## Plan — workspace browser
+- [P] Frontend: tree component   (Frontend)
+- [P] Backend:  /api/workspaces  (Backend)
+- [P] Infra:    Bicep SWA module (Infra)
+- [S] Auth:     OBO wiring       (Auth)
+        ↳ depends on Backend
+- [S] Tests:    Jest + Playwright (Tester)
+        ↳ depends on Frontend + Backend
+```
+
+_The CLI dispatches `[P]` concurrently and serialises `[S]`._
+
+</div>
+
+</div>
+
+---
+
+# Kernel first, then reason by feature
+
+<div class="split">
+
+<div>
+
+<div class="card red">
+<div class="card-num">FAILURE MODE</div>
+<h3>8 verticals on day 1</h3>
+<p>Eight agents produce eight locally-correct fragments with <strong>eight different contracts</strong>. Integration eats the week.</p>
+</div>
+
+</div>
+
+<div>
+
+<div class="card teal">
+<div class="card-num">PATTERN THAT WORKS</div>
+<h3>Walking skeleton, then features</h3>
+<p><strong>Day 1 — Kernel</strong>: one vertical end-to-end (UI shell · 1 route · auth · deploy · smoke). All agents converge on the same contracts.</p>
+<p style="margin-top:8px"><strong>Day 2+ — Features</strong>: each feature is a focused Squad sprint with its own <code>plan.md</code>. Contracts inherited.</p>
+</div>
+
+</div>
+
+</div>
+
+> Same pattern as multi-human teams. **Shared contracts must exist before parallel work pays off.**
+
+---
+
+# Testing — how the Squad knows it's done
+
+<div class="cards two">
+
+<div class="card">
+<div class="card-num">PYRAMID</div>
+<h3>Unit · Integration · E2E · Contract · Smoke</h3>
+<p>Jest · supertest · Playwright · Skills for contracts · <code>azd</code> post-deploy smoke. <strong>68 tests</strong> in scaffold phase.</p>
+</div>
+
+<div class="card teal">
+<div class="card-num">RULE 1</div>
+<h3>Different agents for code and tests</h3>
+<p>The Tester reads the <strong>spec</strong>, not the diff. Same-agent test writing tests the implementation, not the contract.</p>
+</div>
+
+<div class="card purple">
+<div class="card-num">RULE 2</div>
+<h3>Coverage is a leading indicator</h3>
+<p>Tester reports coverage; the Conductor uses it to spot under-tested modules. <strong>Don't chase 100 %.</strong></p>
+</div>
+
+<div class="card orange">
+<div class="card-num">RULE 3</div>
+<h3>Review reviews the tests</h3>
+<p>One of the four review agents asks: <em>are the tests testing the spec, or the implementation?</em></p>
+</div>
+
+</div>
 
 ---
 
@@ -651,6 +826,18 @@ Every project enriches the Agent Store. Every fix becomes a memory. Every spec b
 <div class="card-num">LESSON 4</div>
 <h3>Spec quality dominates.</h3>
 <p>A bad spec produces eight bad agents in parallel. Invest there first.</p>
+</div>
+
+<div class="card orange">
+<div class="card-num">LESSON 5</div>
+<h3><code>plan.md</code> per feature · mark <code>[P]</code> / <code>[S]</code>.</h3>
+<p>The CLI parallelises on the annotation, not on guesses. Re-prompt cost drops ~80 %.</p>
+</div>
+
+<div class="card">
+<div class="card-num">LESSON 6</div>
+<h3>Build the kernel first.</h3>
+<p>One end-to-end vertical before fanning out. Contracts are inherited, not re-invented.</p>
 </div>
 
 </div>
