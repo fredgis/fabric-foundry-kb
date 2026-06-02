@@ -1,7 +1,7 @@
 ---
 title: "SAP to Fabric Connectivity"
 subtitle: "Architecture Patterns — Complete Reference Guide"
-date: "May 2026"
+date: "June 2026"
 ---
 
 ## Overview
@@ -265,7 +265,7 @@ graph LR
 
 ## Method 3 -- Copy Job CDC for SAP
 
-Introduced at **Ignite 2025**, Copy Job supports **Change Data Capture (CDC)** for SAP via Datasphere. This capability is currently in **Preview** (as of May 2026). Unlike Mirroring (autonomous), Copy Job CDC provides **explicit orchestration control** within a Data Factory pipeline.
+Introduced at **Ignite 2025**, Copy Job supports **Change Data Capture (CDC)** for SAP via Datasphere. As of **May 2026**, CDC in Copy Job reached **General Availability**, with **SAP Datasphere** listed among the GA source connectors (alongside SQL Server, Azure SQL Database, and Azure SQL Managed Instance). Unlike Mirroring (autonomous), Copy Job CDC provides **explicit orchestration control** within a Data Factory pipeline.
 
 ```mermaid
 graph LR
@@ -805,8 +805,7 @@ Organizations already using **Azure Data Factory (ADF)** or **Azure Synapse Anal
 **When to consider:**
 
 - Organization has existing ADF/Synapse pipelines and SAP CDC expertise
-- Fabric-native Copy Job CDC (Method 3) is still in Preview and not yet validated for production
-- Need full ODP-based CDC without SAP Datasphere (the ADF connector communicates directly with SAP ODP, not via Datasphere)
+- Need full ODP-based CDC **directly against SAP** without SAP Datasphere (the ADF connector communicates directly with SAP ODP, not via Datasphere). Note: Fabric-native Copy Job CDC (Method 3) reached **GA in May 2026**, but still requires SAP Datasphere as the source — the ADF SAP CDC connector remains the option for direct ODP extraction without Datasphere.
 
 **Constraints:**
 
@@ -909,7 +908,7 @@ flowchart TD
 | Feature | Status | Coverage |
 |---------|:---:|---------|
 | **Mirroring for SAP** | ◑ Preview | S/4HANA, BW, BW/4HANA, SuccessFactors, Ariba |
-| **Copy Job CDC for SAP** | ◑ Preview | SAP via Datasphere to Lakehouse (CDC in Copy Job remains Preview as of May 2026) |
+| **Copy Job CDC for SAP** | ◑ Preview | SAP via Datasphere to Lakehouse (reached **GA in May 2026** for the SAP Datasphere source connector -- see below) |
 
 ### FabCon 2026 -- March 2026
 
@@ -918,6 +917,15 @@ flowchart TD
 | **Mirroring for SAP** | ✔ GA | + SAP ECC, + Concur. Up to 1,000 tables. |
 | **Copy Job enhancements** | ✔ GA | Auto-partitioning, audit columns, zero-cost |
 | **Direct Lake in OneLake** | ✔ GA | Semantic models read Delta tables directly from OneLake |
+
+### Copy Job CDC for SAP -- GA (May 2026)
+
+| Feature | Status | What's New |
+|---------|:---:|-----------|
+| **Copy Job CDC -- SAP Datasphere source** | ✔ GA | CDC in Copy Job reached **General Availability** across the SQL estate and the **SAP Datasphere** source connector (GA sources: SQL Server, Azure SQL DB, Azure SQL MI, SAP Datasphere). Method 3 is now production-ready for SAP CDC into a Fabric Lakehouse. |
+| **SCD Type 2 extension** | ✔ GA | Native slowly-changing-dimension (Type 2) history extended to Fabric Warehouse and Synapse SQL Pool destinations. |
+
+> **Source:** [Simplify your data movement with Copy Job: CDC with SQL estate (GA)](https://community.fabric.microsoft.com/t5/Fabric-Updates-Blog/Simplify-your-data-movement-with-Copy-job-CDC-with-SQL-estate/ba-p/5184211)
 
 ### SAP Sapphire 2026 -- May 2026
 
@@ -951,7 +959,7 @@ At **SAP Sapphire 2026**, Microsoft and SAP reaffirmed and extended their joint 
 | **Native CDC** | ✘ SAP-side | ✔ Scheduled | ✔ Continuous | N/A | N/A | N/A | ✔ Partner | N/A |
 | **Governance** | Fabric | Fabric | Fabric | SAP | SAP | SAP (events) / Fabric (analytics) | Fabric | Dual |
 | **Use case** | Analytical | Analytical | Analytical | BI | Analytical | Operational | Analytical | Analytical+AI |
-| **GA status** | GA (2023) | Preview | GA (2026) | GA | GA | GA | GA (partners) | Preview |
+| **GA status** | GA (2023) | GA (2026) | GA (2026) | GA | GA | GA | GA (partners) | Preview |
 
 > **Legend:** ✔ Supported/Required | ✘ Not required | N/A = Not applicable | RT = Real-time | DS = Datasphere
 
@@ -1021,7 +1029,8 @@ Use **Method 8 -- SAP BDC Connect** for bi-directional, zero-copy data sharing b
 | Resource | Link |
 |----------|------|
 | What is Copy Job | <https://learn.microsoft.com/fabric/data-factory/what-is-copy-job> |
-| CDC in Copy Job | <https://learn.microsoft.com/fabric/data-factory/copy-job-change-data-capture> |
+| CDC in Copy Job | <https://learn.microsoft.com/fabric/data-factory/cdc-copy-job> |
+| Copy Job CDC -- SQL estate GA (blog) | <https://community.fabric.microsoft.com/t5/Fabric-Updates-Blog/Simplify-your-data-movement-with-Copy-job-CDC-with-SQL-estate/ba-p/5184211> |
 | Copy Job Monitoring | <https://learn.microsoft.com/fabric/data-factory/copy-job-workspace-monitoring> |
 
 ### Power BI and OneLake
