@@ -1,7 +1,7 @@
 ---
 title: "The Microsoft Foundry Agent Development Guide"
 subtitle: "Industrializing AI Agents from Prototype to Production"
-date: "April 2026"
+date: "June 2026"
 ---
 
 # The Microsoft Foundry Agent Development Guide
@@ -14,7 +14,7 @@ date: "April 2026"
 
 > **What you will learn**
 >
-> - The six Foundry building blocks the rest of the guide builds on (MAF, Toolkit, Toolbox, Memory, Hosted Agents, Observability) and the GA / Preview status of each as of April 2026.
+> - The six Foundry building blocks the rest of the guide builds on (MAF, Toolkit, Toolbox, Memory, Hosted Agents, Observability) and the GA / Preview status of each as of June 2026 (post–Build 2026).
 > - Why this guide is positioned as a single entry point for industrialization rather than a per-feature reference.
 > - The disclaimer that frames every preview-marked claim in this guide.
 
@@ -28,10 +28,26 @@ Microsoft Foundry now provides an end-to-end set of services for that journey, s
 | Foundry Toolkit for VS Code | **GA** | Local create / debug / deploy loop with traces |
 | Memory in Foundry Agent Service | **Public Preview** | Managed long-term memory, no DB to provision |
 | Toolbox in Foundry | **Public Preview** | One MCP endpoint exposing many tools, governed centrally |
-| Hosted Agents in Foundry Agent Service (refresh) | **Public Preview** (April 2026) | Per-session VM-isolated sandbox, scale-to-zero, persistent FS, per-agent Entra ID. The Foundry Agent Service control plane is GA, but the **hosted-agents compute / runtime is still in public preview** — see the [official Hosted Agents (preview) page](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents) |
+| Hosted Agents in Foundry Agent Service (refresh) | **Public Preview** (June 2026) | Per-session VM-isolated sandbox, scale-to-zero, persistent FS, per-agent Entra ID. The Foundry Agent Service control plane is GA, but the **hosted-agents compute / runtime is still in public preview** — see the [official Hosted Agents (preview) page](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents) |
 | Observability in Foundry Control Plane | **Core capabilities GA, advanced features still rolling out** | End-to-end OpenTelemetry tracing and continuous evaluation are GA; Red Teaming Agent and some advanced eval flows remain Public Preview |
 
 This guide walks through the full industrialization pipeline, with code samples, an end-to-end reference architecture, governance and FinOps controls, and a production checklist.
+
+> ### 🆕 Build 2026 refresh (June 2026)
+>
+> Microsoft Build 2026 extended the agent stack the rest of this guide builds on. The headline changes folded into this revision:
+>
+> | What's new | Status | Why it matters |
+> |---|---|---|
+> | **Foundry IQ knowledge bases** + the **Foundry IQ MCP server** | **GA** | SLA-backed, multi-source agentic retrieval exposed over open MCP — callable from MAF, Claude, ChatGPT, LangChain (see [Knowledge & IQ](#enterprise-context--work-iq-fabric-iq-foundry-iq)) |
+> | **Foundry IQ Serverless** (Developer tier) | **Public Preview** | Scale-to-zero RAG billed in Compute Units; no clusters to provision |
+> | **New Foundry IQ knowledge sources** — Work IQ, Fabric IQ (Data agents + Ontology), File Search, Azure SQL, MCP | **Public Preview** | One knowledge base spans enterprise + structured data, no custom connectors |
+> | **Microsoft Web IQ** in Foundry IQ | Limited access | Sub-165 ms, zero-data-retention web grounding that honors publisher preferences |
+> | **Fireworks AI on Foundry** | **GA** | Production-grade open-model inference (DeepSeek, Qwen, Kimi, GLM, Gemma, Llama…) + BYOM through one Azure endpoint with enterprise SLAs |
+> | **Model Router** + **instant models** | GA / Preview | Auto-route each request by cost/latency/quality; use deployment-less models without provisioning |
+> | **Agentic retrieval quality** | GA | Answer quality up to **+20%**, recall up to **+54%** vs single-shot RAG, with server-side token caching |
+>
+> The model-operations discipline that frames these additions — **Select → Evaluate → Optimize → Operate → Improve** — is summarized in [Cost & FinOps](#cost--finops) and [Advanced Quality Evaluation](#advanced-quality-evaluation--coherence-groundedness-hallucination).
 
 > ### ⚠️ Preview vs GA — read this before committing
 >
@@ -46,6 +62,9 @@ This guide walks through the full industrialization pipeline, with code samples,
 > | Foundry Toolbox | **Public preview** | No SLA; tool catalogue evolving |
 > | Foundry Memory | **Public preview** | No SLA; **billing scheduled to begin June 1, 2026** — verify before production go-live |
 > | AI Red Teaming Agent | **Public preview** | No SLA |
+> | Foundry IQ knowledge bases + Foundry IQ MCP server | **GA** | SLA-backed retrieval layer; safe for production grounding. Some sources/security features remain preview (see table below) |
+> | Foundry IQ Serverless (Developer tier) | **Public preview** | No SLA; Compute-Unit billing expected to start **late 2026** — free until then |
+> | Fireworks AI on Foundry | **GA** | Enterprise SLAs; **excluded from EU Data Boundary**, no FedRAMP/PCI — read the data-privacy caveats before regulated use |
 >
 > All preview prices, quotas and feature lists in this guide are **planning assumptions**. Always cross-check the live Microsoft Learn page before a commercial commitment — links are in the References section.
 
@@ -150,7 +169,7 @@ flowchart TB
 
 A Foundry agent reaches outside through **three connector surfaces**, all callable directly or — recommended — through a Toolbox (§7) for reuse and governance:
 
-- **Foundry IQ** — built-in retrieval primitives: `file_search` (Foundry-managed vector index), `azure_ai_search` (your existing index), `web_search` (Bing-grounded with custom domains).
+- **Foundry IQ** — the managed enterprise-knowledge layer. Knowledge bases and the **Foundry IQ MCP server** are **GA** (Build 2026): one multi-source knowledge base spans Azure AI Search, Azure Blob, OneLake, **Work IQ**, **Fabric IQ** (Data agents + Ontology), **File Search**, **Azure SQL** and **MCP**, with agentic retrieval, document-level security and cross-source ranking. Foundry-managed primitives (`file_search`, `azure_ai_search`, `web_search`) and **Microsoft Web IQ** (low-latency, zero-retention web grounding) are reachable the same way. **Foundry IQ Serverless** (Developer tier, preview) adds scale-to-zero RAG. See [Enterprise Context](#enterprise-context--work-iq-fabric-iq-foundry-iq).
 - **Logic Apps connectors** — **1,400+** Microsoft-curated SaaS & LOB connectors (Salesforce, SAP, ServiceNow, Workday, Dynamics, Office 365, GitHub, Jira, Confluence, …) exposed natively to agents with no custom code.
 - **MCP server catalog** — open Model Context Protocol servers (GitHub Copilot MCP, Atlassian, Notion, your own) callable through Toolbox with OAuth pass-through or MI.
 - **OpenAPI / Azure Functions / A2A** — wrap any HTTP API or another agent as a tool.
@@ -187,7 +206,7 @@ Microsoft Agent Framework (MAF) is the open-source SDK and runtime that unifies 
 
 | Pillar | What you get |
 |---|---|
-| **Multi-model** | Azure OpenAI, Anthropic, Google Gemini, Amazon Bedrock, Ollama, OpenAI direct, and more |
+| **Multi-model** | Azure OpenAI, Anthropic, Google Gemini, Amazon Bedrock, **Fireworks AI** (GA — DeepSeek, Qwen, Kimi, GLM, Gemma, Llama + BYOM), Ollama, OpenAI direct, and more — plus **Model Router** to pick per request |
 | **Workflows** | Programmatic *and* declarative multi-step pipelines, visualizable in DevUI |
 | **Native Foundry integration** | Memory, hosted agents, Observability, and Foundry Tools as first-class building blocks |
 | **Open standards** | MCP, A2A, OpenAPI built in |
@@ -557,9 +576,9 @@ Most agent failures come from **under-specified tools**, not the model. Before e
 > - The Sessions vs Conversations distinction and how to pick a protocol (Responses vs Invocations vs A2A).
 > - The versioning + canary primitives the platform exposes — and what is still Public Preview.
 
-> **Status:** **Public Preview** (Foundry Agent Service control plane is GA; the hosted-agents compute / runtime described here remains in public preview as of April 2026 — see the [official Hosted Agents (preview) page](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents)) · **Production readiness:** Suitable for pilots and pre-production hardening. **Do not commit external production SLAs to hosted-agents until GA.**
+> **Status:** **Public Preview** (Foundry Agent Service control plane is GA; the hosted-agents compute / runtime described here remains in public preview as of June 2026 — see the [official Hosted Agents (preview) page](https://learn.microsoft.com/en-us/azure/foundry/agents/concepts/hosted-agents)) · **Production readiness:** Suitable for pilots and pre-production hardening. **Do not commit external production SLAs to hosted-agents until GA.**
 
-This is the runtime intended for production once Hosted Agents reach GA. Today (April 2026) it is suitable for pilots and pre-production hardening. The 2026 refresh is materially different from the original Ignite preview — it now provides **per-session VM-isolated sandboxes**, **persistent filesystem**, **scale-to-zero with state resume**, and **dedicated Entra Agent IDs** out of the box.
+This is the runtime intended for production once Hosted Agents reach GA. Today (June 2026) it is suitable for pilots and pre-production hardening. The 2026 refresh is materially different from the original Ignite preview — it now provides **per-session VM-isolated sandboxes**, **persistent filesystem**, **scale-to-zero with state resume**, and **dedicated Entra Agent IDs** out of the box.
 
 ### Why traditional compute doesn't fit agents
 
@@ -602,7 +621,7 @@ Active endpoints depend on the protocols declared in the version definition (`ag
 | **Agent Entra identity** (per agent) | Created automatically at deploy | Runtime auth — model invocation, tool access, downstream Azure |
 | **Project managed identity** (per project) | System-assigned on the Foundry project | Platform infrastructure ops (e.g., ACR Repository Reader) |
 
-When you deploy with `azd`, the **Azure AI User** role is assigned automatically to the agent's Entra identity at account scope. For **external resources** (your own Storage, Cosmos, Key Vault), you assign RBAC manually to that same agent identity.
+When you deploy with `azd`, the **Foundry User** role (formerly *Azure AI User* — the Foundry RBAC roles were renamed; role IDs and permissions are unchanged) is assigned automatically to the agent's Entra identity at account scope. For **external resources** (your own Storage, Cosmos, Key Vault), you assign RBAC manually to that same agent identity.
 
 ### Sessions vs Conversations
 
@@ -683,7 +702,7 @@ That single command:
 - Builds the container image and pushes to ACR
 - Creates a new immutable agent version
 - Provisions the per-agent Entra identity
-- Assigns the Azure AI User role
+- Assigns the Foundry User role (formerly Azure AI User)
 - Wires up the stable endpoint
 - Applies the deployment configuration supported by the current `azure.ai.agents` extension
 
@@ -1092,9 +1111,11 @@ flowchart LR
 > **What you will learn**
 >
 > - Why Hosted Agent compute is < 2% of TCO and the model deployment dominates the bill.
-> - The seven cost levers (scale-to-zero, sandbox sizing, Toolbox reuse, model selection, caching, eval gating, PTU vs PAYG).
+> - The cost levers (scale-to-zero, sandbox sizing, Toolbox reuse, model selection, Model Router, batching & caching, eval gating, PTU vs PAYG) and the Build 2026 Select→Evaluate→Optimize→Operate→Improve loop.
 
 Hosted Agents cost economics are different from traditional compute, but **model spend dominates the bill** — the worked example in §21 shows sandbox CPU + RAM at < 2 % of TCO. Optimise model deployment mode and selection first; tune sandbox sizing second.
+
+> **Build 2026 framing — cost is a first-class architectural concern.** Treat model selection and optimization as a continuous loop — **Select → Evaluate → Optimize → Operate → Improve** — not a one-off. The system-level levers Microsoft calls out are: **intelligent routing** (Model Router), **batching** (async for non-real-time work), **caching** (don't pay twice for identical requests), **provisioned throughput** for predictable capacity, **quota management** (quota tiering, global / data-zone customer quota), and **model optimization** (compression, fine-tuning, distillation). Profile cost *by task type* before optimizing globally — routing is workload-specific.
 
 | Cost lever | Mechanism | Impact |
 |---|---|---|
@@ -1104,6 +1125,8 @@ Hosted Agents cost economics are different from traditional compute, but **model
 | **Toolbox reuse** | One implementation per tool, shared across agents | Removes duplicated dev cost & duplicated egress |
 | **Memory-as-a-service** | Foundry-managed; you pay $0.25/1K events + retrievals | No DB to provision, scale, secure |
 | **Model selection per agent** | Multi-model — pick the cheapest model that meets quality | Cost per 1K tokens varies 10× across models |
+| **Model Router** | Route each request to the right model by complexity/budget | Sends only hard requests to expensive models |
+| **Batching & caching** | Async batch for non-real-time work; cache identical/near-identical requests | Cuts repeated and peak-time spend |
 | **Continuous eval gating** | Block costly low-quality versions before promotion | Quality-cost optimization in CI/CD |
 
 ### Memory pricing reminder (effective June 1, 2026)
@@ -1394,7 +1417,21 @@ These are sizing heuristics drawn from preview behavior and field experience. **
 
 > **Practical rule**: model-side TPM/RPM (provisioned on the Foundry model deployment) is almost always the first wall you hit — not the agent platform. Provision a PTU pool for predictable workloads and front it with APIM (see Foundry_Agent_Monitoring_APIM guide).
 
+### Model quota & shared-quota pools
+
+Azure assigns model quota **per subscription, per region, per model** in **tokens-per-minute (TPM)**; Standard and Provisioned deployments use different mechanics. Manage it in the Foundry portal under **Operate → Quota**, which has two tabs — **Token per minute (TPM)** for standard deployments and **Provisioned throughput unit (PTU)** for provisioned ones (with capacity-estimation tooling). After editing an allocation or submitting a request, allow up to **15 minutes** to propagate.
+
+| Pool | What it is | Use for |
+|---|---|---|
+| **Dedicated quota** | Per-subscription/region/model TPM you allocate across projects | Production endpoints |
+| **Foundry shared quota** | A usage-billed pool you can temporarily draw on, no support ticket | **Temporary test endpoints only**, not production |
+| **Global quota (instant models, preview)** | Per-model global pool separate from regional quota; Global Standard deployments reserve a slice, instant models use the remainder | Deployment-less model usage; request a global increase if throttled |
+
+Build 2026 also highlights cost/throughput levers that interact with quota: **quota tiering**, **global customer quota** and **data zone customer quota** for more predictable scaling, plus intelligent routing, batching, caching and provisioned throughput. See the [Quota management docs](https://learn.microsoft.com/azure/foundry/how-to/quota).
+
 ### Quota-increase workflow
+
+For most model quota, request directly in the portal: **Operate → Quota → Request quota** (requires **Owner**/**Contributor** on the subscription; viewing needs **Cognitive Services Usages Reader**). For limits not exposed there:
 
 1. Open an **Azure support request** of type *Service and subscription limits (quotas)*
 2. Resource provider: **Microsoft.CognitiveServices** (Foundry) or **Microsoft.MachineLearningServices** (legacy AI Hub projects)
@@ -1424,7 +1461,7 @@ Hosted Agents and Toolbox are rolling out region-by-region. Pin both your **Foun
 | Capability | Status (today) | SLA |
 |---|---|---|
 | Foundry Agent Service control plane | GA | Covered by a Microsoft SLA — **verify the current figure in the [Azure SLA / Product Terms](https://www.microsoft.com/licensing/docs/view/Service-Level-Agreements-SLA-for-Online-Services)** before quoting any number externally |
-| Hosted Agents compute | **Public Preview** (April 2026) | No SLA — the Foundry Agent Service control plane is GA, but the hosted-agents compute / runtime is still in public preview. Do not back production SLAs with hosted-agents until GA |
+| Hosted Agents compute | **Public Preview** (June 2026) | No SLA — the Foundry Agent Service control plane is GA, but the hosted-agents compute / runtime is still in public preview. Do not back production SLAs with hosted-agents until GA |
 | Toolbox | Public Preview | No SLA |
 | Memory | Public Preview | No SLA |
 | Microsoft Agent Framework v1.0 (SDK) | GA | N/A (client SDK) |
@@ -1502,8 +1539,9 @@ Hosted Agents scale to zero on the **runtime** side, but the **model deployment*
 >
 > - When fine-tuning beats prompting + RAG (and when it does not).
 > - The 5-step Foundry fine-tuning pipeline, with the eval gate that must run before promotion.
+> - How to pick a model by workload fit (Model Router) and what **Fireworks AI on Foundry** (GA) adds for open-model + BYOM inference.
 
-Industrialization isn't only about wiring agents — sometimes the right move is to specialize a model.
+Industrialization isn't only about wiring agents — sometimes the right move is to specialize a model, route to a different one, or run an open-weight model behind the same Azure endpoint.
 
 ### When fine-tuning beats prompting + RAG
 
@@ -1525,26 +1563,81 @@ Industrialization isn't only about wiring agents — sometimes the right move is
 
 > Combine fine-tuning with RAG: fine-tune for **format and tone**, retrieve for **facts**. This pattern is used by most production agents at scale.
 
+### Choosing a model — workload fit, not leaderboard rank
+
+Build 2026's guidance is that model selection is a continuous operating discipline (**Select → Evaluate → Optimize → Operate → Improve**), not a one-time pick. Define the task contract first (capability, safety, latency, cost), then choose:
+
+| Workload need | Favor | Why |
+|---|---|---|
+| Classification, routing, extraction, high-volume chat | Smaller, lower-latency model | Keeps cost and latency low |
+| Complex reasoning, coding, planning | Stronger reasoning model | Quality on harder tasks |
+| Image, speech, voice, physical AI | Modality-specific model | Matches input/output type |
+| Mixed-complexity traffic | **Model Router** | Routes each request by quality, cost and latency automatically |
+| Domain-specific tone / format | Fine-tuned or custom model | Consistency for your scenario |
+
+**Model Router** (in Foundry Models) lets you skip manual selection: it routes each request to the most appropriate model for that request's complexity, cost target and latency budget. **Instant models** (preview) let you call deployment-less models — including as an evaluation judge — without provisioning a deployment.
+
+### Fireworks AI on Foundry (GA)
+
+**Fireworks AI on Foundry is generally available** — production-grade open-model inference through a single Azure endpoint, with enterprise SLAs, PTU Data Zone support, SOC 2 readiness, and the same access controls and audit logging that govern Foundry. During preview it processed **>176 billion tokens across 17 S&P 500 enterprises**; production adopters include Perplexity, Motif, UiPath and StackBlitz.
+
+| What you get | Detail |
+|---|---|
+| **Catalog models** | DeepSeek (v3.1, V4 Pro), Qwen 3.5 (9B → 397B), Moonshot Kimi (K2, K2 Thinking, K2.6), Zhipu GLM (4.7, 5.1), Google Gemma 4, Meta Llama 3.1, Mistral Ministral 3 — often before they ship directly from Azure |
+| **BYOM (custom weights)** | Import full-weight open models (Kimi, GLM, OpenAI gpt-oss-120b, Qwen) onto Fireworks GPU infra via `azd` (CLI-first). LoRA/adapters not supported |
+| **Offers** | Data Zone Standard (per-token) and Global **Provisioned Throughput**; all support the OpenAI `/v1` Chat Completions API and the Foundry SDK/Responses API |
+| **Regions** | Data Zone Standard in East US, East US 2, Central US, North Central US, West US, West US 3; Global PTU in all global regions except Azure Government |
+
+> ⚠️ **Data-privacy caveats — read before regulated use.** Fireworks on Foundry shares data between Microsoft and Fireworks AI. It is **excluded from EU Data Boundary commitments**, has **not** achieved **FedRAMP**, and **PCI DSS is not applicable** (don't use it to store/process/transmit cardholder data). Standard (per-token) offerings carry a **15-day model-retirement notice**. Evaluate against your compliance requirements first.
+
 ---
 
 ## Enterprise Context — Work IQ, Fabric IQ, Foundry IQ
 
 > **What you will learn**
 >
-> - How to expose M365, Fabric (incl. OneLake MCP, GA April 2026) and Foundry-curated knowledge to an agent.
+> - How Foundry IQ became the managed, multi-source knowledge platform (GA at Build 2026) and how its MCP server grounds any agent framework.
+> - How to expose M365 (Work IQ), Fabric (Fabric IQ — Data agents + Ontology, OneLake MCP) and Foundry-curated knowledge to an agent.
 > - The chain-of-context pattern for a "morning briefing" type agent, end-to-end.
 
 The reference architecture (§9) shows three context layers. Here's how an agent actually reaches them.
 
-### Foundry IQ — curated knowledge & vector search
+> ### 🆕 Foundry IQ at Build 2026 (June 2026)
+>
+> **Foundry IQ knowledge bases and the Foundry IQ MCP server are now GA.** A single knowledge base can fan out across **Azure AI Search, Azure Blob Storage, OneLake, Work IQ, Fabric IQ (Data agents + Ontology), File Search, Azure SQL and MCP** sources — with agentic retrieval, document-level security, cross-source ranking and activity logging — and is exposed as a **remote MCP server** consumable from MAF, Claude, ChatGPT, LangChain or any MCP-compatible host. Highlights:
+>
+> | Capability | Status | Note |
+> |---|---|---|
+> | Knowledge bases + Foundry IQ MCP server | **GA** | Stable APIs, SLA, compliance certs, network isolation, managed identity |
+> | GA knowledge sources | **GA** | Azure Blob (with indexing-status API), search indexes, Web, OneLake |
+> | New knowledge sources | **Preview** | Work IQ, Fabric IQ (Data agents + Ontology), File Search, Azure SQL, MCP |
+> | Foundry IQ **Serverless** (Developer tier) | **Preview** | Scale-to-zero RAG, billed in Compute Units (~$0.24 CU/h); free until billing starts (expected late 2026) |
+> | Microsoft **Web IQ** | Limited access | Web/news/image/video/shopping grounding, **sub-165 ms**, **zero data retention**, honors publisher preferences |
+> | Data-pipeline upgrades | **Preview** | Layout-aware ingestion, image enrichment/verbalization, first-class SharePoint (ASPX + Lists) indexing |
+> | Security upgrades | **Preview** | Cross-tenant CMK via federated identity, Purview sensitivity-label auditing, incremental SharePoint permissions sync. Private connectivity (Shared Private Link, Network Security Perimeter) is **GA** |
+>
+> **Quality:** the latest agentic-retrieval engine improves answer quality by **up to 20%** across datasets/effort-tiers/model-sizes, lifts recall **up to 54%** vs single-shot RAG, and applies server-side token caching to spend fewer tokens per multi-turn conversation.
 
-Wire an Azure AI Search index as a Toolbox tool (already shown in §7). Agents query it transparently via the Toolbox MCP endpoint.
+### Foundry IQ — curated knowledge & multi-source agentic retrieval
+
+Create a Foundry IQ knowledge base, attach your sources, and either wire it as a Toolbox tool (as in §7) or point any agent at its **MCP server endpoint** directly. The knowledge base handles planning, multi-source search, cross-source ranking and citations; you no longer build a retriever per source.
+
+```python
+# Ground any MAF agent on a Foundry IQ knowledge base via its GA MCP server
+agent = AzureOpenAIResponsesClient(credential=AzureCliCredential()).as_agent(
+    name="PolicyAgent",
+    instructions="Answer grounded only in retrieved enterprise knowledge; cite sources.",
+    tools=[client.get_toolbox_tool(name="foundry-iq-knowledge")],  # KB exposed over MCP
+)
+```
+
+The same MCP endpoint is reachable from Claude, ChatGPT, LangChain and other MCP hosts — so the knowledge layer is built once and reused across the whole agent fleet.
 
 ### Fabric IQ — business data via Microsoft Fabric
 
-> **April 2026 update:** Microsoft **Fabric Data Agent** and **OneLake MCP** are both **GA** (announced at FabCon 2026). You can now expose Lakehouses, KQL databases and semantic models to your Hosted Agents through a managed MCP endpoint without writing custom data-access code. Connect the OneLake MCP server to your Foundry Toolbox; Entra identity and Fabric workspace permissions flow through automatically.
+> **Build 2026 update:** **Fabric IQ is now a native Foundry IQ knowledge source (preview)** — agents can query **Fabric Data agents** and company **Ontologies** (formal models of business entities, relationships and rules linked to live OneLake data and a semantic layer), returning structured answers *alongside* unstructured document context in one retrieval call. This is in addition to **Fabric Data Agent** and **OneLake MCP** being **GA** (FabCon 2026), which expose Lakehouses, KQL databases and semantic models through a managed MCP endpoint. Entra identity and Fabric workspace permissions flow through automatically.
 
-The legacy pattern below — wrapping Fabric items in a custom MCP server you host yourself — remains useful when you need to mix Fabric data with bespoke business logic, but is no longer the **only** way to give an agent access to OneLake.
+The legacy pattern below — wrapping Fabric items in a custom MCP server you host yourself — remains useful when you need to mix Fabric data with bespoke business logic, but is no longer the **only** (or the simplest) way to give an agent access to OneLake.
 
 Expose Fabric items (semantic models, OneLake tables, KQL DBs) as MCP servers and add them to a toolbox. Use the OneLake / Fabric REST APIs behind the MCP server, with Entra **on-behalf-of** so the user's Fabric permissions are honored.
 
@@ -1562,7 +1655,9 @@ client.beta.toolboxes.add_tool(
 
 ### Work IQ — Microsoft 365 graph (mail, files, chats, meetings)
 
-Use the **Microsoft 365 Copilot APIs** (Work IQ retrieval and Search APIs) inside a thin MCP server that authenticates via Entra OBO. This guarantees the agent only ever sees content the calling user could see in M365.
+> **Build 2026 update:** **Work IQ is now a native Foundry IQ knowledge source (preview)** — it brings organizational signals (emails, meetings, files, Teams messages) into one enriched, AI-ready source **while respecting user permissions**, so agents can answer "what was decided / what's top of mind" without a bespoke connector.
+
+When you need finer control, the classic path still works: call the **Microsoft 365 Copilot APIs** (Work IQ retrieval and Search APIs) inside a thin MCP server that authenticates via Entra OBO. Either way, the agent only ever sees content the calling user could see in M365.
 
 ```python
 agent = Agent(
@@ -1575,7 +1670,7 @@ agent = Agent(
 
 ### Pattern: chain Foundry IQ → Fabric IQ → Work IQ in a single agent
 
-A "morning briefing" agent typically (1) retrieves curated playbooks from **Foundry IQ**, (2) joins KPIs from **Fabric IQ**, and (3) personalizes with **Work IQ** (calendar, recent mail). Connected Agents (A2A) is the right pattern when each layer has its own owner team.
+A "morning briefing" agent typically (1) retrieves curated playbooks from **Foundry IQ**, (2) joins KPIs from **Fabric IQ**, and (3) personalizes with **Work IQ** (calendar, recent mail). With Build 2026 you can collapse all three into a **single multi-source Foundry IQ knowledge base** for a unified, permission-aware retrieval call; keep them as separate Connected Agents (A2A) when each layer has its own owner team and lifecycle.
 
 ---
 
@@ -1608,9 +1703,26 @@ Production agents handle sensitive data — design for the regulatory perimeter 
 > **What you will learn**
 >
 > - The built-in evaluators in the Azure AI Evaluation SDK and which ones must gate every promotion.
+> - The four evaluation targets in the Foundry portal and how to validate with your own data.
 > - How to wire a continuous eval into CI and grow the golden dataset from production traces.
 
-Section §15 covered chaos and resilience tests. This section adds **semantic** evaluation — the only way to catch silent regressions in an LLM-driven system.
+Section §15 covered chaos and resilience tests. This section adds **semantic** evaluation — the only way to catch silent regressions in an LLM-driven system. Build 2026's core message: **benchmarks are not enough — validate against your own prompts, data, users and business rules**, and re-run continuously as model versions, fine-tuned variants and new model families arrive.
+
+### Evaluate in the Foundry portal — four targets
+
+The portal ([Evaluation quickstart](https://learn.microsoft.com/azure/foundry/how-to/evaluate-generative-ai-app)) runs your model/agent against test data and scores it with built-in or custom evaluators. Pick a target:
+
+| Target | Evaluates | Best for |
+|---|---|---|
+| **Agent** | Output of a prompt or hosted agent | End-to-end behavior — **Full conversations (preview)** or **Individual turns** |
+| **Model** | A deployed (or **instant**) model's completions | Benchmarking candidates against a curated set |
+| **Dataset** | Pre-existing outputs in CSV/JSONL | Scoring outputs without re-running the model/agent |
+| **Traces** | Agent interactions captured in App Insights | Evaluating historical production traces over a time range |
+
+- **Bring your own data:** CSV/JSONL with prompts, expected outputs, labels or ground-truth answers; run side-by-side comparisons across models and prompts.
+- **Simulated data:** generate synthetic multi-turn conversations from scenario descriptions to test before deployment.
+- **Instant models** can serve as either the evaluation target *or* the judge model, selected straight from the model picker (no deployment needed).
+- An Azure OpenAI connection with a deployed judge model (e.g. `gpt-4.1-mini`) is required for AI-assisted quality evaluators; you need the **Foundry User** role on the project.
 
 ### Built-in evaluators (Azure AI Evaluation SDK)
 
@@ -1831,10 +1943,18 @@ The earlier you onboard Agent 365, the cheaper compliance becomes — retro-tagg
 
 ---
 
+## References & Further Reading
 
+### Get started
+
+- [Microsoft Foundry portal](https://ai.azure.com/)
+- [Microsoft Foundry documentation](https://learn.microsoft.com/en-us/azure/foundry/)
+- [Develop generative AI apps — Microsoft Learn training path](https://learn.microsoft.com/en-us/training/paths/develop-generative-ai-apps/)
 
 ### Source articles (this guide synthesizes and extends them)
 
+- [A Developer's Guide to Managing Models, Cost and Quality in Microsoft Foundry (Build 2026)](https://devblogs.microsoft.com/foundry/build-2026-foundry-models/)
+- [Build smarter agents faster with Foundry IQ (Build 2026)](https://devblogs.microsoft.com/foundry/build-smarter-agents-faster-with-foundry-iq/)
 - [Introducing the new Hosted Agents in Foundry Agent Service](https://devblogs.microsoft.com/foundry/introducing-the-new-hosted-agents-in-foundry-agent-service-secure-scalable-compute-built-for-agents/)
 - [Introducing Toolboxes in Foundry](https://devblogs.microsoft.com/foundry/introducing-toolboxes-in-foundry/)
 - [Deploying Production-Grade Agents on Microsoft Foundry — end-to-end developer journey](https://aka.ms/DeployingAgents-blog)
@@ -1854,6 +1974,10 @@ The earlier you onboard Agent 365, the cheaper compliance becomes — retro-tagg
 - [Foundry Agent Service limits, quotas & regions](https://learn.microsoft.com/azure/ai-foundry/agents/concepts/limits-quotas-regions)
 - [Foundry region availability](https://learn.microsoft.com/en-us/azure/ai-foundry/reference/region-support)
 - [Foundry what's new / release notes](https://learn.microsoft.com/en-us/azure/ai-foundry/whats-new)
+- [Fireworks AI on Foundry — enable & deploy models](https://learn.microsoft.com/azure/foundry/how-to/fireworks/enable-fireworks-models)
+- [Evaluate a generative AI app in the Foundry portal (quickstart)](https://learn.microsoft.com/azure/foundry/how-to/evaluate-generative-ai-app)
+- [Manage and increase quotas for resources](https://learn.microsoft.com/azure/foundry/how-to/quota)
+- [Connect an agent to Foundry IQ knowledge bases](https://learn.microsoft.com/en-us/azure/foundry/agents/how-to/foundry-iq-connect)
 - [Fine-tuning models on Azure AI Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/fine-tuning-overview)
 - [Azure AI Evaluation SDK](https://learn.microsoft.com/en-us/azure/ai-foundry/how-to/develop/evaluate-sdk)
 - [AI Red Teaming Agent](https://learn.microsoft.com/en-us/azure/ai-foundry/concepts/ai-red-teaming-agent)
@@ -1871,6 +1995,16 @@ The earlier you onboard Agent 365, the cheaper compliance becomes — retro-tagg
   - [Microsoft Agent Framework](https://aka.ms/foundry-toolbox-maf)
   - [LangGraph](https://aka.ms/foundry-toolbox-langgraph)
   - [Copilot SDK](https://aka.ms/foundry-toolbox-copilotsdk)
+
+### Build 2026 sessions & skilling
+
+- [BRK230 — Build smarter AI systems in Foundry as models and costs evolve](https://build.microsoft.com/en-US/sessions/BRK230)
+- [BRK246 — Foundry IQ: Fuel agents with enterprise knowledge and agentic retrieval](https://build.microsoft.com/en-US/sessions/BRK246)
+- [BRK240 — Build context-aware agents: From data to decisions with Microsoft IQ](https://build.microsoft.com/en-US/sessions/BRK240)
+- [LAB532 — From data to context: agent-ready knowledge with Foundry IQ](https://build.microsoft.com/en-US/sessions/LAB532)
+- [DEM331 — Turn APIs, tools, and data into real agent velocity](https://build.microsoft.com/en-US/sessions/DEM331)
+- [Claude in Microsoft Foundry — Skilling Learning Path](https://aka.ms/ClaudeFoundryLearningPath)
+- [Mastering Foundry IQ — Forgebook cookbook](https://microsoft-foundry.github.io/forgebook/notebook/mastering-foundry-iq/)
 
 ### Community
 
