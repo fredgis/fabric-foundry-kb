@@ -1708,6 +1708,8 @@ Production agents handle sensitive data — design for the regulatory perimeter 
 
 Section §15 covered chaos and resilience tests. This section adds **semantic** evaluation — the only way to catch silent regressions in an LLM-driven system. Build 2026's core message: **benchmarks are not enough — validate against your own prompts, data, users and business rules**, and re-run continuously as model versions, fine-tuned variants and new model families arrive.
 
+> **Developer tip — criteria-first evaluation.** Define your success criteria *before* opening the model catalog. Anchoring on a model's leaderboard reputation instead of workload fit is the most common evaluation mistake. Write down the task contract (capability, safety, latency, cost) and the pass/fail thresholds first, then measure candidates against it.
+
 ### Evaluate in the Foundry portal — four targets
 
 The portal ([Evaluation quickstart](https://learn.microsoft.com/azure/foundry/how-to/evaluate-generative-ai-app)) runs your model/agent against test data and scores it with built-in or custom evaluators. Pick a target:
@@ -1736,6 +1738,8 @@ The portal ([Evaluation quickstart](https://learn.microsoft.com/azure/foundry/ho
 | `ContentSafetyEvaluator` | Hate, sexual, violence, self-harm | **Mandatory gate** |
 | `ProtectedMaterialEvaluator` | Copyright leakage | Mandatory gate for public-facing agents |
 | `IndirectAttackEvaluator` | Prompt injection robustness | Run after every Toolbox change |
+
+Beyond the built-ins, **custom evaluators** capture your application-specific rules, output formats, and **policy adherence** (did the response follow your business and compliance rules?). Register them alongside the built-ins so every promotion is scored on relevance, groundedness, coherence, fluency, safety **and** your own policy checks in one pass.
 
 ### Example — wire a continuous eval into CI
 
