@@ -64,6 +64,7 @@ Microsoft Fabric does not have one universal SAP connector. The right path depen
 | 1.2 | June 2, 2026 | Copy Job CDC status update |
 | 2.0 | September 11, 2026 | Full source audit, architecture refresh, and PDF redesign |
 | 2.1 | September 11, 2026 | Decision, security, data-contract, and operations hardening |
+| 2.2 | September 11, 2026 | Direct Lake consumer identity and privileged workspace-role clarification |
 
 ## Architecture map
 
@@ -909,11 +910,15 @@ RLS or OLS defined in a Power BI semantic model applies only to queries that pas
 
 | Persona | Intended access | Access that must remain denied | Evidence to retain |
 | --- | --- | --- | --- |
-| Report viewer | Approved Power BI report and semantic model | SQL, Spark, and direct OneLake access | Report test using allowed and forbidden SAP company codes |
+| Report viewer | Approved report and semantic model through a fixed-identity cloud connection with SSO disabled | Source Lakehouse or Warehouse, SQL, Spark, and direct OneLake access | Connection settings, report RLS test, and denied source-item request |
 | SQL analyst | Approved SQL views or tables | Raw OneLake paths and unrelated semantic models | SQL query results plus denied OneLake request |
-| Data engineer | Approved Lakehouse and notebook paths | Production report administration and unapproved SAP domains | Notebook test by client, company code, and source system |
+| Data engineer | Approved Lakehouse and notebook paths in an engineering workspace | Production consumption workspace and unapproved SAP domains | Actual workspace role, direct data test, and denied cross-workspace request |
 | Service identity | Only the ingestion or framing paths it operates | Interactive use and unrelated workspaces | Role assignments, token identity, and denied cross-workspace test |
-| Workspace administrator | Administrative access by design | None assumed | Privileged-access approval and audit log |
+| Workspace Contributor, Member, or Admin | Broad workspace access by design | No semantic-model RLS or OLS boundary assumed in that workspace | Role approval, workspace-separation test, and audit log |
+
+A report viewer can be isolated from the source data only when the Direct Lake semantic model uses an explicit cloud connection with a fixed identity and Microsoft Entra SSO is disabled. Grant the source permissions to the fixed identity, not to the viewer. With SSO enabled, Direct Lake checks the viewer's identity. The viewer then needs the underlying permissions for the selected mode: target-item and SQL `SELECT` permissions for Direct Lake on SQL, or target-item access plus a OneLake security role or `ReadAll` for Direct Lake on OneLake.
+
+Treat Contributor, Member, and Admin as privileged workspace roles. Contributors or higher have `Read` and `ReadAll` in OneLake. Contributor, Member, and Admin roles also grant implicit `Write` permission on semantic models, so semantic-model RLS and OLS are not enforced for those users. If a data engineer must be excluded from a production reporting area or another SAP domain, place those assets in separate workspaces and grant the lowest required role in each workspace.
 
 For SAP data, test at least company code, controlling area, plant, client or mandant, language, and source-system boundaries where they apply. A successful report test does not prove that direct OneLake or Spark access is secure.
 
