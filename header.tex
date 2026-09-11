@@ -60,5 +60,25 @@
 
 % Section styling
 \usepackage{titlesec}
-\titleformat{\section}{\Large\bfseries\color{blue!70!black}}{\thesection}{1em}{}
-\titleformat{\subsection}{\large\bfseries\color{blue!50!black}}{\thesubsection}{1em}{}
+\colorlet{DocSectionColor}{blue!70!black}
+\colorlet{DocSubsectionColor}{blue!50!black}
+\newcommand{\resetsectioncolor}{%
+  \colorlet{DocSectionColor}{blue!70!black}%
+  \colorlet{DocSubsectionColor}{blue!50!black}%
+}
+
+% Per-document option banners and matching section colors
+\newcommand{\optionbanner}[3]{%
+  \definecolor{CurrentOptionColor}{HTML}{#1}%
+  \colorlet{DocSectionColor}{CurrentOptionColor}%
+  \colorlet{DocSubsectionColor}{CurrentOptionColor}%
+  \vspace{0.5em}
+  \noindent\colorbox{CurrentOptionColor}{%
+    \parbox{\dimexpr\linewidth-2\fboxsep\relax}{%
+      \color{white}\bfseries #2\hfill\mdseries #3%
+    }%
+  }\par\vspace{0.35em}
+}
+
+\titleformat{\section}{\Large\bfseries\color{DocSectionColor}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{DocSubsectionColor}}{\thesubsection}{1em}{}
