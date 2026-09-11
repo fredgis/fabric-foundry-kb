@@ -186,12 +186,13 @@ Microsoft documents the following setup:
 1. Register the `Microsoft.MessagingConnectors` resource provider in the subscription that hosts the VNet.
 2. Create or reuse an Azure VNet in the same region as the eventstream.
 3. Avoid address overlap with `10.240.0.0/16` and `10.224.0.0/12`.
-4. Prepare a dedicated subnet and delegate it to **Messaging Connectors**.
-5. Use at least a `/27` with at least 16 available addresses.
-6. Connect the VNet to the Kafka network through VPN or ExpressRoute.
-7. Enable the Fabric workspace identity.
-8. Grant that identity the Azure **Network Contributor** role on the VNet.
-9. Create the streaming virtual network data gateway, then create a connection marked `[vNet]`.
+4. Prepare a dedicated subnet.
+5. Delegate it to `Microsoft.MessagingConnectors/connectors`, shown as **Messaging Connectors** in the Azure portal.
+6. Use at least a `/27` with at least 16 available addresses.
+7. Connect the VNet to the Kafka network through VPN or ExpressRoute.
+8. Enable the Fabric workspace identity.
+9. Grant that identity the Azure **Network Contributor** role on the VNet.
+10. Create the streaming virtual network data gateway, then create a connection marked `[vNet]`.
 
 Microsoft recommends a new subnet. If an existing subnet is reused, it must not contain Private Endpoints, Load Balancers, Application Gateways, virtual machines, Virtual Machine Scale Sets, or network interfaces.
 
@@ -207,7 +208,7 @@ The documented example is:
 = up to 35 addresses required
 ```
 
-Size the subnet for the current connectors, their partition counts, and planned growth. A `/27` is a technical minimum, not a universal recommendation.
+The example needs more addresses than a `/27` provides and normally calls for a `/26`. Size the subnet for the current connectors, their partition counts, and planned growth. A `/27` is only the technical minimum.
 
 ### Network flows
 
@@ -237,20 +238,19 @@ For a private source, connect the Key Vault that holds the certificates to the V
 
 The connector must resolve every broker name returned by Kafka. Microsoft recommends proving that a virtual machine in the VNet can reach the source before Eventstream is configured.
 
-The DNS design depends on the existing environment:
+The injected connector does not directly support a custom DNS server. Microsoft documents three workarounds:
 
-- an Azure Private DNS zone linked to the VNet works for a small set of managed records;
-- Azure DNS Private Resolver can forward queries to on-premises DNS;
-- custom DNS configured on the VNet must resolve both internal names and the required Azure zones;
-- direct IP addresses can help during diagnosis, but they are rarely a sound Kafka operating model.
+- link an Azure Private DNS zone to the VNet and create the required A records;
+- use Azure DNS Private Resolver to forward queries to the on-premises DNS service;
+- use a private IP address when the connector and certificate rules do not require an FQDN.
 
 Test every broker FQDN returned in metadata, not just the bootstrap server.
 
 ### Limitations and operating notes
 
 - The connection test is disabled when the connection uses a streaming virtual network data gateway.
-- Data preview can be checked on the central eventstream node after publication. It still depends on Kafka permissions, message format, and Key Vault access.
-- Kafka source preview supports JSON messages only.
+- Source data preview is unavailable for private-network sources. Validate flow through source status, downstream nodes, and the destination.
+- When preview is available for a public Kafka source, it supports JSON messages only.
 - Private connectivity does not repair an incorrect `advertised.listeners` configuration.
 - Delivery depends on coordination across the Fabric, Azure networking, Kafka, DNS, and PKI teams.
 
@@ -299,7 +299,9 @@ Eventhouse
 OneLake availability, Lakehouse, Warehouse, Notebook, or Power BI
 ```
 
-Microsoft publishes a Kafka Connect sink for Eventhouse. Kafka Connect workers run in the organization's chosen environment, preferably close to the cluster. They read Kafka locally, then call the Eventhouse ingestion and query endpoints over HTTPS.
+Current Microsoft Fabric guidance points to the Microsoft Azure Data Explorer Kafka Connect Kusto sink for Eventhouse. Kafka Connect workers run in the organization's chosen environment, preferably close to the cluster. They read Kafka locally, then call the Eventhouse ingestion and query endpoints over HTTPS.
+
+A separate `microsoft/kafka-sink-ms-fabric` repository also exists, but Microsoft does not document it as a replacement for the Learn-linked Kusto sink. Select and pin one connector implementation during the proof of concept.
 
 ### Advantages
 
@@ -307,27 +309,28 @@ Microsoft publishes a Kafka Connect sink for Eventhouse. Kafka Connect workers r
 - A public endpoint does not require VPN or ExpressRoute.
 - Eventhouse ingestion and query endpoints use HTTPS URLs.
 - The connector handles JSON, CSV, and Avro, topic-to-table mappings, retries, and dead-letter queues.
-- Streaming ingestion can target subsecond latency when it is enabled and sized correctly.
+- Managed streaming ingestion can target subsecond latency when it is enabled and sized correctly.
 - The connector documents `proxy.host` and `proxy.port`.
 
 ### Operating constraints
 
-- The current Fabric sink writes to Eventhouse. Eventstream support remains on its roadmap.
 - Production requires Kafka Connect in distributed mode.
-- Connector version 2.x requires Java 21 or later.
+- Queued ingestion is the default. Managed streaming is optional and can fall back to queued ingestion after retries.
+- Queued ingestion uses temporary Azure Blob, Queue, and sometimes Table Storage endpoints in addition to the Eventhouse ingestion and query URIs. All use HTTPS 443, but a strict proxy must allow the service-issued Storage FQDNs.
 - Delivery is **at least once**, so downstream processing must tolerate duplicates.
 - Teams must administer tables, mappings, ingestion policies, and dead-letter queues.
 - The documented proxy settings cover host and port. The connector does not document proxy authentication. Test it with the actual corporate proxy rather than assuming support.
+- Strict Fabric Private Link needs a separate proof of concept because queued ingestion is unsupported and managed streaming can fall back to it.
 
 ### Identity
 
-The connector documents three authentication strategies:
+The connector implementation includes three authentication strategies:
 
 - a Microsoft Entra application with tenant ID, application ID, and secret;
 - managed identity when the worker runs in a compatible Azure environment;
 - workload identity in a platform that supports it.
 
-For a fully on-premises deployment, a Microsoft Entra application is usually the most direct choice. Store its secret in the Kafka Connect platform's secret provider, not in plain text configuration.
+For a fully on-premises deployment, a Microsoft Entra application is the clearest documented choice. Store its secret in the Kafka Connect platform's secret provider, not in plain text configuration. Managed identity depends on an Azure host with IMDS, while workload identity lacks an Eventhouse-specific deployment guide.
 
 ### Access through OneLake
 
@@ -358,7 +361,7 @@ For a tightly filtered network with no inbound path to Kafka, this is often the 
 
 ## Option C: push Kafka data to an Eventstream custom endpoint
 
-An Eventstream custom endpoint exposes connection details compatible with Event Hubs, AMQP, and Kafka. A Kafka producer, Kafka Connect worker, or compatible replication tool can send events to it after a configuration change.
+An Eventstream custom endpoint exposes connection details compatible with Event Hubs, AMQP, and Kafka. Microsoft explicitly documents ordinary Kafka producers and consumers against this endpoint. Other Kafka tooling needs separate validation.
 
 The documented Kafka configuration uses:
 
@@ -383,7 +386,8 @@ Azure Event Hubs uses TCP 9093 for its Kafka protocol, and the Eventstream custo
 - The firewall must allow outbound TCP 9093 to the `*.servicebus.windows.net` endpoint.
 - Event Hubs implements the Kafka protocol but is not a complete Kafka broker. Test the replication tool and the APIs it uses.
 - SAS secrets or configured identities require controlled storage and rotation.
-- Validate MirrorMaker 2 and other connectors against the features they use, including transactions, compression, offsets, and retry behavior.
+- Microsoft does not document Kafka Connect or MirrorMaker 2 support for the Eventstream custom endpoint. Treat any such integration as an unverified proof of concept.
+- Fabric Tenant and Workspace Private Links do not support custom endpoint sources or destinations.
 
 ### When to use this option
 
@@ -437,7 +441,7 @@ flowchart LR
     class MPE,VNET,ES,DEST fabric
 ```
 
-Azure Event Hubs provides a Kafka endpoint in its Standard, Premium, and Dedicated tiers. Many Kafka applications can use it after a configuration change. Encrypted Kafka traffic uses TCP 9093.
+Azure Event Hubs provides a Kafka endpoint in its Standard, Premium, and Dedicated tiers. Microsoft documents Kafka producers, Kafka Connect, MirrorMaker, and MirrorMaker 2 for this endpoint. Encrypted Kafka traffic uses TCP 9093.
 
 Event Hubs can be exposed through:
 
@@ -451,6 +455,8 @@ Eventstream can then read Event Hubs through:
 - connector VNet injection at the Extended feature level.
 
 Both Fabric network features are generally available.
+
+Using the Fabric workspace identity as the Event Hubs source authentication method remains in preview. This is separate from the workspace identity required to grant Network Contributor for connector VNet injection.
 
 ### Advantages
 
@@ -511,6 +517,7 @@ The Eventstream custom endpoint provides an Event Hubs-format connection string.
 - The relay owns Kafka offsets, retries, duplicate handling, and dead-letter processing.
 - Test TLS inspection and authenticated proxy behavior with the selected SDK.
 - Measure throughput and batch sizes under representative load.
+- The Eventstream custom endpoint remains public because Fabric Private Link does not support custom endpoint sources or destinations.
 
 This option costs more to operate than Kafka Connect to Eventhouse. It is justified when Eventstream transformations are required and TCP 9093 is not allowed.
 
@@ -524,7 +531,7 @@ This option costs more to operate than Kafka Connect to Eventhouse. It is justif
 | A. VNet injection | Fabric to Kafka | Private Kafka listener port | Yes | Yes | Hybrid network and Eventstream configuration |
 | A2. IP allowlist | Fabric to public Kafka | Publicly exposed Kafka listener | No | Yes | Controlled public exposure |
 | B. Kafka Connect to Eventhouse | On-premises to Fabric | HTTPS 443 | No | No | Kafka Connect cluster |
-| C. Kafka custom endpoint | On-premises to Fabric | Kafka TLS 9093 | No | Yes | Producer, connector, or replication tool |
+| C. Kafka custom endpoint | On-premises to Fabric | Kafka TLS 9093 | No | Yes | Kafka producer or custom integration |
 | D. Event Hubs intermediary | On-premises to Azure | 9093, or 443 with a relay | Optional, required for Private Endpoint | Yes | Event Hubs and producer |
 | E. Relay to Eventstream | On-premises to Fabric | HTTPS 443 | No | Yes | Relay service |
 
@@ -738,11 +745,13 @@ In many tightly filtered environments, the practical first comparison is A versu
 | --- | --- | --- |
 | Eventstream connector VNet injection | GA | Requires an Azure VNet, delegated subnet, and hybrid connectivity |
 | Eventstream Managed Private Endpoint to Event Hubs or IoT Hub | GA | Azure source support is limited to Event Hubs and IoT Hub |
-| Microsoft Fabric Kafka Connect sink | Microsoft project available | Current target is Eventhouse; Eventstream remains on the roadmap |
+| Microsoft Azure Data Explorer Kafka Connect Kusto sink | Current Microsoft OSS release | Current Fabric Learn guidance for Kafka to Eventhouse; queued ingestion reaches temporary Storage endpoints |
+| Separate Microsoft Fabric Kafka Connect sink repository | Microsoft project available | Microsoft does not document it as the replacement for the Learn-linked Kusto sink |
 | Eventstream custom endpoint with Kafka protocol | Documented | Kafka TLS uses port 9093 |
 | OneLake availability for Eventhouse | Available | Adaptive Delta latency and restrictions on some table operations |
 | Connector IP Allowlist | Available by request | Uses the public network and requires a publicly resolvable source |
-| Private Links with an Eventstream custom endpoint | Microsoft documentation is inconsistent | The selection guide says it is supported, while the detailed matrix says it is not. Prove the exact configuration before adopting it |
+| Private Links with an Eventstream custom endpoint | Not supported | Dedicated Fabric security documentation and the Eventstream support matrix both exclude custom endpoint sources and destinations |
+| Event Hubs source authentication with Fabric workspace identity | Preview | The Eventstream network features themselves are GA |
 | Eventhouse direct ingestion with Private Links | Not supported | Preprocessing mode is listed as supported |
 
 ## References
@@ -760,12 +769,14 @@ In many tightly filtered environments, the practical first comparison is A versu
 | Use the Eventstream Kafka endpoint | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/stream-consume-events-use-kafka-endpoint> |
 | Managed Private Endpoint for Eventstream | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/set-up-private-endpoint> |
 | Tenant and Workspace Private Links | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/set-up-tenant-workspace-private-links> |
+| Fabric Private Link support matrix | <https://learn.microsoft.com/en-us/fabric/security/security-private-links-overview> |
 
 ### Eventhouse and Kafka Connect
 
 | Resource | Link |
 | --- | --- |
-| Microsoft Fabric Kafka Connect sink | <https://github.com/microsoft/kafka-sink-ms-fabric> |
+| Microsoft Azure Data Explorer Kafka Connect Kusto sink | <https://github.com/Azure/kafka-sink-azure-kusto> |
+| Separate Microsoft Fabric Kafka Connect sink repository | <https://github.com/microsoft/kafka-sink-ms-fabric> |
 | Ingest Kafka data into a Fabric KQL database | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/get-data-kafka> |
 | OneLake availability for Eventhouse | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-house-onelake-availability> |
 
@@ -774,6 +785,9 @@ In many tightly filtered environments, the practical first comparison is A versu
 | Resource | Link |
 | --- | --- |
 | Apache Kafka protocol support | <https://learn.microsoft.com/en-us/azure/event-hubs/azure-event-hubs-apache-kafka-overview> |
+| Kafka migration and MirrorMaker guidance | <https://learn.microsoft.com/en-us/azure/event-hubs/apache-kafka-migration-guide> |
+| Kafka Connect integration | <https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-kafka-connect-tutorial> |
+| MirrorMaker 2 sample | <https://github.com/Azure/azure-event-hubs-for-kafka/tree/master/tutorials/mirror-maker-2> |
 | Ports, HTTPS, and AMQP WebSockets | <https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-faq> |
 | Event Hubs Private Endpoint | <https://learn.microsoft.com/en-us/azure/event-hubs/private-link-service> |
 
