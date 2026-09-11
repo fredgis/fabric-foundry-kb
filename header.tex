@@ -125,19 +125,12 @@
   \vspace{0.2em}
   \noindent
   \begingroup
-    \setlength{\fboxsep}{0pt}%
-    \fcolorbox{gray!40}{gray!8}{%
-      \parbox[c][1.15cm][c]{\dimexpr\linewidth-2\fboxrule\relax}{%
+    \colorbox{CurrentMethodColor}{%
+      \parbox[c][1.15cm][c]{\dimexpr\linewidth-2\fboxsep\relax}{%
         \hspace{0.25cm}%
-        \raisebox{-0.27cm}{%
-          \colorbox{CurrentMethodColor}{%
-            \makebox[0.82cm][c]{%
-              \rule{0pt}{0.82cm}\color{white}\bfseries #2%
-            }%
-          }%
-        }%
+        {\color{white}\bfseries #2}%
         \hspace{0.45cm}%
-        {\color{blue!70!black}\large\bfseries #3}%
+        {\color{white}\large\bfseries #3}%
       }%
     }%
   \endgroup
