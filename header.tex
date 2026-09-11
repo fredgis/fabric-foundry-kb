@@ -48,14 +48,19 @@
 
 % Page header/footer (dynamic title in footer)
 \usepackage{fancyhdr}
+\colorlet{DocHeaderColor}{black}
+\newcommand{\DocHeadRuleWidth}{0.4pt}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\leftmark}
+\fancyhead[L]{\small\color{DocHeaderColor}\leftmark}
 \fancyhead[R]{\small\thepage}
 \makeatletter
 \fancyfoot[C]{\small \@title}
 \makeatother
-\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrulewidth}{\DocHeadRuleWidth}
+\renewcommand{\headrule}{%
+  \hbox to\headwidth{\color{DocHeaderColor}\leaders\hrule height \headrulewidth\hfill}%
+}
 \renewcommand{\footrulewidth}{0.2pt}
 
 % Section styling
@@ -65,6 +70,8 @@
 \newcommand{\resetsectioncolor}{%
   \colorlet{DocSectionColor}{blue!70!black}%
   \colorlet{DocSubsectionColor}{blue!50!black}%
+  \colorlet{DocHeaderColor}{black}%
+  \renewcommand{\DocHeadRuleWidth}{0.4pt}%
 }
 
 % Per-document option banners and matching section colors
@@ -72,12 +79,26 @@
   \definecolor{CurrentOptionColor}{HTML}{#1}%
   \colorlet{DocSectionColor}{CurrentOptionColor}%
   \colorlet{DocSubsectionColor}{CurrentOptionColor}%
-  \vspace{0.5em}
+  \colorlet{DocHeaderColor}{CurrentOptionColor}%
+  \renewcommand{\DocHeadRuleWidth}{1.2pt}%
+  \vspace{0.2em}
   \noindent\colorbox{CurrentOptionColor}{%
     \parbox{\dimexpr\linewidth-2\fboxsep\relax}{%
-      \color{white}\bfseries #2\hfill\mdseries #3%
+      \vspace{0.22cm}%
+      {\color{white}\LARGE\bfseries #2\par}%
+      \vspace{0.08cm}%
+      {\color{white}\large #3\par}%
+      \vspace{0.22cm}%
     }%
-  }\par\vspace{0.35em}
+  }\par\vspace{0.5em}
+}
+
+\newcommand{\optionlegenditem}[3]{%
+  \definecolor{CurrentLegendColor}{HTML}{#1}%
+  \noindent\colorbox{CurrentLegendColor}{%
+    \makebox[1.4cm][c]{\color{white}\bfseries #2}%
+  }%
+  \hspace{0.6em}\textbf{#3}\par\vspace{0.18em}%
 }
 
 \titleformat{\section}{\Large\bfseries\color{DocSectionColor}}{\thesection}{1em}{}

@@ -42,6 +42,14 @@ Une politique "sortie HTTPS 443 uniquement" change le choix:
 | Ajouter une zone tampon Azure et une frontière réseau distincte | Azure Event Hubs entre Kafka et Eventstream |
 | Conserver Eventstream avec une sortie limitée à 443 | Relais on-premises vers le custom endpoint via AMQP sur WebSockets ou HTTPS |
 
+### Code couleur du document
+
+\optionlegenditem{1565C0}{A}{Pull privé via VNet}
+\optionlegenditem{2E7D32}{B}{Push HTTPS 443 vers Eventhouse}
+\optionlegenditem{6A1B9A}{C}{Push Kafka TLS 9093 vers Eventstream}
+\optionlegenditem{EF6C00}{D}{Azure Event Hubs comme zone tampon}
+\optionlegenditem{00838F}{E}{Relais 443 vers Eventstream}
+
 Le point "403 / HTTPS" doit être clarifié avant toute décision. `403` est un statut HTTP, pas un port. Il peut signaler un refus du proxy, une règle d'accès, une identité non autorisée ou une inspection TLS. Une contrainte "443 uniquement" est différente: elle interdit les chemins Kafka natifs sur le port 9093, même si le trafic est chiffré.
 
 ## Comprendre le sens des flux
@@ -118,6 +126,7 @@ flowchart TB
     class ES,EVH,LH fabric
 ```
 
+\clearpage
 \optionbanner{1565C0}{OPTION A}{Pull privé via VNet}
 
 ## Option A: connecteur Apache Kafka Eventstream avec injection VNet
@@ -269,6 +278,7 @@ Choisir l'option A si:
 
 Écarter cette option si tout flux initié depuis Azure vers le réseau on-premises est interdit.
 
+\clearpage
 \optionbanner{2E7D32}{OPTION B}{Push HTTPS 443 vers Eventhouse}
 
 ## Option B: Kafka Connect vers Eventhouse en HTTPS
@@ -343,6 +353,7 @@ Choisir l'option B si:
 
 Cette option est souvent le meilleur point de départ pour une politique de sécurité sans flux entrant vers l'on-premises.
 
+\clearpage
 \optionbanner{6A1B9A}{OPTION C}{Push Kafka TLS 9093 vers Eventstream}
 
 ## Option C: push Kafka vers un custom endpoint Eventstream
@@ -378,6 +389,7 @@ Le protocole Kafka d'Azure Event Hubs utilise TCP 9093. Le custom endpoint Event
 
 Choisir l'option C si Eventstream est nécessaire, que les flux doivent partir de l'on-premises et que la sécurité accepte TCP 9093 vers un endpoint Azure précis.
 
+\clearpage
 \optionbanner{EF6C00}{OPTION D}{Zone tampon Azure}
 
 ## Option D: Azure Event Hubs comme zone tampon
@@ -464,6 +476,7 @@ Event Hubs accepte les producteurs via HTTPS 443 et via AMQP sur WebSockets 443.
 
 Choisir l'option D si l'entreprise veut une zone tampon Azure, une séparation claire entre la source et Fabric, ou un endpoint privé Azure géré indépendamment du workspace Fabric.
 
+\clearpage
 \optionbanner{00838F}{OPTION E}{Relais 443 vers Eventstream}
 
 ## Option E: relais on-premises vers Eventstream sur HTTPS 443
@@ -501,6 +514,7 @@ Le custom endpoint Eventstream fournit une connection string au format Event Hub
 
 Cette option est plus coûteuse à maintenir que Kafka Connect vers Eventhouse. Elle se justifie lorsque les transformations Eventstream sont nécessaires et que TCP 9093 est interdit.
 
+\clearpage
 \resetsectioncolor
 
 ## Comparatif des options
