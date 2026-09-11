@@ -9,6 +9,7 @@
 % Better table handling
 \usepackage{longtable}
 \usepackage{booktabs}
+\usepackage{array}
 
 % TikZ for title page decoration
 \usepackage{tikz}
@@ -21,6 +22,10 @@
 \makeatletter
 \newcommand{\@docsubtitle}{}
 \def\subtitle#1{\renewcommand{\@docsubtitle}{#1}}
+\newcommand{\@docversionrows}{}
+\newcommand{\addversionhistory}[3]{%
+  \g@addto@macro\@docversionrows{#1 & #2 & #3 \\}%
+}
 
 % Professional title page
 \renewcommand{\maketitle}{%
@@ -40,6 +45,19 @@
       {\Large\color{gray!60!black} \@docsubtitle \par}
       \vspace{2cm}
       {\large\color{gray!50!black} \@date \par}
+      \ifx\@docversionrows\@empty\else
+        \vspace{1.4cm}
+        {\small
+        \renewcommand{\arraystretch}{1.25}
+        \begin{tabular}{p{1.2cm}p{3.3cm}p{8.1cm}}
+          \toprule
+          \textbf{Version} & \textbf{Date} & \textbf{Change summary} \\
+          \midrule
+          \@docversionrows
+          \bottomrule
+        \end{tabular}
+        \par}
+      \fi
     \end{center}
     \vfill
   \end{titlepage}
