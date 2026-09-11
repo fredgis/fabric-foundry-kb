@@ -44,14 +44,14 @@ Microsoft Fabric does not have one universal SAP connector. The right path depen
 
 ### Document color key
 
-\optionlegenditem{D97706}{M1}{Fabric Data Factory extraction}
-\optionlegenditem{2E7D32}{M2}{Mirroring through SAP Datasphere}
-\optionlegenditem{558B2F}{M3}{Copy Job CDC through SAP Datasphere}
-\optionlegenditem{1565C0}{M4}{Semantic federation}
-\optionlegenditem{00796B}{M5}{SAP Datasphere governed exchange}
-\optionlegenditem{C2410C}{M6}{Event-driven integration}
-\optionlegenditem{4338CA}{M7}{Open Mirroring partners}
-\optionlegenditem{AD1457}{M8}{SAP Business Data Cloud Connect}
+\methodlegenditem{D97706}{M1}{Fabric Data Factory extraction}
+\methodlegenditem{2E7D32}{M2}{Mirroring through SAP Datasphere}
+\methodlegenditem{558B2F}{M3}{Copy Job CDC through SAP Datasphere}
+\methodlegenditem{1565C0}{M4}{Semantic federation}
+\methodlegenditem{00796B}{M5}{SAP Datasphere governed exchange}
+\methodlegenditem{C2410C}{M6}{Event-driven integration}
+\methodlegenditem{4338CA}{M7}{Open Mirroring partners}
+\methodlegenditem{AD1457}{M8}{SAP Business Data Cloud Connect}
 
 ### Revision history
 
@@ -147,7 +147,7 @@ Use four questions to narrow the design:
 Do not select a method from freshness labels alone. "Near real-time" can mean seconds, minutes, or simply continuous operation. Measure end-to-end latency with the real source, network, staging layer, and destination.
 
 \clearpage
-\optionbanner{D97706}{METHOD 1}{Fabric Data Factory extraction}
+\methodmarker{D97706}{M1}
 
 ## Method 1: Fabric Data Factory extraction
 
@@ -271,7 +271,7 @@ Use the ABAP Add-On Preview only when its system version, deployment model, and 
 Sources: [Fabric connector overview](https://learn.microsoft.com/en-us/fabric/data-factory/connector-overview), [Copy Job with SAP ABAP Add-On](https://learn.microsoft.com/en-us/fabric/data-factory/copy-job-tutorial-sap-abap).
 
 \clearpage
-\optionbanner{2E7D32}{METHOD 2}{Mirroring through SAP Datasphere}
+\methodmarker{2E7D32}{M2}
 
 ## Method 2: Mirroring for SAP through SAP Datasphere
 
@@ -373,7 +373,7 @@ Do not call it zero-copy. SAP Datasphere writes Parquet to ADLS, and Fabric crea
 Sources: [Mirrored databases from SAP](https://learn.microsoft.com/en-us/fabric/mirroring/sap), [SAP mirroring tutorial](https://learn.microsoft.com/en-us/fabric/mirroring/sap-datasphere-tutorial), [SAP mirroring limitations](https://learn.microsoft.com/en-us/fabric/mirroring/sap-limitations), [Mirroring overview and cost](https://learn.microsoft.com/en-us/fabric/mirroring/overview), [Mirroring troubleshooting and limits](https://learn.microsoft.com/en-us/fabric/mirroring/troubleshooting).
 
 \clearpage
-\optionbanner{558B2F}{METHOD 3}{Copy Job CDC through SAP Datasphere}
+\methodmarker{558B2F}{M3}
 
 ## Method 3: Copy Job CDC through SAP Datasphere Outbound
 
@@ -436,7 +436,7 @@ Choose Mirroring instead when the goal is a continuously managed SAP replica in 
 Sources: [SAP Datasphere Outbound Copy Job tutorial](https://learn.microsoft.com/en-us/fabric/data-factory/copy-job-tutorial-sap-datasphere), [CDC in Copy Job](https://learn.microsoft.com/en-us/fabric/data-factory/cdc-copy-job), [Copy Job connectors](https://learn.microsoft.com/en-us/fabric/data-factory/copy-job-connectors).
 
 \clearpage
-\optionbanner{1565C0}{METHOD 4}{Semantic federation}
+\methodmarker{1565C0}{M4}
 
 ## Method 4: semantic federation
 
@@ -506,7 +506,7 @@ Avoid it for large Spark workloads, offline access, or reports that need unrestr
 Sources: [DirectQuery and SAP BW](https://learn.microsoft.com/en-us/power-bi/connect-data/desktop-directquery-sap-bw), [DirectQuery for SAP HANA](https://learn.microsoft.com/en-us/power-bi/connect-data/desktop-directquery-sap-hana), [Extract SAP data from Fabric](https://learn.microsoft.com/en-us/azure/sap/workloads/extract-sap-data), [Gateway single sign-on overview](https://learn.microsoft.com/en-us/power-bi/connect-data/service-gateway-sso-overview).
 
 \clearpage
-\optionbanner{00796B}{METHOD 5}{SAP Datasphere governed exchange}
+\methodmarker{00796B}{M5}
 
 ## Method 5: SAP Datasphere governed data exchange
 
@@ -573,7 +573,7 @@ Do not describe the storage-mediated outbound flow as zero-copy end to end. SAP 
 Sources: [SAP Premium Outbound Integration](https://github.com/SAP-docs/sap-datasphere/blob/main/docs/Acquiring-Preparing-Modeling-Data/Acquiring-and-Preparing-Data-in-the-Data-Builder/premium-outbound-integration-4e9c6ac.md), [SAP Microsoft OneLake connection](https://github.com/SAP-docs/sap-datasphere/blob/main/docs/Integrating-data-and-managing-spaces/Integrating-Data-Via-Connections/microsoft-onelake-connections-057fa4b.md), [OneLake shortcuts](https://learn.microsoft.com/en-us/fabric/onelake/onelake-shortcuts), [Direct Lake overview](https://learn.microsoft.com/en-us/fabric/fundamentals/direct-lake-overview).
 
 \clearpage
-\optionbanner{C2410C}{METHOD 6}{Event-driven integration}
+\methodmarker{C2410C}{M6}
 
 ## Method 6: event-driven integration
 
@@ -636,7 +636,7 @@ Do not use events as a substitute for a complete historical dataset. Event paylo
 Sources: [Replicate SAP Datasphere data to Eventstream](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/replicate-data-with-replication-flow), [Eventstream network security selection](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/choose-the-right-network-security-feature), [Azure Event Grid source](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/add-source-azure-event-grid), [Eventstream settings and retention](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/configure-settings), [SAP Event Mesh Lite lifecycle](https://help.sap.com/docs/SAP_EM/bf82e6b26456494cbdd197057c09979f/ef79898d432a4553b48186dc1d745945.html).
 
 \clearpage
-\optionbanner{4338CA}{METHOD 7}{Open Mirroring partners}
+\methodmarker{4338CA}{M7}
 
 ## Method 7: Open Mirroring partner solutions
 
@@ -714,7 +714,7 @@ The main trade-off is not technical capability alone. The organization accepts a
 Sources: [Open Mirroring partner ecosystem](https://learn.microsoft.com/en-us/fabric/mirroring/open-mirroring-partners-ecosystem), [Open Mirroring overview](https://learn.microsoft.com/en-us/fabric/mirroring/open-mirroring), [Open Mirroring landing-zone format](https://learn.microsoft.com/en-us/fabric/mirroring/open-mirroring-landing-zone-format).
 
 \clearpage
-\optionbanner{AD1457}{METHOD 8}{SAP Business Data Cloud Connect}
+\methodmarker{AD1457}{M8}
 
 ## Method 8: SAP Business Data Cloud Connect for Microsoft Fabric
 

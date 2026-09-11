@@ -119,5 +119,35 @@
   \hspace{0.6em}\textbf{#3}\par\vspace{0.18em}%
 }
 
+\newcommand{\methodmarker}[2]{%
+  \resetsectioncolor
+  \definecolor{CurrentMethodColor}{HTML}{#1}%
+  \vspace{0.2em}
+  \noindent
+  \begingroup
+    \setlength{\fboxsep}{0pt}%
+    \colorbox{CurrentMethodColor}{%
+      \makebox[0.95cm][c]{%
+        \rule{0pt}{0.95cm}\color{white}\bfseries #2%
+      }%
+    }%
+  \endgroup
+  \par\vspace{0.35em}
+}
+
+\newcommand{\methodlegenditem}[3]{%
+  \definecolor{CurrentMethodLegendColor}{HTML}{#1}%
+  \noindent
+  \begingroup
+    \setlength{\fboxsep}{0pt}%
+    \colorbox{CurrentMethodLegendColor}{%
+      \makebox[0.72cm][c]{%
+        \rule{0pt}{0.72cm}\color{white}\bfseries #2%
+      }%
+    }%
+  \endgroup
+  \hspace{0.6em}\textbf{#3}\par\vspace{0.18em}%
+}
+
 \titleformat{\section}{\Large\bfseries\color{DocSectionColor}}{\thesection}{1em}{}
 \titleformat{\subsection}{\large\bfseries\color{DocSubsectionColor}}{\thesubsection}{1em}{}
