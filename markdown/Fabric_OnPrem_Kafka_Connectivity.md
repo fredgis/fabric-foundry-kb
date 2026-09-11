@@ -1,104 +1,104 @@
 ---
-title: "Connecter Apache Kafka on-premises à Microsoft Fabric"
-subtitle: "Architecture réseau, options d'ingestion et guide de décision"
-date: "Septembre 2026"
+title: "Connecting On-Premises Apache Kafka to Microsoft Fabric"
+subtitle: "Network architecture, ingestion options, and decision guide"
+date: "September 2026"
 abstract: |
-  Ce whitepaper présente les principales architectures pour acheminer des événements depuis un cluster Apache Kafka on-premises vers Microsoft Fabric. Il compare l'injection du connecteur Eventstream dans un réseau virtuel Azure, Kafka Connect vers Eventhouse, l'endpoint Kafka d'Eventstream, Azure Event Hubs comme zone tampon et un relais applicatif compatible avec une politique de sortie limitée au port HTTPS 443.
+  This whitepaper describes the main architectures for moving events from an on-premises Apache Kafka cluster into Microsoft Fabric. It compares Eventstream connector virtual network injection, Kafka Connect to Eventhouse, the Eventstream Kafka endpoint, Azure Event Hubs as an intermediary, and a relay for networks limited to outbound HTTPS on port 443.
 
-  Le document couvre les flux réseau, les ports, l'authentification, le DNS, les certificats, les contraintes d'exploitation, les critères de choix et une démarche de preuve de concept.
+  The document covers connection direction, ports, authentication, DNS, certificates, operational ownership, selection criteria, and a practical proof-of-concept plan.
 ---
 
-> **Périmètre.** Ce document traite d'un cluster Apache Kafka hébergé dans un réseau privé ou on-premises. Il ne dépend d'aucun contexte client et ne contient aucun nom d'organisation.
+> **Scope.** This document covers Apache Kafka running on-premises or in another private network. It is independent of any customer context and contains no organization names.
 >
-> **État des services.** Les informations de disponibilité et les limites produit ont été vérifiées le 11 septembre 2026. Microsoft peut les faire évoluer. Les liens de référence en fin de document restent la source à vérifier avant un déploiement de production.
+> **Service status.** Product availability and limitations were checked on September 11, 2026. Microsoft can change them. Review the linked documentation before a production deployment.
 
-## Résumé exécutif
+## Executive summary
 
-L'architecture suivante est bien la voie native lorsque Microsoft Fabric doit lire un Kafka privé:
+When Microsoft Fabric must read from a private Kafka cluster, the native architecture is:
 
 ```text
-Kafka on-premises
+On-premises Kafka
     |
-VPN ou ExpressRoute
+VPN or ExpressRoute
     |
-VNet Azure avec sous-réseau délégué
+Azure VNet with a delegated subnet
     |
-Connecteur Apache Kafka Eventstream injecté dans le VNet
+Eventstream Apache Kafka connector injected into the VNet
     |
 Eventstream
     |
-Eventhouse, Lakehouse ou autre destination Fabric
+Eventhouse, Lakehouse, or another Fabric destination
 ```
 
-Cette option est disponible en GA depuis juillet 2026. Elle conserve les transformations et le routage d'Eventstream, mais elle impose un point souvent bloquant: le connecteur Fabric initie les connexions vers Kafka. Le réseau on-premises doit donc accepter les flux provenant du sous-réseau Azure délégué vers les listeners annoncés par tous les brokers concernés.
+This option has been generally available since July 2026. It keeps Eventstream transformations and routing, but it has one network requirement that often decides the outcome: the Fabric connector initiates connections to Kafka. The on-premises network must accept traffic from the delegated Azure subnet to every broker listener returned in Kafka metadata.
 
-Une politique "sortie HTTPS 443 uniquement" change le choix:
+A policy that permits only outbound HTTPS on port 443 changes the shortlist:
 
-| Besoin prioritaire | Option recommandée |
+| Primary requirement | Recommended option |
 | --- | --- |
-| Conserver Eventstream et autoriser Fabric à joindre les brokers | Injection VNet du connecteur Eventstream |
-| Utiliser uniquement une sortie HTTPS 443, sans code spécifique | Kafka Connect avec le sink Fabric vers Eventhouse |
-| Conserver Eventstream et autoriser une sortie Kafka TLS sur 9093 | Endpoint Kafka d'un custom endpoint Eventstream |
-| Ajouter une zone tampon Azure et une frontière réseau distincte | Azure Event Hubs entre Kafka et Eventstream |
-| Conserver Eventstream avec une sortie limitée à 443 | Relais on-premises vers le custom endpoint via AMQP sur WebSockets ou HTTPS |
+| Keep Eventstream and allow Fabric to reach the brokers | Eventstream connector VNet injection |
+| Use outbound HTTPS 443 only, without custom code | Kafka Connect with the Fabric sink to Eventhouse |
+| Keep Eventstream and allow Kafka TLS on port 9093 | Kafka protocol on an Eventstream custom endpoint |
+| Add an Azure buffer and a separate network boundary | Azure Event Hubs between Kafka and Eventstream |
+| Keep Eventstream while limiting outbound traffic to 443 | On-premises relay to the custom endpoint over AMQP WebSockets or HTTPS |
 
-### Code couleur du document
+### Document color key
 
-\optionlegenditem{1565C0}{A}{Pull privé via VNet}
-\optionlegenditem{2E7D32}{B}{Push HTTPS 443 vers Eventhouse}
-\optionlegenditem{6A1B9A}{C}{Push Kafka TLS 9093 vers Eventstream}
-\optionlegenditem{EF6C00}{D}{Azure Event Hubs comme zone tampon}
-\optionlegenditem{00838F}{E}{Relais 443 vers Eventstream}
+\optionlegenditem{1565C0}{A}{Private pull through a VNet}
+\optionlegenditem{2E7D32}{B}{HTTPS 443 push to Eventhouse}
+\optionlegenditem{6A1B9A}{C}{Kafka TLS 9093 push to Eventstream}
+\optionlegenditem{EF6C00}{D}{Azure Event Hubs as an intermediary}
+\optionlegenditem{00838F}{E}{Port 443 relay to Eventstream}
 
-Le point "403 / HTTPS" doit être clarifié avant toute décision. `403` est un statut HTTP, pas un port. Il peut signaler un refus du proxy, une règle d'accès, une identité non autorisée ou une inspection TLS. Une contrainte "443 uniquement" est différente: elle interdit les chemins Kafka natifs sur le port 9093, même si le trafic est chiffré.
+Clarify the reported "403 / HTTPS" issue before choosing an architecture. `403` is an HTTP status, not a port. It can point to a proxy denial, an access rule, an unauthorized identity, or TLS inspection. A "port 443 only" policy is different. It rules out native Kafka paths on port 9093 even though those connections are encrypted.
 
-## Comprendre le sens des flux
+## Start with connection direction
 
-Le choix d'architecture dépend d'abord de la partie qui ouvre la connexion.
+The first design question is which side opens the connection.
 
-| Modèle | Initiateur | Conséquence réseau |
+| Model | Initiator | Network consequence |
 | --- | --- | --- |
-| Pull Eventstream | Fabric contacte Kafka | Le réseau on-premises accepte les connexions du VNet Azure vers les brokers |
-| Push Kafka Connect | Un worker proche de Kafka contacte Fabric | Le réseau on-premises n'accepte aucun nouveau flux entrant |
-| Push vers custom endpoint | Un producteur ou un outil de réplication contacte Eventstream | Une sortie vers l'endpoint Fabric est nécessaire |
-| Push vers Event Hubs | Un producteur ou un relais contacte Azure Event Hubs | Event Hubs découple ensuite la source de Fabric |
+| Eventstream pull | Fabric connects to Kafka | The on-premises network accepts connections from the Azure VNet to the brokers |
+| Kafka Connect push | A worker near Kafka connects to Fabric | No new inbound connection to the on-premises network |
+| Push to a custom endpoint | A producer or replication tool connects to Eventstream | The on-premises network needs an outbound path to Fabric |
+| Push to Event Hubs | A producer or relay connects to Azure Event Hubs | Event Hubs then decouples the source from Fabric |
 
-La documentation Eventstream distingue les flux internes, entrants et sortants selon l'initiateur de la connexion. Une source Apache Kafka configurée dans Eventstream est un flux sortant du point de vue de Fabric: Eventstream récupère les événements depuis Kafka. Un custom endpoint est un flux entrant: une application externe pousse les événements vers Fabric.
+Eventstream documentation classifies traffic by the connection initiator. An Apache Kafka source configured in Eventstream is outbound from Fabric because Eventstream retrieves events from Kafka. A custom endpoint is inbound because an external application pushes events into Fabric.
 
-## Le comportement réseau de Kafka à prendre en compte
+## Kafka network behavior that matters
 
-Un client Kafka ne reste pas connecté uniquement au serveur bootstrap. Il utilise ce serveur pour obtenir les métadonnées du cluster, puis se connecte aux brokers qui portent les partitions. Les adresses renvoyées par `advertised.listeners` doivent donc être résolubles et joignables depuis le client.
+A Kafka client does not stay connected only to the bootstrap server. It uses that server to retrieve cluster metadata, then connects to the brokers that own the partitions. Every address returned through `advertised.listeners` must be resolvable and reachable from the client network.
 
-Pour une intégration hybride, il faut vérifier:
+For a hybrid connection, verify:
 
-- les FQDN ou adresses IP annoncés par chaque broker;
-- le ou les ports réels des listeners Kafka, sans supposer qu'ils utilisent toujours 9092 ou 9093;
-- la résolution DNS depuis le réseau Azure;
-- le routage aller et retour entre le sous-réseau Azure et les réseaux on-premises;
-- les ACL Kafka du consumer group et des topics;
-- la chaîne de certificats présentée par chaque broker.
+- every broker FQDN or IP address returned in metadata;
+- the actual listener ports instead of assuming 9092 or 9093;
+- DNS resolution from Azure;
+- forward and return routing between the Azure subnet and the on-premises networks;
+- Kafka ACLs for the topics and consumer group;
+- the certificate chain presented by each broker.
 
-Autoriser seulement le bootstrap server ne suffit pas si les métadonnées renvoient d'autres brokers inaccessibles.
+Allowing only the bootstrap server is not enough when metadata points the client to other brokers.
 
-## Panorama des architectures
+## Architecture options
 
 ```mermaid
 flowchart TB
-    K["Apache Kafka on-premises"]
+    K["On-premises Apache Kafka"]
 
-    subgraph Pull["Option A: Fabric lit Kafka"]
-        VNET["VNet Azure<br/>VPN ou ExpressRoute"]
-        ESK["Connecteur Kafka Eventstream<br/>injecté dans le VNet"]
+    subgraph Pull["Option A: Fabric reads Kafka"]
+        VNET["Azure VNet<br/>VPN or ExpressRoute"]
+        ESK["Eventstream Kafka connector<br/>injected into the VNet"]
     end
 
-    subgraph DirectPush["Options de push direct"]
-        KC["Option B<br/>Kafka Connect sink Fabric"]
-        CEP["Option C<br/>Custom endpoint Kafka"]
-        RELAY["Option E<br/>Relais AMQP WebSockets ou HTTPS"]
+    subgraph DirectPush["Direct push options"]
+        KC["Option B<br/>Fabric Kafka Connect sink"]
+        CEP["Option C<br/>Custom Kafka endpoint"]
+        RELAY["Option E<br/>AMQP WebSockets or HTTPS relay"]
     end
 
-    subgraph Buffered["Option D: zone tampon Azure"]
-        EH["Azure Event Hubs<br/>Kafka, AMQP ou HTTPS"]
+    subgraph Buffered["Option D: Azure intermediary"]
+        EH["Azure Event Hubs<br/>Kafka, AMQP, or HTTPS"]
     end
 
     ES["Fabric Eventstream"]
@@ -127,41 +127,41 @@ flowchart TB
 ```
 
 \clearpage
-\optionbanner{1565C0}{OPTION A}{Pull privé via VNet}
+\optionbanner{1565C0}{OPTION A}{Private pull through a VNet}
 
-## Option A: connecteur Apache Kafka Eventstream avec injection VNet
+## Option A: Eventstream Apache Kafka connector with VNet injection
 
 ### Architecture
 
 ```mermaid
 flowchart LR
-    subgraph OnPrem["Réseau on-premises"]
-        DNS["DNS interne"]
+    subgraph OnPrem["On-premises network"]
+        DNS["Internal DNS"]
         B1["Kafka broker 1"]
         B2["Kafka broker 2"]
         B3["Kafka broker 3"]
     end
 
     subgraph Azure["Azure"]
-        HYB["VPN ou ExpressRoute"]
-        SUBNET["Sous-réseau délégué<br/>Messaging Connectors"]
-        CONN["Connecteur Kafka<br/>injecté"]
+        HYB["VPN or ExpressRoute"]
+        SUBNET["Delegated subnet<br/>Messaging Connectors"]
+        CONN["Injected Kafka<br/>connector"]
     end
 
     subgraph Fabric["Microsoft Fabric"]
         GW["Streaming virtual network<br/>data gateway"]
         ES["Eventstream"]
-        DEST["Eventhouse ou Lakehouse"]
+        DEST["Eventhouse or Lakehouse"]
     end
 
-    CONN -->|"Lecture Kafka"| B1
-    CONN -->|"Lecture Kafka"| B2
-    CONN -->|"Lecture Kafka"| B3
-    CONN -.->|"Résolution"| DNS
+    CONN -->|"Kafka reads"| B1
+    CONN -->|"Kafka reads"| B2
+    CONN -->|"Kafka reads"| B3
+    CONN -.->|"Name resolution"| DNS
     SUBNET --> CONN
     HYB --- SUBNET
     HYB --- OnPrem
-    GW -.->|"Référence du VNet"| SUBNET
+    GW -.->|"VNet reference"| SUBNET
     CONN --> ES --> DEST
 
     classDef onprem fill:#4E342E,stroke:#2D1B17,color:#ffffff
@@ -173,239 +173,239 @@ flowchart LR
     class GW,ES,DEST fabric
 ```
 
-### Fonctionnement
+### How it works
 
-Fabric crée une instance du connecteur de streaming dans un sous-réseau Azure préparé par l'entreprise. Le connecteur utilise ensuite la connectivité VPN ou ExpressRoute pour joindre le cluster Kafka. Le streaming virtual network data gateway ne déploie pas un cluster de passerelles. Il conserve dans Fabric la référence au VNet et au sous-réseau utilisés pour l'injection.
+Fabric creates a streaming connector instance in an Azure subnet prepared by the organization. The connector reaches Kafka through VPN or ExpressRoute. The streaming virtual network data gateway does not deploy a gateway cluster. It stores the VNet and subnet reference that Eventstream uses for connector injection.
 
-Cette architecture est la plus intégrée à Eventstream. Elle garde les transformations, le filtrage, le routage vers plusieurs destinations et l'exploitation dans Real-Time Intelligence.
+This is the closest fit with Eventstream. Transformations, filtering, routing to several destinations, and Real-Time Intelligence operations stay in Fabric.
 
-### Prérequis Azure et Fabric
+### Azure and Fabric prerequisites
 
-La configuration documentée par Microsoft impose les éléments suivants:
+Microsoft documents the following setup:
 
-1. Enregistrer le resource provider `Microsoft.MessagingConnectors` dans l'abonnement qui héberge le VNet.
-2. Créer ou réutiliser un VNet Azure dans la même région que l'eventstream.
-3. Éviter tout chevauchement avec `10.240.0.0/16` et `10.224.0.0/12`.
-4. Préparer un sous-réseau dédié et le déléguer au service **Messaging Connectors**.
-5. Prévoir au moins un `/27` et au moins 16 adresses disponibles.
-6. Connecter le VNet au réseau Kafka par VPN ou ExpressRoute.
-7. Activer la workspace identity du workspace Fabric.
-8. Attribuer le rôle Azure **Network Contributor** à cette identité sur le VNet.
-9. Créer le streaming virtual network data gateway, puis une connexion marquée `[vNet]`.
+1. Register the `Microsoft.MessagingConnectors` resource provider in the subscription that hosts the VNet.
+2. Create or reuse an Azure VNet in the same region as the eventstream.
+3. Avoid address overlap with `10.240.0.0/16` and `10.224.0.0/12`.
+4. Prepare a dedicated subnet and delegate it to **Messaging Connectors**.
+5. Use at least a `/27` with at least 16 available addresses.
+6. Connect the VNet to the Kafka network through VPN or ExpressRoute.
+7. Enable the Fabric workspace identity.
+8. Grant that identity the Azure **Network Contributor** role on the VNet.
+9. Create the streaming virtual network data gateway, then create a connection marked `[vNet]`.
 
-Microsoft recommande un sous-réseau neuf. Un sous-réseau réutilisé ne doit pas déjà contenir de Private Endpoints, Load Balancers, Application Gateways, machines virtuelles, Virtual Machine Scale Sets ou interfaces réseau.
+Microsoft recommends a new subnet. If an existing subnet is reused, it must not contain Private Endpoints, Load Balancers, Application Gateways, virtual machines, Virtual Machine Scale Sets, or network interfaces.
 
-### Dimensionnement du sous-réseau
+### Subnet sizing
 
-Azure réserve 15 adresses dans ce sous-réseau pour ce service. Chaque connecteur consomme au moins une adresse et peut monter jusqu'au nombre de partitions de la source lors d'une mise à l'échelle.
+Azure reserves 15 addresses in this subnet for the service. Each connector uses at least one address and can scale up to the source partition count.
 
-Exemple documenté:
+The documented example is:
 
 ```text
-15 adresses réservées
-+ 10 partitions x 2 connecteurs Kafka
-= 35 adresses à prévoir au maximum
+15 reserved addresses
++ 10 partitions x 2 Kafka connectors
+= up to 35 addresses required
 ```
 
-Le dimensionnement doit couvrir les connecteurs actuels, leur nombre de partitions et la croissance prévue. Un `/27` est un minimum technique, pas une taille universelle.
+Size the subnet for the current connectors, their partition counts, and planned growth. A `/27` is a technical minimum, not a universal recommendation.
 
-### Flux à autoriser
+### Network flows
 
-Le connecteur initie le trafic depuis le sous-réseau délégué vers Kafka. Les règles réseau doivent permettre:
+The connector initiates traffic from the delegated subnet to Kafka. Network rules must allow:
 
-- le port des listeners Kafka annoncés par les brokers;
-- la résolution DNS nécessaire;
-- le retour des sessions via le chemin VPN ou ExpressRoute;
-- l'accès à Azure Key Vault si des certificats y sont stockés;
-- les sorties requises par les services Azure et Fabric selon la politique de l'entreprise.
+- the Kafka listener ports advertised by the brokers;
+- the required DNS queries;
+- return traffic through VPN or ExpressRoute;
+- Azure Key Vault access when it stores certificates;
+- any Azure and Fabric service egress required by the organization's policy.
 
-Du point de vue du pare-feu on-premises, il s'agit bien de connexions entrantes depuis le VNet Azure vers les brokers. C'est souvent le point de désaccord avec les équipes sécurité, même si le flux reste privé.
+From the on-premises firewall's point of view, these are inbound connections from the Azure VNet to the brokers. This is often the disputed part of the design even though the path is private.
 
-### Authentification et TLS
+### Authentication and TLS
 
-Le connecteur Apache Kafka Eventstream documente:
+The Eventstream Apache Kafka connector documents:
 
-- `SASL_SSL` avec mécanisme `PLAIN`, `SCRAM-SHA-256` ou `SCRAM-SHA-512`;
-- `SSL` avec authentification mutuelle;
-- une autorité de certification publique reconnue, ou une CA interne fournie dans les paramètres TLS/mTLS;
-- les certificats au format PEM dans Azure Key Vault;
-- un certificat serveur dont le SAN contient les FQDN ou adresses utilisés pour joindre les brokers.
+- `SASL_SSL` with `PLAIN`, `SCRAM-SHA-256`, or `SCRAM-SHA-512`;
+- `SSL` with mutual TLS;
+- a public trusted certificate authority, or an internal CA configured through the TLS/mTLS settings;
+- PEM certificates stored in Azure Key Vault;
+- a server certificate whose SAN includes the names or addresses used to reach the brokers.
 
-Pour une source privée, le Key Vault qui contient les certificats doit être connecté au VNet utilisé par le streaming virtual network data gateway, par exemple avec un Private Endpoint. L'utilisateur qui configure la source et prévisualise les données doit aussi disposer des droits Key Vault nécessaires.
+For a private source, connect the Key Vault that holds the certificates to the VNet used by the streaming virtual network data gateway, for example through a Private Endpoint. The person who configures the source and previews data also needs the required Key Vault permissions.
 
 ### DNS
 
-Le connecteur doit résoudre les noms renvoyés par Kafka. La documentation demande de valider qu'une machine virtuelle placée dans le VNet peut joindre la source avant de configurer Eventstream.
+The connector must resolve every broker name returned by Kafka. Microsoft recommends proving that a virtual machine in the VNet can reach the source before Eventstream is configured.
 
-Le modèle DNS dépend de l'architecture de l'entreprise:
+The DNS design depends on the existing environment:
 
-- une zone Azure Private DNS liée au VNet convient pour quelques enregistrements maîtrisés;
-- Azure DNS Private Resolver peut transférer les requêtes vers le DNS on-premises;
-- un DNS personnalisé dans le VNet doit connaître les zones internes et les zones Azure nécessaires;
-- des adresses IP directes peuvent servir au diagnostic, mais elles sont rarement adaptées à l'exploitation Kafka.
+- an Azure Private DNS zone linked to the VNet works for a small set of managed records;
+- Azure DNS Private Resolver can forward queries to on-premises DNS;
+- custom DNS configured on the VNet must resolve both internal names and the required Azure zones;
+- direct IP addresses can help during diagnosis, but they are rarely a sound Kafka operating model.
 
-Le test doit porter sur tous les FQDN annoncés par les brokers, pas seulement sur le bootstrap server.
+Test every broker FQDN returned in metadata, not just the bootstrap server.
 
-### Limites et points d'attention
+### Limitations and operating notes
 
-- Le test de connexion est désactivé lorsqu'une connexion utilise le streaming virtual network data gateway.
-- La prévisualisation peut être vérifiée après publication sur le noeud central de l'eventstream. Elle dépend toutefois des droits Kafka, du format des messages et des droits Key Vault.
-- La prévisualisation d'une source Kafka ne prend en charge que les messages JSON.
-- La connectivité privée ne corrige pas une mauvaise configuration de `advertised.listeners`.
-- Le fonctionnement exige une coordination entre les équipes Fabric, Azure réseau, Kafka, DNS et PKI.
+- The connection test is disabled when the connection uses a streaming virtual network data gateway.
+- Data preview can be checked on the central eventstream node after publication. It still depends on Kafka permissions, message format, and Key Vault access.
+- Kafka source preview supports JSON messages only.
+- Private connectivity does not repair an incorrect `advertised.listeners` configuration.
+- Delivery depends on coordination across the Fabric, Azure networking, Kafka, DNS, and PKI teams.
 
-### Variante: Connector IP Allowlist
+### Variant: Connector IP Allowlist
 
-Si l'entreprise ne peut pas préparer de VNet, Microsoft documente une variante sur réseau public. Le connecteur de streaming possède une adresse IP sortante unique par région. La source doit avoir une adresse résoluble publiquement et son pare-feu doit autoriser cette IP.
+If the organization cannot prepare a VNet, Microsoft documents a public-network variant. Each regional streaming connector has a single outbound IP address. The source must have a publicly resolvable address, and its firewall must allow that IP.
 
-Cette variante:
+This variant:
 
-- évite VPN et ExpressRoute;
-- traverse le réseau public;
-- expose la source sur une adresse publique protégée par allowlist;
-- nécessite une demande au product team via le formulaire [Eventstream Streaming Connector IP allow list Request](https://aka.ms/EventStreamsConnIPAllowlistRequest).
+- avoids VPN and ExpressRoute;
+- crosses the public network;
+- exposes the source through a public address protected by an allowlist;
+- requires a request through the [Eventstream Streaming Connector IP allow list Request](https://aka.ms/EventStreamsConnIPAllowlistRequest) form.
 
-Elle convient seulement si la politique de sécurité accepte une exposition publique contrôlée.
+Use it only when the security policy accepts controlled public exposure.
 
-### Quand choisir cette option
+### When to use this option
 
-Choisir l'option A si:
+Choose option A when:
 
-- Eventstream doit porter les transformations ou le routage;
-- un VPN ou ExpressRoute existe déjà, ou peut être mis en place;
-- les flux du sous-réseau Azure vers les brokers sont acceptables;
-- l'équipe réseau peut gérer le DNS hybride et le routage retour.
+- Eventstream must handle transformations or routing;
+- VPN or ExpressRoute already exists or can be established;
+- traffic from the Azure subnet to every broker is allowed;
+- the network team can operate hybrid DNS and return routing.
 
-Écarter cette option si tout flux initié depuis Azure vers le réseau on-premises est interdit.
+Reject this option when policy forbids all connections initiated from Azure toward the on-premises network.
 
 \clearpage
-\optionbanner{2E7D32}{OPTION B}{Push HTTPS 443 vers Eventhouse}
+\optionbanner{2E7D32}{OPTION B}{HTTPS 443 push to Eventhouse}
 
-## Option B: Kafka Connect vers Eventhouse en HTTPS
+## Option B: Kafka Connect to Eventhouse over HTTPS
 
 ### Architecture
 
 ```text
-Kafka on-premises
+On-premises Kafka
     |
-Kafka Connect en mode distribué
+Kafka Connect in distributed mode
     |
-Sink Microsoft Fabric
+Microsoft Fabric sink
     |
 HTTPS 443
     |
 Eventhouse
     |
-OneLake availability, Lakehouse, Warehouse, Notebook ou Power BI
+OneLake availability, Lakehouse, Warehouse, Notebook, or Power BI
 ```
 
-Microsoft fournit un sink Kafka Connect pour écrire dans Eventhouse. Les workers Kafka Connect tournent dans l'environnement choisi par l'entreprise, idéalement à proximité du cluster. Ils lisent Kafka localement puis appellent les endpoints HTTPS d'ingestion et de requête d'Eventhouse.
+Microsoft publishes a Kafka Connect sink for Eventhouse. Kafka Connect workers run in the organization's chosen environment, preferably close to the cluster. They read Kafka locally, then call the Eventhouse ingestion and query endpoints over HTTPS.
 
-### Atouts
+### Advantages
 
-- Le réseau on-premises initie le flux.
-- Aucun VPN ou ExpressRoute n'est requis pour un endpoint public.
-- Les appels vers Eventhouse utilisent des URL HTTPS.
-- Le connecteur gère JSON, CSV et Avro, les mappings topics-tables, les retries et des dead-letter queues.
-- L'ingestion en streaming peut viser une latence inférieure à la seconde si elle est activée et correctement dimensionnée.
-- Les paramètres `proxy.host` et `proxy.port` sont documentés.
+- The on-premises environment initiates the connection.
+- A public endpoint does not require VPN or ExpressRoute.
+- Eventhouse ingestion and query endpoints use HTTPS URLs.
+- The connector handles JSON, CSV, and Avro, topic-to-table mappings, retries, and dead-letter queues.
+- Streaming ingestion can target subsecond latency when it is enabled and sized correctly.
+- The connector documents `proxy.host` and `proxy.port`.
 
-### Contraintes d'exploitation
+### Operating constraints
 
-- Le sink Fabric actuel écrit dans Eventhouse. Le support Eventstream reste indiqué dans sa roadmap.
-- Kafka Connect doit être opéré en mode distribué pour la production.
-- La version 2.x du connecteur demande Java 21 ou une version plus récente.
-- La garantie de livraison est **at least once**. Les consommateurs doivent donc tolérer les doublons.
-- Les tables, mappings, politiques d'ingestion et dead-letter queues doivent être administrés.
-- Les paramètres de proxy documentés couvrent l'hôte et le port. L'authentification du proxy n'est pas décrite par le connecteur. Elle doit être testée avec le proxy réel, sans supposer qu'elle fonctionnera.
+- The current Fabric sink writes to Eventhouse. Eventstream support remains on its roadmap.
+- Production requires Kafka Connect in distributed mode.
+- Connector version 2.x requires Java 21 or later.
+- Delivery is **at least once**, so downstream processing must tolerate duplicates.
+- Teams must administer tables, mappings, ingestion policies, and dead-letter queues.
+- The documented proxy settings cover host and port. The connector does not document proxy authentication. Test it with the actual corporate proxy rather than assuming support.
 
-### Identité
+### Identity
 
-Le connecteur documente trois stratégies:
+The connector documents three authentication strategies:
 
-- application Entra avec tenant ID, application ID et secret;
-- managed identity lorsque le worker s'exécute dans un environnement Azure compatible;
-- workload identity dans un environnement qui la prend en charge.
+- a Microsoft Entra application with tenant ID, application ID, and secret;
+- managed identity when the worker runs in a compatible Azure environment;
+- workload identity in a platform that supports it.
 
-Pour un déploiement strictement on-premises, une application Entra est généralement la voie la plus directe. Le secret doit être stocké dans le gestionnaire de secrets de la plateforme Kafka Connect, pas dans un fichier de configuration en clair.
+For a fully on-premises deployment, a Microsoft Entra application is usually the most direct choice. Store its secret in the Kafka Connect platform's secret provider, not in plain text configuration.
 
-### Accès aux données depuis OneLake
+### Access through OneLake
 
-L'activation de OneLake availability sur la base KQL crée une représentation Delta en lecture depuis les autres moteurs Fabric. Un Lakehouse peut y accéder directement ou via un shortcut.
+Enabling OneLake availability on the KQL database creates a read-only Delta representation for other Fabric engines. A Lakehouse can access it directly or through a shortcut.
 
-Cette représentation n'est pas un remplacement instantané d'une destination Lakehouse Eventstream:
+This is not an immediate replacement for an Eventstream Lakehouse destination:
 
-- le délai d'écriture par défaut peut atteindre trois heures si les fichiers n'ont pas atteint une taille adaptée;
-- `TargetLatencyInMinutes` peut être configuré entre 5 minutes et 3 heures;
-- le raccourcissement du délai peut produire de nombreux petits fichiers;
-- certaines opérations sont bloquées pendant l'activation, notamment le renommage de table, le changement de type de colonne, la suppression ou purge de données et la row-level security.
+- the default write delay can reach three hours when files have not reached an efficient size;
+- `TargetLatencyInMinutes` can be set between 5 minutes and 3 hours;
+- shorter delays can create many small files;
+- some operations are blocked while the feature is enabled, including table rename, column type changes, data deletion or purge, and row-level security.
 
-Si la cible analytique principale est Eventhouse, cette option reste simple. Si une table Delta doit être visible en quelques secondes dans un Lakehouse, il faut tester précisément la latence obtenue.
+If Eventhouse is the main analytics target, this option is straightforward. If a Delta table must appear in a Lakehouse within seconds, measure the actual latency before selecting it.
 
-### Quand choisir cette option
+### When to use this option
 
-Choisir l'option B si:
+Choose option B when:
 
-- la politique réseau autorise uniquement une sortie HTTPS 443;
-- Eventhouse est une cible acceptable;
-- l'entreprise sait déjà exploiter Kafka Connect;
-- les transformations peuvent être réalisées avant ingestion ou dans Eventhouse.
+- policy permits outbound HTTPS 443 only;
+- Eventhouse is an acceptable target;
+- the organization already operates Kafka Connect or is prepared to do so;
+- transformations can run before ingestion or inside Eventhouse.
 
-Cette option est souvent le meilleur point de départ pour une politique de sécurité sans flux entrant vers l'on-premises.
+For a tightly filtered network with no inbound path to Kafka, this is often the simplest starting point.
 
 \clearpage
-\optionbanner{6A1B9A}{OPTION C}{Push Kafka TLS 9093 vers Eventstream}
+\optionbanner{6A1B9A}{OPTION C}{Kafka TLS 9093 push to Eventstream}
 
-## Option C: push Kafka vers un custom endpoint Eventstream
+## Option C: push Kafka data to an Eventstream custom endpoint
 
-Un custom endpoint Eventstream expose des informations de connexion compatibles avec les protocoles Event Hubs, AMQP et Kafka. Un producteur Kafka, un worker Kafka Connect ou un outil de réplication compatible peut envoyer les événements vers cet endpoint après adaptation de sa configuration.
+An Eventstream custom endpoint exposes connection details compatible with Event Hubs, AMQP, and Kafka. A Kafka producer, Kafka Connect worker, or compatible replication tool can send events to it after a configuration change.
 
-La configuration Kafka documentée utilise:
+The documented Kafka configuration uses:
 
 ```properties
-bootstrap.servers=<endpoint fourni par Eventstream>
+bootstrap.servers=<endpoint-provided-by-eventstream>
 security.protocol=SASL_SSL
 sasl.mechanism=PLAIN
 sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="$ConnectionString" password="<connection-string>";
 ```
 
-Le protocole Kafka d'Azure Event Hubs utilise TCP 9093. Le custom endpoint Eventstream repose sur cette compatibilité. Une règle limitée à TCP 443 ne permet donc pas d'utiliser cette variante Kafka telle quelle.
+Azure Event Hubs uses TCP 9093 for its Kafka protocol, and the Eventstream custom endpoint uses that compatibility layer. A policy limited to TCP 443 cannot use this Kafka path as-is.
 
-### Atouts
+### Advantages
 
-- Le flux est initié depuis l'on-premises.
-- Eventstream reste disponible pour transformer et router les événements.
-- L'endpoint présente un FQDN stable au lieu d'exiger l'accès à tous les brokers du cluster source.
-- Aucun VPN ou ExpressRoute n'est obligatoire si l'endpoint public est autorisé.
+- The on-premises environment initiates the connection.
+- Eventstream remains available for transformation and routing.
+- The destination is one stable FQDN rather than every source-cluster broker.
+- A public endpoint does not require VPN or ExpressRoute.
 
-### Contraintes
+### Constraints
 
-- Une sortie TCP 9093 vers l'endpoint `*.servicebus.windows.net` doit être autorisée.
-- Event Hubs implémente le protocole Kafka, mais ne reproduit pas toutes les fonctions d'un cluster Kafka natif. Il faut tester l'outil de réplication et ses API.
-- Les secrets SAS ou les identités configurées doivent être gérés et renouvelés.
-- MirrorMaker 2 et les connecteurs doivent être validés sur les fonctions réellement utilisées, notamment les transactions, la compression, les offsets et les stratégies de retry.
+- The firewall must allow outbound TCP 9093 to the `*.servicebus.windows.net` endpoint.
+- Event Hubs implements the Kafka protocol but is not a complete Kafka broker. Test the replication tool and the APIs it uses.
+- SAS secrets or configured identities require controlled storage and rotation.
+- Validate MirrorMaker 2 and other connectors against the features they use, including transactions, compression, offsets, and retry behavior.
 
-### Quand choisir cette option
+### When to use this option
 
-Choisir l'option C si Eventstream est nécessaire, que les flux doivent partir de l'on-premises et que la sécurité accepte TCP 9093 vers un endpoint Azure précis.
+Choose option C when Eventstream is required, the connection must start on-premises, and security permits TCP 9093 to a specific Azure endpoint.
 
 \clearpage
-\optionbanner{EF6C00}{OPTION D}{Zone tampon Azure}
+\optionbanner{EF6C00}{OPTION D}{Azure Event Hubs as an intermediary}
 
-## Option D: Azure Event Hubs comme zone tampon
+## Option D: Azure Event Hubs as an intermediary
 
 ### Architecture
 
 ```mermaid
 flowchart LR
-    subgraph OnPrem["Réseau on-premises"]
+    subgraph OnPrem["On-premises network"]
         K["Apache Kafka"]
-        REP["Producteur, Kafka Connect<br/>ou réplication"]
+        REP["Producer, Kafka Connect,<br/>or replication tool"]
     end
 
-    subgraph Hybrid["Connectivité hybride facultative"]
-        ER["VPN ou ExpressRoute"]
-        PE["Private Endpoint Event Hubs"]
+    subgraph Hybrid["Optional hybrid connectivity"]
+        ER["VPN or ExpressRoute"]
+        PE["Event Hubs Private Endpoint"]
     end
 
     subgraph Azure["Azure"]
@@ -413,10 +413,10 @@ flowchart LR
     end
 
     subgraph Fabric["Microsoft Fabric"]
-        MPE["Managed Private Endpoint<br/>niveau Basic"]
-        VNET["VNet injection<br/>niveau Extended"]
+        MPE["Managed Private Endpoint<br/>Basic feature level"]
+        VNET["VNet injection<br/>Extended feature level"]
         ES["Eventstream"]
-        DEST["Eventhouse ou Lakehouse"]
+        DEST["Eventhouse or Lakehouse"]
     end
 
     K --> REP
@@ -437,135 +437,135 @@ flowchart LR
     class MPE,VNET,ES,DEST fabric
 ```
 
-Azure Event Hubs fournit un endpoint Kafka dans les niveaux Standard, Premium et Dedicated. Une application Kafka peut souvent s'y connecter en changeant sa configuration, sans changer son code. Le trafic Kafka chiffré utilise TCP 9093.
+Azure Event Hubs provides a Kafka endpoint in its Standard, Premium, and Dedicated tiers. Many Kafka applications can use it after a configuration change. Encrypted Kafka traffic uses TCP 9093.
 
-Event Hubs peut être exposé:
+Event Hubs can be exposed through:
 
-- par son endpoint public avec règles de pare-feu;
-- par un Private Endpoint atteint depuis l'on-premises via VPN ou ExpressRoute;
-- par les deux, selon la politique réseau.
+- its public endpoint with firewall rules;
+- a Private Endpoint reached from on-premises through VPN or ExpressRoute;
+- both paths when policy permits them.
 
-Fabric Eventstream peut ensuite lire Event Hubs:
+Eventstream can then read Event Hubs through:
 
-- avec un Managed Private Endpoint pour le niveau de fonctionnalités Basic;
-- avec l'injection VNet du connecteur pour le niveau Extended.
+- a Managed Private Endpoint at the Basic feature level;
+- connector VNet injection at the Extended feature level.
 
-Les deux fonctions sont GA.
+Both Fabric network features are generally available.
 
-### Atouts
+### Advantages
 
-- Event Hubs absorbe les coupures temporaires entre Azure et Fabric.
-- La frontière réseau Azure est indépendante du cycle de vie de l'eventstream.
-- Le namespace fournit un endpoint stable.
-- Plusieurs consommateurs peuvent lire le même flux.
-- Les options de rétention, Capture, métriques et contrôle d'accès Azure sont disponibles.
+- Event Hubs absorbs temporary interruptions between Azure and Fabric.
+- The Azure network boundary has its own lifecycle, separate from the eventstream.
+- The namespace exposes one stable endpoint.
+- Several consumers can read the same stream.
+- Azure retention, Capture, metrics, and access controls are available.
 
-### Contraintes
+### Constraints
 
-- Un service Azure supplémentaire doit être dimensionné, sécurisé, supervisé et facturé.
-- Kafka sur Event Hubs n'est pas un cluster Kafka complet.
-- Le chemin Kafka natif demande TCP 9093, y compris vers un Private Endpoint.
-- Un Private Endpoint Event Hubs n'est pas disponible sur le niveau Basic d'Event Hubs.
-- Le DNS privé `privatelink.servicebus.windows.net` et le routage hybride doivent être configurés si l'endpoint privé est utilisé.
+- The additional Azure service needs capacity planning, security, monitoring, and a budget.
+- Event Hubs for Kafka is not a complete Kafka cluster.
+- The native Kafka path requires TCP 9093, including through a Private Endpoint.
+- Event Hubs Private Endpoint is unavailable in the Event Hubs Basic tier.
+- Private connectivity requires DNS for `privatelink.servicebus.windows.net` and the correct hybrid route.
 
-### Variante 443
+### Port 443 variant
 
-Event Hubs accepte les producteurs via HTTPS 443 et via AMQP sur WebSockets 443. Cette possibilité nécessite un relais ou une application qui consomme Kafka puis publie avec le SDK Event Hubs ou l'API HTTPS. MirrorMaker 2 ne devient pas un client 443 par simple changement de port.
+Event Hubs accepts producers over HTTPS 443 and AMQP WebSockets on 443. This requires a relay or application that consumes Kafka and publishes through the Event Hubs SDK or HTTPS API. MirrorMaker 2 does not become a port 443 client by changing its destination port.
 
-### Quand choisir cette option
+### When to use this option
 
-Choisir l'option D si l'entreprise veut une zone tampon Azure, une séparation claire entre la source et Fabric, ou un endpoint privé Azure géré indépendamment du workspace Fabric.
+Choose option D when the architecture needs an Azure buffer, a separate network boundary, or a Private Endpoint managed independently from the Fabric workspace.
 
 \clearpage
-\optionbanner{00838F}{OPTION E}{Relais 443 vers Eventstream}
+\optionbanner{00838F}{OPTION E}{Port 443 relay to Eventstream}
 
-## Option E: relais on-premises vers Eventstream sur HTTPS 443
+## Option E: on-premises relay to Eventstream over HTTPS 443
 
-Cette option complète les quatre architectures habituelles. Elle répond au cas où Eventstream est requis alors que le pare-feu n'autorise que TCP 443.
+This option covers the case where Eventstream is required but the firewall permits only outbound TCP 443.
 
 ```text
-Kafka on-premises
+On-premises Kafka
     |
-Service de relais local
+Local relay service
     |
-Event Hubs SDK avec AMQP sur WebSockets 443
-ou requêtes HTTPS POST
+Event Hubs SDK with AMQP WebSockets on port 443
+or HTTPS POST requests
     |
-Custom endpoint Eventstream
+Eventstream custom endpoint
     |
-Transformations et destinations Fabric
+Fabric transformations and destinations
 ```
 
-Le custom endpoint Eventstream fournit une connection string au format Event Hubs. Les SDK Event Hubs peuvent utiliser AMQP sur WebSockets. La FAQ Event Hubs confirme que ce mode fonctionne sur TCP 443 uniquement. L'API HTTPS permet aussi l'envoi d'événements, mais pas leur lecture.
+The Eventstream custom endpoint provides an Event Hubs-format connection string. Event Hubs SDKs can use AMQP WebSockets, and the Event Hubs FAQ confirms that this transport can run entirely on TCP 443. The HTTPS API can also send events, but it cannot receive them.
 
-### Atouts
+### Advantages
 
-- Le flux est initié depuis l'on-premises.
-- Eventstream reste dans l'architecture.
-- Le trafic sortant utilise TCP 443.
-- Le relais peut intégrer la politique de proxy, le contrôle de débit et la journalisation exigés par l'entreprise.
+- The on-premises environment initiates the connection.
+- Eventstream stays in the architecture.
+- Outbound traffic uses TCP 443.
+- The relay can implement the organization's proxy policy, rate control, and logging requirements.
 
-### Contraintes
+### Constraints
 
-- Il faut développer ou maintenir un composant de relais.
-- Les offsets Kafka, retries, doublons et dead-letter queues deviennent la responsabilité de ce composant.
-- Une inspection TLS ou un proxy authentifié doit être testé avec le SDK choisi.
-- Le débit et la taille des lots doivent être mesurés sous charge.
+- The organization must develop or maintain a relay.
+- The relay owns Kafka offsets, retries, duplicate handling, and dead-letter processing.
+- Test TLS inspection and authenticated proxy behavior with the selected SDK.
+- Measure throughput and batch sizes under representative load.
 
-Cette option est plus coûteuse à maintenir que Kafka Connect vers Eventhouse. Elle se justifie lorsque les transformations Eventstream sont nécessaires et que TCP 9093 est interdit.
+This option costs more to operate than Kafka Connect to Eventhouse. It is justified when Eventstream transformations are required and TCP 9093 is not allowed.
 
 \clearpage
 \resetsectioncolor
 
-## Comparatif des options
+## Option comparison
 
-| Option | Initiateur | Port principal côté sortie on-premises | VPN ou ExpressRoute | Eventstream | Composant à opérer |
+| Option | Initiator | Main outbound port from on-premises | VPN or ExpressRoute | Eventstream | Component to operate |
 | --- | --- | --- | --- | --- | --- |
-| A. VNet injection | Fabric vers Kafka | Listener Kafka sur le réseau privé | Oui | Oui | Réseau hybride et configuration Eventstream |
-| A2. IP allowlist | Fabric vers Kafka public | Listener Kafka exposé publiquement | Non | Oui | Exposition publique contrôlée |
-| B. Kafka Connect vers Eventhouse | On-premises vers Fabric | HTTPS 443 | Non | Non | Cluster Kafka Connect |
-| C. Custom endpoint Kafka | On-premises vers Fabric | Kafka TLS 9093 | Non | Oui | Producteur, connecteur ou réplication |
-| D. Event Hubs intermédiaire | On-premises vers Azure | 9093, ou 443 avec relais | Facultatif, requis pour Private Endpoint | Oui | Event Hubs et producteur |
-| E. Relais vers Eventstream | On-premises vers Fabric | HTTPS 443 | Non | Oui | Service de relais |
+| A. VNet injection | Fabric to Kafka | Private Kafka listener port | Yes | Yes | Hybrid network and Eventstream configuration |
+| A2. IP allowlist | Fabric to public Kafka | Publicly exposed Kafka listener | No | Yes | Controlled public exposure |
+| B. Kafka Connect to Eventhouse | On-premises to Fabric | HTTPS 443 | No | No | Kafka Connect cluster |
+| C. Kafka custom endpoint | On-premises to Fabric | Kafka TLS 9093 | No | Yes | Producer, connector, or replication tool |
+| D. Event Hubs intermediary | On-premises to Azure | 9093, or 443 with a relay | Optional, required for Private Endpoint | Yes | Event Hubs and producer |
+| E. Relay to Eventstream | On-premises to Fabric | HTTPS 443 | No | Yes | Relay service |
 
-| Critère | A | B | C | D | E |
+| Criterion | A | B | C | D | E |
 | --- | :---: | :---: | :---: | :---: | :---: |
-| Aucun flux initié vers l'on-premises | Non | Oui | Oui | Oui | Oui |
-| Compatible avec une politique 443 uniquement | Non | Oui | Non | Oui avec relais | Oui |
-| Transformations Eventstream | Oui | Non | Oui | Oui | Oui |
-| Zone tampon indépendante de Fabric | Non | Non | Non | Oui | Non |
-| Faible quantité de code spécifique | Oui | Oui | Oui si outil compatible | Oui si Kafka 9093 | Non |
-| Complexité réseau hybride | Forte | Faible | Faible | Moyenne à forte | Faible |
-| Complexité d'exploitation applicative | Faible | Moyenne | Moyenne | Moyenne | Forte |
+| No connection initiated toward on-premises | No | Yes | Yes | Yes | Yes |
+| Compatible with a port 443 only policy | No | Yes | No | Yes with a relay | Yes |
+| Eventstream transformations | Yes | No | Yes | Yes | Yes |
+| Buffer independent from Fabric | No | No | No | Yes | No |
+| Little custom code | Yes | Yes | Yes if the tool is compatible | Yes with Kafka 9093 | No |
+| Hybrid network complexity | High | Low | Low | Medium to high | Low |
+| Application operating effort | Low | Medium | Medium | Medium | High |
 
-## Arbre de décision
+## Decision tree
 
 ```mermaid
 flowchart TD
-    START{"Le trafic sortant est-il<br/>limité à TCP 443 ?"}
-    NEEDES{"Eventstream est-il requis<br/>pour transformer ou router ?"}
-    EVENTHOUSE{"Eventhouse est-il<br/>une cible acceptable ?"}
-    INBOUND{"Fabric peut-il initier des connexions<br/>vers les brokers via VPN ou ExpressRoute ?"}
-    BUFFER{"Une zone tampon Azure ou<br/>un Private Endpoint est-il requis ?"}
+    START{"Is outbound traffic limited<br/>to TCP 443?"}
+    NEEDES{"Is Eventstream required<br/>for transformation or routing?"}
+    EVENTHOUSE{"Is Eventhouse<br/>an acceptable target?"}
+    INBOUND{"Can Fabric initiate connections<br/>to the brokers through VPN or ExpressRoute?"}
+    BUFFER{"Is an Azure buffer or<br/>Private Endpoint required?"}
 
-    B["Option B<br/>Kafka Connect vers Eventhouse"]
-    E["Option E<br/>Relais 443 vers Eventstream"]
-    A["Option A<br/>VNet injection Eventstream"]
-    C["Option C<br/>Custom endpoint Kafka 9093"]
-    D["Option D<br/>Event Hubs intermédiaire"]
-    REVIEW["Revoir les contraintes<br/>ou accepter une exception réseau"]
+    B["Option B<br/>Kafka Connect to Eventhouse"]
+    E["Option E<br/>Port 443 relay to Eventstream"]
+    A["Option A<br/>Eventstream VNet injection"]
+    C["Option C<br/>Kafka custom endpoint on 9093"]
+    D["Option D<br/>Azure Event Hubs intermediary"]
+    REVIEW["Revisit the constraints<br/>or approve a network exception"]
 
-    START -->|"Oui"| NEEDES
-    NEEDES -->|"Non"| EVENTHOUSE
-    EVENTHOUSE -->|"Oui"| B
-    EVENTHOUSE -->|"Non"| REVIEW
-    NEEDES -->|"Oui"| E
+    START -->|"Yes"| NEEDES
+    NEEDES -->|"No"| EVENTHOUSE
+    EVENTHOUSE -->|"Yes"| B
+    EVENTHOUSE -->|"No"| REVIEW
+    NEEDES -->|"Yes"| E
 
-    START -->|"Non"| INBOUND
-    INBOUND -->|"Oui"| A
-    INBOUND -->|"Non"| BUFFER
-    BUFFER -->|"Oui"| D
-    BUFFER -->|"Non"| C
+    START -->|"No"| INBOUND
+    INBOUND -->|"Yes"| A
+    INBOUND -->|"No"| BUFFER
+    BUFFER -->|"Yes"| D
+    BUFFER -->|"No"| C
 
     classDef question fill:#FFF3E0,stroke:#EF6C00,color:#1a1a1a
     classDef recommended fill:#E8F5E9,stroke:#2E7D32,color:#1a1a1a,font-weight:bold
@@ -576,207 +576,207 @@ flowchart TD
     class REVIEW review
 ```
 
-## Diagnostiquer "403" et "443"
+## Diagnosing "403" and "443"
 
-Avant de choisir une architecture, il faut identifier la contrainte exacte.
+Identify the actual restriction before selecting an option.
 
-| Observation | Interprétation probable | Vérification |
+| Observation | Likely meaning | Check |
 | --- | --- | --- |
-| Le proxy renvoie `HTTP 403 Forbidden` | La requête HTTPS arrive au proxy, mais une règle refuse le FQDN, la méthode `CONNECT`, l'identité ou la destination | Consulter les logs du proxy et la règle qui a produit le refus |
-| La connexion expire sur 9093 | Le pare-feu bloque le port Kafka TLS ou le chemin réseau | Tester la résolution, le routage et `Test-NetConnection <fqdn> -Port 9093` |
-| La connexion TLS échoue sur 443 | Inspection TLS, CA non approuvée, SNI ou version TLS | Capturer la chaîne de certificats et tester depuis le même runtime |
-| Eventstream ne joint pas Kafka | Listener annoncé non résolu, port broker bloqué, route retour absente ou ACL Kafka | Lire les métadonnées Kafka depuis une VM dans le VNet |
-| Le test de connexion Fabric est absent | Comportement attendu avec le streaming virtual network data gateway | Publier puis vérifier l'état et la prévisualisation du flux |
-| La prévisualisation est vide | Format non JSON, droits du consumer group, Key Vault ou absence d'événements | Vérifier le topic avec un consumer de référence et les permissions |
+| The proxy returns `HTTP 403 Forbidden` | The HTTPS request reached the proxy, but a rule rejected the FQDN, `CONNECT` method, identity, or destination | Read the proxy log and the rule that produced the denial |
+| The connection to 9093 times out | The firewall blocks Kafka TLS or the network path is incomplete | Check DNS, routing, and `Test-NetConnection <fqdn> -Port 9093` |
+| TLS fails on port 443 | TLS inspection, an untrusted CA, SNI handling, or protocol version | Capture the certificate chain from the production runtime |
+| Eventstream cannot reach Kafka | An advertised listener does not resolve, a broker port is blocked, return routing is missing, or Kafka ACLs reject the client | Read Kafka metadata from a VM in the VNet |
+| Fabric does not offer a connection test | Expected with the streaming virtual network data gateway | Publish, then inspect source state and eventstream data preview |
+| Preview is empty | Non-JSON data, consumer-group permissions, Key Vault access, or no current events | Read the topic with a reference consumer and check permissions |
 
-Questions à poser aux équipes réseau et sécurité:
+Ask the network and security teams:
 
-1. S'agit-il d'un statut HTTP 403 observé dans un proxy, ou d'une règle qui n'autorise que TCP 443?
-2. Les connexions initiées depuis un VNet Azure vers les brokers on-premises sont-elles interdites?
-3. Une exception TCP 9093 vers un FQDN Azure précis est-elle acceptable?
-4. Le proxy autorise-t-il AMQP sur WebSockets, ou seulement des requêtes HTTP classiques?
-5. L'inspection TLS remplace-t-elle le certificat présenté au client?
-6. Les endpoints Fabric et Entra nécessaires sont-ils autorisés par FQDN?
+1. Does "403" mean an HTTP response from a proxy, or was it shorthand for a port 443 only rule?
+2. Are connections from an Azure VNet to the on-premises Kafka brokers forbidden?
+3. Can the firewall allow TCP 9093 to one specific Azure FQDN?
+4. Does the proxy permit AMQP over WebSockets, or only conventional HTTP requests?
+5. Does TLS inspection replace the certificate presented to the client?
+6. Are the required Fabric and Microsoft Entra endpoints allowed by FQDN?
 
-## Socle de sécurité commun
+## Common security baseline
 
-### Réseau
+### Network
 
-- Restreindre les règles aux CIDR, FQDN et ports réellement utilisés.
-- Ne pas exposer les brokers sur Internet pour contourner un problème de routage.
-- Pour l'option A, séparer le sous-réseau délégué des Private Endpoints et des machines virtuelles.
-- Pour Event Hubs privé, utiliser le Private Endpoint et désactiver l'accès public si la politique l'impose.
-- Journaliser les refus dans le pare-feu, le proxy, les NSG et le VPN.
+- Restrict rules to the CIDRs, FQDNs, and ports actually used.
+- Do not expose Kafka brokers to the internet to work around a routing problem.
+- For option A, keep the delegated subnet separate from Private Endpoints and virtual machines.
+- For private Event Hubs, use a Private Endpoint and disable public access when policy requires it.
+- Log denials in the firewall, proxy, NSGs, and VPN platform.
 
-### Identité et secrets
+### Identity and secrets
 
-- Préférer une identité Entra à un secret statique lorsque le runtime le permet.
-- Stocker les secrets Kafka, SAS et Entra dans un coffre ou un secret provider.
-- Séparer les identités d'ingestion, d'administration et de lecture.
-- Donner seulement les droits nécessaires sur les topics, consumer groups, tables et bases.
-- Préparer une procédure de rotation qui ne coupe pas le flux.
+- Prefer Microsoft Entra identities over static secrets when the runtime supports them.
+- Store Kafka, SAS, and Microsoft Entra secrets in a vault or secret provider.
+- Separate ingestion, administration, and read identities.
+- Grant only the required rights on topics, consumer groups, tables, and databases.
+- Define a rotation procedure that does not interrupt the stream.
 
-### TLS et certificats
+### TLS and certificates
 
-- Utiliser `SASL_SSL` ou mTLS pour Kafka.
-- Faire correspondre les SAN des certificats aux noms réellement annoncés.
-- Importer les chaînes complètes et les clés requises au format attendu.
-- Tester la CA interne depuis le runtime du connecteur, pas seulement depuis un poste administrateur.
-- Documenter l'impact d'une inspection TLS sur Kafka, AMQP WebSockets et HTTPS.
+- Use `SASL_SSL` or mTLS for Kafka.
+- Match certificate SANs to the advertised broker names.
+- Import complete certificate chains and required private keys in the expected format.
+- Test the internal CA from the connector runtime, not only from an administrator workstation.
+- Document how TLS inspection affects Kafka, AMQP WebSockets, and HTTPS.
 
-### Fiabilité
+### Reliability
 
-- Concevoir les traitements pour une livraison at least once.
-- Définir une clé d'idempotence exploitable dans Eventhouse ou dans la couche de transformation.
-- Prévoir une dead-letter queue et une procédure de rejeu.
-- Surveiller le lag Kafka, les offsets, les retries, les erreurs d'ingestion et le débit.
-- Tester le comportement pendant une coupure réseau plus longue que les buffers locaux.
+- Design downstream processing for at-least-once delivery.
+- Define an idempotency key that Eventhouse or the transformation layer can use.
+- Provide a dead-letter path and a replay procedure.
+- Monitor Kafka lag, offsets, retries, ingestion failures, and throughput.
+- Test an outage that lasts longer than local buffers.
 
-## Démarche de mise en oeuvre
+## Implementation approach
 
-### Étape 1: cadrage
+### Step 1: collect the facts
 
-Collecter les informations suivantes:
+Gather the following information:
 
-| Domaine | Informations attendues |
+| Area | Required information |
 | --- | --- |
-| Kafka | Distribution, version, nombre de brokers, topics, partitions, débit, taille des messages, rétention |
-| Sécurité Kafka | SASL, SCRAM, mTLS, Kerberos éventuel, CA, ACL, schema registry |
-| Réseau | CIDR, DNS, ports, VPN ou ExpressRoute, proxy, inspection TLS, règles entrantes et sortantes |
-| Fabric | Région de capacité, workspace, niveau Eventstream, destination Eventhouse ou Lakehouse |
-| Exploitation | RTO, RPO, latence cible, rejeu, monitoring, astreinte, responsabilités |
+| Kafka | Distribution, version, broker count, topics, partitions, throughput, message size, retention |
+| Kafka security | SASL, SCRAM, mTLS, optional Kerberos, CA, ACLs, schema registry |
+| Network | CIDRs, DNS, ports, VPN or ExpressRoute, proxy, TLS inspection, inbound and outbound rules |
+| Fabric | Capacity region, workspace, Eventstream feature level, Eventhouse or Lakehouse destination |
+| Operations | RTO, RPO, target latency, replay, monitoring, on-call ownership |
 
-### Étape 2: choisir deux candidats
+### Step 2: shortlist two options
 
-Ne lancer un PoC que sur les options compatibles avec les règles réseau réelles:
+Run a proof of concept only for options that satisfy the real network rules:
 
-- option A et option B si l'entreprise hésite entre pull privé et push 443;
-- option B et option E si la sortie est strictement limitée à 443;
-- option C et option D si 9093 est accepté et qu'Eventstream doit être conservé.
+- options A and B when the choice is between a private pull path and a port 443 push path;
+- options B and E when outbound traffic is strictly limited to 443;
+- options C and D when 9093 is allowed and Eventstream must remain in the design.
 
-### Étape 3: valider le réseau avant Fabric
+### Step 3: prove the network before configuring Fabric
 
-Pour l'option A, déployer une VM de test dans un sous-réseau non délégué du même VNet et vérifier:
+For option A, deploy a test VM in a nondelegated subnet of the same VNet and run:
 
 ```powershell
 Resolve-DnsName kafka-broker-1.example.internal
 Test-NetConnection kafka-broker-1.example.internal -Port <listener-port>
 ```
 
-Utiliser ensuite un client Kafka pour lire les métadonnées. Le résultat doit montrer des adresses de brokers joignables depuis Azure.
+Then use a Kafka client to read cluster metadata. Every returned broker address must be reachable from Azure.
 
-Pour les options C et D:
+For options C and D:
 
 ```powershell
 Resolve-DnsName <namespace>.servicebus.windows.net
 Test-NetConnection <namespace>.servicebus.windows.net -Port 9093
 ```
 
-Pour les options B et E:
+For options B and E:
 
 ```powershell
 Test-NetConnection <fabric-or-eventstream-endpoint> -Port 443
 ```
 
-Les tests doivent partir du serveur ou du conteneur qui exécutera réellement Kafka Connect ou le relais. Un test depuis un poste utilisateur ne valide pas le chemin de production.
+Run these tests from the server or container that will host Kafka Connect or the relay. A test from a user workstation does not prove the production path.
 
-### Étape 4: preuve de concept fonctionnelle
+### Step 4: run a functional proof of concept
 
-Le PoC doit couvrir:
+The proof of concept should cover:
 
-- plusieurs partitions et plusieurs brokers;
-- arrêt et redémarrage d'un worker;
-- perte temporaire du lien réseau;
-- rotation d'un secret ou certificat;
-- message mal formé et dead-letter queue;
-- doublon et rejeu depuis un offset antérieur;
-- charge représentative;
-- mesure de la latence à chaque étape;
-- consultation des données dans la destination Fabric finale.
+- several partitions and brokers;
+- worker stop and restart;
+- a temporary network outage;
+- secret or certificate rotation;
+- a malformed message and dead-letter handling;
+- duplicate delivery and replay from an earlier offset;
+- representative load;
+- latency measurement at each boundary;
+- access to data in the final Fabric destination.
 
-### Étape 5: passage en production
+### Step 5: prepare production operations
 
-Avant la production:
+Before production:
 
-1. Automatiser les ressources Azure, les rôles et les configurations Fabric lorsque les API le permettent.
-2. Mettre les workers Kafka Connect ou le relais en haute disponibilité.
-3. Définir les alertes sur le lag, les erreurs d'authentification, les refus réseau et les échecs d'ingestion.
-4. Écrire les procédures de reprise, rotation, rejeu et changement de certificat.
-5. Tester la restauration après une coupure complète du chemin hybride.
-6. Faire approuver les flux par les propriétaires réseau, sécurité, Kafka et Fabric.
+1. Automate Azure resources, role assignments, and Fabric configuration where APIs support them.
+2. Make Kafka Connect workers or the relay highly available.
+3. Alert on lag, authentication failures, network denials, and ingestion errors.
+4. Write recovery, rotation, replay, and certificate-change procedures.
+5. Test recovery after a complete hybrid-path outage.
+6. Obtain approval from the network, security, Kafka, and Fabric owners.
 
-## Recommandation par défaut
+## Default recommendation
 
-La recommandation dépend de la contrainte réseau, pas d'une préférence produit:
+Choose based on the network constraint:
 
-- Si ExpressRoute ou VPN existe et que le réseau autorise Fabric à joindre tous les brokers, utiliser l'option A.
-- Si la sortie on-premises est limitée à HTTPS 443 et qu'Eventhouse convient, utiliser l'option B.
-- Si Eventstream est obligatoire et que TCP 9093 est autorisé, utiliser l'option C.
-- Si une zone tampon Azure ou un Private Endpoint indépendant est recherché, utiliser l'option D.
-- Si Eventstream est obligatoire et que seul TCP 443 est autorisé, utiliser l'option E.
+- If VPN or ExpressRoute exists and Fabric may connect to every broker, use option A.
+- If the on-premises network permits only outbound HTTPS 443 and Eventhouse is suitable, use option B.
+- If Eventstream is required and TCP 9093 is allowed, use option C.
+- If the design needs an Azure buffer or separately managed Private Endpoint, use option D.
+- If Eventstream is required and TCP 443 is the only allowed port, use option E.
 
-Pour beaucoup d'environnements fortement filtrés, le premier arbitrage réaliste oppose A et B. A maximise l'intégration Fabric. B simplifie le passage du pare-feu en gardant toutes les connexions initiées depuis l'on-premises.
+In many tightly filtered environments, the practical first comparison is A versus B. Option A keeps more work inside Fabric. Option B is easier to pass through a restrictive firewall because every connection starts on-premises.
 
-## Questions ouvertes avant décision
+## Questions to answer before selection
 
-1. La mention "403" désigne-t-elle une réponse HTTP, un blocage proxy ou une confusion avec le port 443?
-2. Les flux entrants depuis un VNet Azure vers le réseau Kafka sont-ils autorisés?
-3. Un VPN ou ExpressRoute existe-t-il déjà entre le site et la région Azure concernée?
-4. Quelle région héberge la capacité Fabric et le workspace?
-5. Quels FQDN et ports sont annoncés par les brokers?
-6. Le cluster utilise-t-il SASL/SCRAM, mTLS, Kerberos ou une CA interne?
-7. Le DNS Azure peut-il résoudre les noms internes Kafka?
-8. Le besoin final porte-t-il sur Eventhouse, Lakehouse ou plusieurs destinations?
-9. Les transformations Eventstream sont-elles nécessaires?
-10. Quelle latence doit être tenue de bout en bout?
-11. L'équipe exploite-t-elle déjà Kafka Connect?
-12. Une zone tampon Azure est-elle souhaitée pour le rejeu et le découplage?
+1. Does "403" mean an HTTP response, a proxy denial, or confusion with port 443?
+2. Can an Azure VNet initiate connections to the Kafka network?
+3. Is VPN or ExpressRoute already available in the relevant Azure region?
+4. Which region hosts the Fabric capacity and workspace?
+5. Which FQDNs and ports do the brokers advertise?
+6. Does the cluster use SASL/SCRAM, mTLS, Kerberos, or an internal CA?
+7. Can Azure DNS resolve the internal Kafka names?
+8. Is the final target Eventhouse, Lakehouse, or several destinations?
+9. Are Eventstream transformations required?
+10. What end-to-end latency must the design meet?
+11. Does the organization already operate Kafka Connect?
+12. Is an Azure buffer useful for replay and decoupling?
 
-## Statut produit et réserves
+## Product status and caveats
 
-| Fonction | État vérifié | Réserve |
+| Feature | Verified status | Caveat |
 | --- | --- | --- |
-| Injection VNet du connecteur Eventstream | GA | VNet Azure, sous-réseau délégué et connectivité hybride requis |
-| Managed Private Endpoint Eventstream vers Event Hubs ou IoT Hub | GA | Sources Azure limitées à Event Hubs et IoT Hub |
-| Kafka Connect sink Microsoft Fabric | Projet Microsoft publié | Cible Eventhouse actuelle, Eventstream dans la roadmap |
-| Custom endpoint Eventstream avec protocole Kafka | Documenté | Kafka TLS utilise 9093 |
-| OneLake availability pour Eventhouse | Disponible | Latence Delta adaptative et restrictions sur certaines opérations |
-| Connector IP Allowlist | Disponible sur demande | Réseau public et source publiquement résoluble |
-| Private Links avec custom endpoint Eventstream | Documentation contradictoire | La page de choix indique le support, la matrice détaillée indique le contraire. Valider par PoC avant de retenir ce modèle |
-| Eventhouse direct ingestion avec Private Links | Non pris en charge | Le mode preprocessing est indiqué comme pris en charge |
+| Eventstream connector VNet injection | GA | Requires an Azure VNet, delegated subnet, and hybrid connectivity |
+| Eventstream Managed Private Endpoint to Event Hubs or IoT Hub | GA | Azure source support is limited to Event Hubs and IoT Hub |
+| Microsoft Fabric Kafka Connect sink | Microsoft project available | Current target is Eventhouse; Eventstream remains on the roadmap |
+| Eventstream custom endpoint with Kafka protocol | Documented | Kafka TLS uses port 9093 |
+| OneLake availability for Eventhouse | Available | Adaptive Delta latency and restrictions on some table operations |
+| Connector IP Allowlist | Available by request | Uses the public network and requires a publicly resolvable source |
+| Private Links with an Eventstream custom endpoint | Microsoft documentation is inconsistent | The selection guide says it is supported, while the detailed matrix says it is not. Prove the exact configuration before adopting it |
+| Eventhouse direct ingestion with Private Links | Not supported | Preprocessing mode is listed as supported |
 
-## Références
+## References
 
 ### Microsoft Fabric Eventstream
 
-| Ressource | Lien |
+| Resource | Link |
 | --- | --- |
-| Choisir la fonction de sécurité réseau Eventstream | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/choose-the-right-network-security-feature> |
-| Guide VNet et on-premises | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/streaming-connector-private-network-support-guide> |
-| Vue d'ensemble VNet et on-premises | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/streaming-connector-private-network-support-overview> |
-| Gérer un streaming virtual network data gateway | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/create-manage-streaming-virtual-network-data-gateways> |
-| Ajouter une source Apache Kafka | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/add-source-apache-kafka> |
-| Ajouter un custom endpoint | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/add-source-custom-app> |
-| Utiliser l'endpoint Kafka Eventstream | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/stream-consume-events-use-kafka-endpoint> |
-| Managed Private Endpoint pour Eventstream | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/set-up-private-endpoint> |
-| Tenant et Workspace Private Links | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/set-up-tenant-workspace-private-links> |
+| Choose the right Eventstream network security feature | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/choose-the-right-network-security-feature> |
+| VNet and on-premises support guide | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/streaming-connector-private-network-support-guide> |
+| VNet and on-premises support overview | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/streaming-connector-private-network-support-overview> |
+| Create and manage a streaming virtual network data gateway | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/create-manage-streaming-virtual-network-data-gateways> |
+| Add an Apache Kafka source | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/add-source-apache-kafka> |
+| Add a custom endpoint source | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/add-source-custom-app> |
+| Use the Eventstream Kafka endpoint | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/stream-consume-events-use-kafka-endpoint> |
+| Managed Private Endpoint for Eventstream | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/set-up-private-endpoint> |
+| Tenant and Workspace Private Links | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/set-up-tenant-workspace-private-links> |
 
-### Eventhouse et Kafka Connect
+### Eventhouse and Kafka Connect
 
-| Ressource | Lien |
+| Resource | Link |
 | --- | --- |
-| Sink Kafka Connect Microsoft Fabric | <https://github.com/microsoft/kafka-sink-ms-fabric> |
-| Ingestion Kafka vers une base KQL Fabric | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/get-data-kafka> |
-| OneLake availability pour Eventhouse | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-house-onelake-availability> |
+| Microsoft Fabric Kafka Connect sink | <https://github.com/microsoft/kafka-sink-ms-fabric> |
+| Ingest Kafka data into a Fabric KQL database | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/get-data-kafka> |
+| OneLake availability for Eventhouse | <https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-house-onelake-availability> |
 
 ### Azure Event Hubs
 
-| Ressource | Lien |
+| Resource | Link |
 | --- | --- |
-| Support du protocole Apache Kafka | <https://learn.microsoft.com/en-us/azure/event-hubs/azure-event-hubs-apache-kafka-overview> |
-| Ports, HTTPS et AMQP sur WebSockets | <https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-faq> |
-| Private Endpoint Event Hubs | <https://learn.microsoft.com/en-us/azure/event-hubs/private-link-service> |
+| Apache Kafka protocol support | <https://learn.microsoft.com/en-us/azure/event-hubs/azure-event-hubs-apache-kafka-overview> |
+| Ports, HTTPS, and AMQP WebSockets | <https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-faq> |
+| Event Hubs Private Endpoint | <https://learn.microsoft.com/en-us/azure/event-hubs/private-link-service> |
 
 ---
 
-*Document vérifié le 11 septembre 2026.*
+*Verified on September 11, 2026.*
