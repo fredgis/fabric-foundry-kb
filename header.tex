@@ -119,20 +119,29 @@
   \hspace{0.6em}\textbf{#3}\par\vspace{0.18em}%
 }
 
-\newcommand{\methodmarker}[2]{%
+\newcommand{\methodbanner}[3]{%
   \resetsectioncolor
   \definecolor{CurrentMethodColor}{HTML}{#1}%
   \vspace{0.2em}
   \noindent
   \begingroup
     \setlength{\fboxsep}{0pt}%
-    \colorbox{CurrentMethodColor}{%
-      \makebox[0.95cm][c]{%
-        \rule{0pt}{0.95cm}\color{white}\bfseries #2%
+    \fcolorbox{gray!40}{gray!8}{%
+      \parbox[c][1.15cm][c]{\dimexpr\linewidth-2\fboxrule\relax}{%
+        \hspace{0.25cm}%
+        \raisebox{-0.27cm}{%
+          \colorbox{CurrentMethodColor}{%
+            \makebox[0.82cm][c]{%
+              \rule{0pt}{0.82cm}\color{white}\bfseries #2%
+            }%
+          }%
+        }%
+        \hspace{0.45cm}%
+        {\color{blue!70!black}\large\bfseries #3}%
       }%
     }%
   \endgroup
-  \par\vspace{0.35em}
+  \par\vspace{0.45em}
 }
 
 \newcommand{\methodlegenditem}[3]{%
