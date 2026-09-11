@@ -144,19 +144,5 @@
   \par\vspace{0.45em}
 }
 
-\newcommand{\methodlegenditem}[3]{%
-  \definecolor{CurrentMethodLegendColor}{HTML}{#1}%
-  \noindent
-  \begingroup
-    \setlength{\fboxsep}{0pt}%
-    \colorbox{CurrentMethodLegendColor}{%
-      \makebox[0.72cm][c]{%
-        \rule{0pt}{0.72cm}\color{white}\bfseries #2%
-      }%
-    }%
-  \endgroup
-  \hspace{0.6em}\textbf{#3}\par\vspace{0.18em}%
-}
-
 \titleformat{\section}{\Large\bfseries\color{DocSectionColor}}{\thesection}{1em}{}
 \titleformat{\subsection}{\large\bfseries\color{DocSubsectionColor}}{\thesubsection}{1em}{}
