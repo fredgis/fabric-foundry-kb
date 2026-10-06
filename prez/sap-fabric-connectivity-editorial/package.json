@@ -3,11 +3,10 @@
   "private": true,
   "scripts": {
     "dev": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files -s .",
-    "build": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files slides.md -o dist/index.html",
+    "build": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files slides.md -o dist/index.html && node -e \"require('node:fs').cpSync('images', require('node:path').join('dist', 'images'), { recursive: true })\"",
     "pdf": "npx @marp-team/marp-cli --theme theme.css --html --allow-local-files --pdf slides.md -o dist/slides.pdf"
   },
   "dependencies": {
     "@marp-team/marp-cli": "^4.0.0"
   }
 }
-

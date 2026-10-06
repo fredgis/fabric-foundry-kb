@@ -39,6 +39,11 @@ local methods = {
     marker = "M8",
     title = "SAP Business Data Cloud Connect",
   },
+  ["Business Process Solutions: packaged SAP analytics in Fabric"] = {
+    color = "6A1B9A",
+    marker = "BPS",
+    title = "Business Process Solutions",
+  },
 }
 
 function Pandoc(document)
@@ -57,7 +62,8 @@ function Pandoc(document)
           method.title
         )
         table.insert(blocks, pandoc.RawBlock("latex", banner))
-      elseif title == "Legacy Azure Data Factory SAP CDC: review required" then
+      elseif title == "Legacy Azure Data Factory SAP CDC: review required"
+        or title == "FabCon Europe 2026: changes relevant to SAP" then
         table.insert(
           blocks,
           pandoc.RawBlock("latex", "\\clearpage\n\\resetsectioncolor")

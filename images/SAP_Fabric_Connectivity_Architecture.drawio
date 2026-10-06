@@ -1,14 +1,14 @@
 <mxfile host="app.diagrams.net" agent="Copilot" version="24.0.0">
   <diagram id="sap-fabric" name="SAP to Fabric Connectivity">
-    <mxGraphModel dx="2000" dy="1200" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1150" math="0" shadow="0">
+    <mxGraphModel dx="2000" dy="1200" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="1180" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
 
-        <mxCell id="title" value="SAP to Microsoft Fabric Connectivity Reference Architecture" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#0B3B5C;" vertex="1" parent="1">
+        <mxCell id="title" value="SAP to Microsoft Fabric: Connectivity Reference Architecture" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;fontColor=#0B3B5C;" vertex="1" parent="1">
           <mxGeometry x="40" y="20" width="1620" height="32" as="geometry"/>
         </mxCell>
-        <mxCell id="subtitle" value="Eight integration patterns · Data movement · Federation · Event-driven · Zero-copy" style="text;html=1;align=center;fontSize=13;fontColor=#506070;" vertex="1" parent="1">
+        <mxCell id="subtitle" value="Eight connectivity patterns + Business Process Solutions · Reviewed 6 October 2026 · Roadmap is not GA" style="text;html=1;align=center;fontSize=13;fontColor=#506070;" vertex="1" parent="1">
           <mxGeometry x="40" y="52" width="1620" height="22" as="geometry"/>
         </mxCell>
 
@@ -33,41 +33,47 @@
         <mxCell id="ds" value="SAP Datasphere" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0B6CA0;strokeColor=#003D66;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane1">
           <mxGeometry x="20" y="370" width="240" height="48" as="geometry"/>
         </mxCell>
-        <mxCell id="bdc" value="SAP Business Data Cloud&#10;BDC Connect planned Q3 2026" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0B6CA0;strokeColor=#003D66;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane1">
+        <mxCell id="bdc" value="SAP Business Data Cloud&#10;(BDC)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0B6CA0;strokeColor=#003D66;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane1">
           <mxGeometry x="20" y="428" width="240" height="55" as="geometry"/>
         </mxCell>
         <mxCell id="btp" value="SAP BTP&#10;Event Mesh / Integration Suite" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0B6CA0;strokeColor=#003D66;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane1">
           <mxGeometry x="20" y="493" width="240" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="sapnote" value="Sources expose data via:&#10;• RFC / BAPI / NCo&#10;• ODP / SLT (review SAP Note 3255746)&#10;• OData / REST&#10;• SQL (HANA)&#10;• Event Mesh (CloudEvents)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#005B97;fontColor=#003D66;align=left;fontSize=11;" vertex="1" parent="lane1">
+        <mxCell id="sapnote" value="Sources expose data via:&#10;• RFC / BAPI / NCo&#10;• ODP / SLT / CDC log&#10;• OData / REST&#10;• SQL (HANA)&#10;• Event Mesh (CloudEvents)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#005B97;fontColor=#003D66;align=left;fontSize=11;" vertex="1" parent="lane1">
           <mxGeometry x="20" y="780" width="240" height="120" as="geometry"/>
         </mxCell>
 
         <mxCell id="lane2" value="Connectivity &amp; Gateways" style="swimlane;horizontal=1;startSize=34;fillColor=#FFF6E5;strokeColor=#E8A838;fontColor=#7A4C00;fontStyle=1;fontSize=13;html=1;" vertex="1" parent="1">
           <mxGeometry x="340" y="90" width="270" height="930" as="geometry"/>
         </mxCell>
-        <mxCell id="opdg" value="On-Premises Data Gateway&#10;SAP NCo + ABAP Add-On trigger" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8A838;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
+        <mxCell id="opdg" value="On-Premises Data Gateway&#10;NCo for RFC · HANA ODBC driver" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8A838;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
           <mxGeometry x="20" y="50" width="230" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="vnetgw" value="VNet Data Gateway&#10;(OData / supported endpoints)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8A838;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
+        <mxCell id="vnetgw" value="Gateway host in Azure VNet&#10;(OPDG for SAP drivers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8A838;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
           <mxGeometry x="20" y="120" width="230" height="55" as="geometry"/>
         </mxCell>
         <mxCell id="cloudapi" value="Direct Cloud APIs&#10;OData / REST · TLS 1.2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
           <mxGeometry x="20" y="185" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="partner" value="Partner Open Mirroring&#10;dab · Simplement · SNP · Theobald" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
+        <mxCell id="partner" value="Partner Mirror Connectors&#10;(dab · Theobald · SNP · Qlik)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
           <mxGeometry x="20" y="250" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="dssync" value="Datasphere Replication Flow&#10;Premium Outbound to ADLS / S3 / GCS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
+        <mxCell id="dssync" value="Datasphere Premium Outbound&#10;ADLS for M2 / M3 / BPS&#10;Kafka endpoint for M6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
           <mxGeometry x="20" y="315" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="evtgrid" value="Kafka Custom Endpoint / Event Grid&#10;Event bridge paths" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
+        <mxCell id="evtgrid" value="Configured event bridge&#10;+ Event Grid namespace" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
           <mxGeometry x="20" y="380" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="bdcconn" value="BDC Connect for Fabric&#10;Planned zero-copy sharing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
+        <mxCell id="bdcconn" value="BDC Connect for Fabric&#10;(planned sharing, not GA)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
           <mxGeometry x="20" y="445" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="netnote" value="Choose by network posture:&#10;• OPDG → classic SAP connectors&#10;• VNet GW → supported private endpoints&#10;• Datasphere → cloud staging&#10;• Partner → vendor-managed runtime&#10;• BDC → planned sharing path" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E8A838;fontColor=#7A4C00;align=left;fontSize=11;" vertex="1" parent="lane2">
+        <mxCell id="abap" value="Microsoft ABAP Add-On (Preview)&#10;OPDG control · SAP writes to OneLake&#10;Full / watermark loads, not CDC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
+          <mxGeometry x="20" y="510" width="230" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="adf" value="Azure Data Factory SAP CDC&#10;SHIR + NCo&#10;BPS option: ODP patch review" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFD27A;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;" vertex="1" parent="lane2">
+          <mxGeometry x="20" y="585" width="230" height="65" as="geometry"/>
+        </mxCell>
+        <mxCell id="netnote" value="Choose by connection requirements:&#10;• OPDG: SAP connector drivers&#10;• SHIR: Azure Data Factory SAP CDC&#10;• ABAP add-on: SAP outbound HTTPS&#10;• OData: gateway depends on network&#10;• ADF: SAP Note 3255746 patch risk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E8A838;fontColor=#7A4C00;align=left;fontSize=11;" vertex="1" parent="lane2">
           <mxGeometry x="20" y="760" width="230" height="140" as="geometry"/>
         </mxCell>
 
@@ -78,50 +84,50 @@
         <mxCell id="grpmove" value="Data Movement to OneLake" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFE4FA;strokeColor=#6A0DAD;fontColor=#4A0080;fontStyle=1;verticalAlign=top;align=center;fontSize=12;container=1;collapsible=0;" vertex="1" parent="lane3">
           <mxGeometry x="15" y="50" width="400" height="280" as="geometry"/>
         </mxCell>
-        <mxCell id="m1" value="Method 1 - Data Factory Extraction&#10;Classic connectors + ABAP Add-On (Preview)&#10;Batch / watermark to Fabric destinations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8A838;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpmove">
+        <mxCell id="m1" value="Method 1: Data Factory Connectors&#10;7 SAP connector variants + OData&#10;Copy Job ABAP add-on option in Preview" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8A838;strokeColor=#C07C10;fontColor=#1A1A1A;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpmove">
           <mxGeometry x="15" y="35" width="370" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="m2" value="Method 2 - Mirroring for SAP&#10;GA · Datasphere to ADLS to OneLake&#10;Managed Delta tables and SQL endpoint" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2E7D32;strokeColor=#1B5E20;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpmove">
+        <mxCell id="m2" value="Method 2: Mirroring for SAP (GA)&#10;Datasphere → ADLS → Fabric mirroring&#10;Core replication compute is free" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2E7D32;strokeColor=#1B5E20;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpmove">
           <mxGeometry x="15" y="100" width="370" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="m3" value="Method 3 - Copy Job CDC for SAP&#10;GA announcement · metadata conflict&#10;Requires Datasphere + cloud staging" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#558B2F;strokeColor=#33691E;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpmove">
+        <mxCell id="m3" value="Method 3: Copy Job CDC for SAP (GA)&#10;Datasphere Outbound required&#10;Staged I/U/D · scheduled destination merge" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#558B2F;strokeColor=#33691E;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpmove">
           <mxGeometry x="15" y="165" width="370" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="m7" value="Method 7 - Open Mirroring Partners&#10;Current Learn treats base feature as GA&#10;Partner scope and version vary" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33691E;strokeColor=#1B5E20;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpmove">
+        <mxCell id="m7" value="Method 7: Open Mirroring (Partners)&#10;Parquet changes → managed Delta tables&#10;No Datasphere required" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33691E;strokeColor=#1B5E20;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpmove">
           <mxGeometry x="15" y="225" width="370" height="50" as="geometry"/>
         </mxCell>
 
-        <mxCell id="grpfed" value="Federation &amp; Governed Sharing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0EBF7;strokeColor=#0D47A1;fontColor=#002171;fontStyle=1;verticalAlign=top;align=center;fontSize=12;container=1;collapsible=0;" vertex="1" parent="lane3">
+        <mxCell id="grpfed" value="Federation &amp; Data Sharing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0EBF7;strokeColor=#0D47A1;fontColor=#002171;fontStyle=1;verticalAlign=top;align=center;fontSize=12;container=1;collapsible=0;" vertex="1" parent="lane3">
           <mxGeometry x="15" y="340" width="400" height="240" as="geometry"/>
         </mxCell>
-        <mxCell id="m4" value="Method 4 - Semantic Federation&#10;Power BI DirectQuery to SAP BW / HANA&#10;Data stays in the SAP source" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0D47A1;strokeColor=#002171;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpfed">
+        <mxCell id="m4" value="Method 4: Semantic Federation&#10;Power BI DirectQuery to BW / HANA&#10;Query results move; no bulk replica" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0D47A1;strokeColor=#002171;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpfed">
           <mxGeometry x="15" y="35" width="370" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="m5" value="Method 5 - Datasphere Governed Exchange&#10;Outbound via ADLS / S3 / GCS&#10;OneLake is a replication-flow source" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#00695C;strokeColor=#004D40;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpfed">
+        <mxCell id="m5" value="Method 5: Datasphere Governed Exchange&#10;Governed export + OneLake shortcut&#10;OneLake → Datasphere: Initial Only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#00695C;strokeColor=#004D40;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpfed">
           <mxGeometry x="15" y="100" width="370" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="m8" value="Method 8 - SAP BDC Connect&#10;Planned Q3 2026 · GA not confirmed&#10;Bidirectional zero-copy product intent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1565C0;strokeColor=#002171;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpfed">
+        <mxCell id="m8" value="Method 8: SAP BDC Connect (Roadmap)&#10;Planned bidirectional zero-copy sharing&#10;Target end Q1 2027, subject to change" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1565C0;strokeColor=#002171;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpfed">
           <mxGeometry x="15" y="165" width="370" height="55" as="geometry"/>
         </mxCell>
 
         <mxCell id="grpevt" value="Event-Driven" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBE5DC;strokeColor=#BF360C;fontColor=#8C2300;fontStyle=1;verticalAlign=top;align=center;fontSize=12;container=1;collapsible=0;" vertex="1" parent="lane3">
           <mxGeometry x="15" y="590" width="400" height="135" as="geometry"/>
         </mxCell>
-        <mxCell id="m6" value="Method 6 - Event-Driven Integration&#10;Datasphere to Eventstream Kafka endpoint&#10;Event Mesh bridge requires validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BF360C;strokeColor=#8C2300;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpevt">
+        <mxCell id="m6" value="Method 6: Event-Driven Integration&#10;Event Mesh bridge / Datasphere Kafka endpoint&#10;SAP Datasphere source GA, September 2026" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BF360C;strokeColor=#8C2300;fontColor=#FFFFFF;fontStyle=1;align=left;spacingLeft=10;" vertex="1" parent="grpevt">
           <mxGeometry x="15" y="35" width="370" height="60" as="geometry"/>
         </mxCell>
 
-        <mxCell id="legendbox" value="Select by outcome and ownership:&#10;• Batch / watermark → M1&#10;• Continuous with Datasphere → M2&#10;• Staged CDC with status conflict → M3&#10;• Keep data in SAP → M4&#10;• Governed exchange → M5&#10;• Events → M6&#10;• Partner CDC → M7&#10;• Planned BDC sharing → M8" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6A0DAD;fontColor=#4A0080;align=left;fontSize=11;spacingLeft=8;" vertex="1" parent="lane3">
+        <mxCell id="legendbox" value="Choose by requirement:&#10;• Scheduled full / watermark loads → M1&#10;• CDC with Datasphere → M2 · M3&#10;• CDC without Datasphere → M7&#10;• Business events / replicated records → M6&#10;• Direct BI queries → M4; governed exchange → M5&#10;• Future BDC sharing → M8 (not GA)&#10;• Packaged SAP business processing → BPS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6A0DAD;fontColor=#4A0080;align=left;fontSize=11;spacingLeft=8;" vertex="1" parent="lane3">
           <mxGeometry x="15" y="745" width="400" height="155" as="geometry"/>
         </mxCell>
 
-        <mxCell id="lane4" value="Microsoft Fabric - Storage &amp; Compute" style="swimlane;horizontal=1;startSize=34;fillColor=#EDE3F7;strokeColor=#6A0DAD;fontColor=#4A0080;fontStyle=1;fontSize=13;html=1;" vertex="1" parent="1">
+        <mxCell id="lane4" value="Microsoft Fabric: Storage &amp; Compute" style="swimlane;horizontal=1;startSize=34;fillColor=#EDE3F7;strokeColor=#6A0DAD;fontColor=#4A0080;fontStyle=1;fontSize=13;html=1;" vertex="1" parent="1">
           <mxGeometry x="1080" y="90" width="290" height="930" as="geometry"/>
         </mxCell>
-        <mxCell id="onelake" value="OneLake&#10;Open Delta Lake · single tenant copy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6A0DAD;strokeColor=#4A0080;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane4">
+        <mxCell id="onelake" value="OneLake&#10;Managed Delta tables" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6A0DAD;strokeColor=#4A0080;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane4">
           <mxGeometry x="20" y="50" width="250" height="60" as="geometry"/>
         </mxCell>
-        <mxCell id="shortcut" value="OneLake Shortcuts&#10;(ADLS · S3 · GCS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9C27B0;strokeColor=#6A0DAD;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane4">
+        <mxCell id="shortcut" value="OneLake Shortcuts&#10;(ADLS · S3 · GCS)&#10;Direct Lake requires Delta tables" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9C27B0;strokeColor=#6A0DAD;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane4">
           <mxGeometry x="20" y="120" width="250" height="55" as="geometry"/>
         </mxCell>
         <mxCell id="lh" value="Lakehouse&#10;+ SQL Analytics Endpoint" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6A0DAD;strokeColor=#4A0080;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane4">
@@ -139,149 +145,185 @@
         <mxCell id="pipe" value="Data Factory Pipelines&#10;(orchestration · dependencies)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9C27B0;strokeColor=#6A0DAD;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane4">
           <mxGeometry x="20" y="445" width="250" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="govnote" value="Governance:&#10;• Workspace + Capacity isolation&#10;• Purview labels &amp; lineage&#10;• Unified RLS / OLS in semantic model" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6A0DAD;fontColor=#4A0080;align=left;fontSize=11;" vertex="1" parent="lane4">
+        <mxCell id="bps" value="Business Process Solutions (BPS)&#10;&#10;Configured SAP connections + datasets&#10;Deployed notebooks and pipelines&#10;Silver / Gold business models&#10;S/4HANA 1909+ · ECC 6.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#6A0DAD;strokeColor=#4A0080;fontColor=#FFFFFF;fontStyle=1;fontSize=12;" vertex="1" parent="lane4">
+          <mxGeometry x="20" y="545" width="250" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="govnote" value="Governance by access path:&#10;• Workspace and item permissions&#10;• OneLake / SQL / semantic-model rules&#10;• Fixed identity or SSO: test each persona&#10;• Model RLS does not secure raw files" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6A0DAD;fontColor=#4A0080;align=left;fontSize=11;" vertex="1" parent="lane4">
           <mxGeometry x="20" y="780" width="250" height="120" as="geometry"/>
         </mxCell>
 
         <mxCell id="lane5" value="Consumption" style="swimlane;horizontal=1;startSize=34;fillColor=#FCE7F3;strokeColor=#9C1F61;fontColor=#6E0F40;fontStyle=1;fontSize=13;html=1;" vertex="1" parent="1">
           <mxGeometry x="1390" y="90" width="270" height="930" as="geometry"/>
         </mxCell>
-        <mxCell id="pbidl" value="Power BI&#10;Direct Lake on Delta tables" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9C1F61;strokeColor=#6E0F40;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
+        <mxCell id="pbidl" value="Power BI&#10;Direct Lake semantic models" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9C1F61;strokeColor=#6E0F40;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
           <mxGeometry x="20" y="50" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="pbidq" value="Power BI&#10;DirectQuery / Live Conn." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C2185B;strokeColor=#6E0F40;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
+        <mxCell id="pbidq" value="Power BI&#10;DirectQuery to SAP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C2185B;strokeColor=#6E0F40;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
           <mxGeometry x="20" y="115" width="230" height="55" as="geometry"/>
         </mxCell>
         <mxCell id="rti" value="Real-Time Dashboards&#10;Activator alerts &amp; reflexes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C2185B;strokeColor=#6E0F40;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
           <mxGeometry x="20" y="180" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="copilot" value="Microsoft Copilot and Foundry&#10;(BDC integration planned)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7B1FA2;strokeColor=#4A0080;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
+        <mxCell id="copilot" value="Fabric IQ / Microsoft Copilot&#10;Governed data and semantic models" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7B1FA2;strokeColor=#4A0080;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
           <mxGeometry x="20" y="245" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="joule" value="SAP Joule&#10;(OneLake sharing planned)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F7AA9;strokeColor=#003D66;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
+        <mxCell id="joule" value="SAP applications&#10;BDC sharing scope: roadmap" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1F7AA9;strokeColor=#003D66;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
           <mxGeometry x="20" y="310" width="230" height="55" as="geometry"/>
         </mxCell>
         <mxCell id="apps" value="Custom Apps &amp; APIs&#10;(REST · ODBC · Spark)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9C1F61;strokeColor=#6E0F40;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
           <mxGeometry x="20" y="375" width="230" height="55" as="geometry"/>
         </mxCell>
-        <mxCell id="consnote" value="Direct Lake requires supported Delta tables.&#10;Use DirectQuery for federation paths (M4).&#10;Treat BDC integration as planned until GA is confirmed." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9C1F61;fontColor=#6E0F40;align=left;fontSize=11;" vertex="1" parent="lane5">
+        <mxCell id="bpsreports" value="BPS business templates&#10;&#10;Finance · Sales · Procurement&#10;Power BI reports and agents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#9C1F61;strokeColor=#6E0F40;fontColor=#FFFFFF;fontStyle=1;" vertex="1" parent="lane5">
+          <mxGeometry x="20" y="570" width="230" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="consnote" value="Direct Lake loads needed columns into memory.&#10;DirectQuery transfers query results from SAP.&#10;BPS adds business processing, not a new transport.&#10;Validate identities and authorizations per path." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9C1F61;fontColor=#6E0F40;align=left;fontSize=11;" vertex="1" parent="lane5">
           <mxGeometry x="20" y="780" width="230" height="120" as="geometry"/>
         </mxCell>
 
-        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="ecc" target="opdg">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.4;" edge="1" parent="1" source="ecc" target="opdg">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="330" y="229"/><mxPoint x="330" y="164"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="bw" target="opdg">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="bw" target="opdg">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="328" y="287"/><mxPoint x="328" y="170"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="hana" target="opdg">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.6;" edge="1" parent="1" source="hana" target="opdg">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="326" y="345"/><mxPoint x="326" y="176"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;dashed=1;" edge="1" parent="1" source="s4" target="vnetgw">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="s4" target="vnetgw">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="334" y="167.5"/><mxPoint x="334" y="237.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="saas" target="cloudapi">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="saas" target="cloudapi">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="330" y="409"/><mxPoint x="330" y="302.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="ds" target="dssync">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="ds" target="dssync">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="332" y="484"/><mxPoint x="332" y="432.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="bdc" target="bdcconn">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="bdc" target="bdcconn">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="330" y="545.5"/><mxPoint x="330" y="562.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="btp" target="evtgrid">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="btp" target="evtgrid">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="328" y="610.5"/><mxPoint x="328" y="497.5"/></Array></mxGeometry>
         </mxCell>
-
-        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="opdg" target="m1">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.8;entryX=0;entryY=0.5;" edge="1" parent="1" source="ecc" target="partner">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="322" y="243.4"/><mxPoint x="322" y="367.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="dssync" target="m3">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e-abap-source" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;dashed=1;exitX=1;exitY=0.7;entryX=0;entryY=0.5;" edge="1" parent="1" source="s4" target="abap">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="310" y="178.5"/><mxPoint x="310" y="632.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="vnetgw" target="m1">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="cloudapi" target="m1">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="dssync" target="m2">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#33691E;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="partner" target="m7">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0D47A1;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="cloudapi" target="m4">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#00695C;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="dssync" target="m5">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="bdcconn" target="m8">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e19" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#BF360C;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="evtgrid" target="m6">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e-adf-source" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#E8A838;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.8;entryX=0;entryY=0.5;" edge="1" parent="1" source="s4" target="adf">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="316" y="184"/><mxPoint x="316" y="707.5"/></Array></mxGeometry>
         </mxCell>
 
-        <mxCell id="e20" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6A0DAD;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="m1" target="lh">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.3;" edge="1" parent="1" source="opdg" target="m1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="620" y="170"/><mxPoint x="620" y="191.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6A0DAD;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="m2" target="onelake">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e11" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#558B2F;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.4;entryX=0;entryY=0.5;" edge="1" parent="1" source="dssync" target="m3">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="620" y="427"/><mxPoint x="620" y="332.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6A0DAD;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="m3" target="onelake">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.65;" edge="1" parent="1" source="vnetgw" target="m1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="615" y="237.5"/><mxPoint x="615" y="210.75"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e23" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6A0DAD;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="m7" target="onelake">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.8;" edge="1" parent="1" source="cloudapi" target="m1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="625" y="302.5"/><mxPoint x="625" y="219"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e24" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C27B0;strokeWidth=2;endArrow=classic;dashed=1;" edge="1" parent="1" source="m5" target="shortcut">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.2;entryX=0;entryY=0.5;" edge="1" parent="1" source="dssync" target="m2">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="612" y="416"/><mxPoint x="612" y="267.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e25" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;endArrow=classic;dashed=1;" edge="1" parent="1" source="m8" target="onelake">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#33691E;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="partner" target="m7">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="625" y="367.5"/><mxPoint x="625" y="390"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e26" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#BF360C;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="m6" target="es">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0D47A1;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.8;entryX=0;entryY=0.5;" edge="1" parent="1" source="opdg" target="m4">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="628" y="188"/><mxPoint x="628" y="492.5"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#00695C;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="dssync" target="m5">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="612" y="432.5"/><mxPoint x="612" y="557.5"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;endArrow=classic;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="bdcconn" target="m8">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="620" y="562.5"/><mxPoint x="620" y="622.5"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e19" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#BF360C;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.33;" edge="1" parent="1" source="evtgrid" target="m6">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="625" y="497.5"/><mxPoint x="625" y="734.8"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-ds-events" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#BF360C;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.7;entryX=0;entryY=0.67;" edge="1" parent="1" source="dssync" target="m6">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="632" y="443.5"/><mxPoint x="632" y="755.2"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-abap-copy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.1;" edge="1" parent="1" source="abap" target="m1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="618" y="632.5"/><mxPoint x="618" y="180.5"/></Array></mxGeometry>
         </mxCell>
 
-        <mxCell id="e27" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="lh" target="pbidl">
+        <mxCell id="e20" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6A0DAD;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="m1" target="lh">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1064" y="202.5"/><mxPoint x="1064" y="302.5"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6A0DAD;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.25;" edge="1" parent="1" source="m2" target="onelake">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1070" y="267.5"/><mxPoint x="1070" y="155"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6A0DAD;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="m3" target="onelake">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1074" y="332.5"/><mxPoint x="1074" y="170"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e23" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#6A0DAD;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.75;" edge="1" parent="1" source="m7" target="onelake">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1078" y="390"/><mxPoint x="1078" y="185"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e24" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C27B0;strokeWidth=2;endArrow=classic;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="m5" target="shortcut">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1066" y="557.5"/><mxPoint x="1066" y="237.5"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e25" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;startArrow=classic;endArrow=classic;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.9;" edge="1" parent="1" source="m8" target="onelake">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1058" y="622.5"/><mxPoint x="1058" y="194"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-onelake-ds" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#00695C;strokeWidth=2;endArrow=classic;exitX=0;exitY=0.05;entryX=1;entryY=0.3;" edge="1" parent="1" source="onelake" target="m5">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1088" y="143"/><mxPoint x="1088" y="546.5"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e26" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#BF360C;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="m6" target="es">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1070" y="745"/><mxPoint x="1070" y="432.5"/></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="e27" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="onelake" target="pbidl">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e28" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="wh" target="pbidl">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e28" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.75;" edge="1" parent="1" source="wh" target="pbidl">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1376" y="367.5"/><mxPoint x="1376" y="181.25"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e29" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0D47A1;strokeWidth=2;endArrow=classic;dashed=1;" edge="1" parent="1" source="m4" target="pbidq">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e29" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0D47A1;strokeWidth=2;endArrow=classic;dashed=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="m4" target="pbidq">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1052" y="492.5"/><mxPoint x="1052" y="850"/><mxPoint x="1388" y="850"/><mxPoint x="1388" y="232.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e30" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="es" target="rti">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e30" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="es" target="rti">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1372" y="432.5"/><mxPoint x="1372" y="297.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e31" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7B1FA2;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="onelake" target="copilot">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e31" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#7B1FA2;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.8;entryX=0;entryY=0.5;" edge="1" parent="1" source="onelake" target="copilot">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1380" y="188"/><mxPoint x="1380" y="362.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e32" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F7AA9;strokeWidth=2;endArrow=classic;dashed=1;" edge="1" parent="1" source="onelake" target="joule">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="e32" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1F7AA9;strokeWidth=2;endArrow=classic;dashed=1;exitX=1;exitY=0.25;entryX=0;entryY=0.5;" edge="1" parent="1" source="onelake" target="joule">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1384" y="155"/><mxPoint x="1384" y="427.5"/></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e33" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="lh" target="apps">
+        <mxCell id="e33" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="lh" target="apps">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1368" y="302.5"/><mxPoint x="1368" y="492.5"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-adf-bps" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#0078D4;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="adf" target="bps">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="605" y="707.5"/><mxPoint x="605" y="820"/><mxPoint x="1084" y="820"/><mxPoint x="1084" y="710"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-ds-bps" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.9;entryX=0;entryY=0.3;" edge="1" parent="1" source="dssync" target="bps">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="600" y="454.5"/><mxPoint x="600" y="828"/><mxPoint x="1092" y="828"/><mxPoint x="1092" y="680"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-mirror-bps" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#33691E;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.8;entryX=0;entryY=0.15;" edge="1" parent="1" source="m7" target="bps">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1080" y="405"/><mxPoint x="1080" y="657.5"/></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-bps-reports" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9C1F61;strokeWidth=2;endArrow=classic;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="bps" target="bpsreports">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
         <mxCell id="legend" value="Edge legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#999999;fontColor=#333333;fontStyle=1;verticalAlign=top;align=left;spacingLeft=12;spacingTop=8;" vertex="1" parent="1">
-          <mxGeometry x="40" y="1040" width="1620" height="90" as="geometry"/>
+          <mxGeometry x="40" y="1040" width="1620" height="110" as="geometry"/>
         </mxCell>
         <mxCell id="lg1" value="━ Orange · transport (RFC/SQL/OData)&#10;━ Blue · ingestion path&#10;━ Green · mirroring (DS / partner)&#10;━ Dark blue · semantic federation (live)&#10;━ Teal · data product / shortcut" style="text;html=1;align=left;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="60" y="1062" width="370" height="70" as="geometry"/>
+          <mxGeometry x="60" y="1062" width="370" height="85" as="geometry"/>
         </mxCell>
-        <mxCell id="lg2" value="━ Light blue · BDC zero-copy share&#10;━ Red-orange · event stream&#10;━ Purple · OneLake / lakehouse write&#10;━ Magenta · BI / app consumption&#10;┄ Dashed · live / no-copy / preview" style="text;html=1;align=left;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="450" y="1062" width="370" height="70" as="geometry"/>
+        <mxCell id="lg2" value="━ Light blue · planned BDC sharing&#10;━ Red-orange · event stream&#10;━ Purple · OneLake / lakehouse write&#10;━ Magenta · BI / app consumption&#10;┄ Dashed · query / shortcut / non-GA" style="text;html=1;align=left;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="450" y="1062" width="370" height="85" as="geometry"/>
         </mxCell>
-        <mxCell id="lg3" value="Layer order (left → right):&#10;1. SAP sources&#10;2. Connectivity / gateways&#10;3. Integration methods (8)&#10;4. Fabric storage &amp; compute&#10;5. Consumption (BI · RTI · AI)" style="text;html=1;align=left;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="840" y="1062" width="380" height="70" as="geometry"/>
+        <mxCell id="lg3" value="Layer order (left → right):&#10;1. SAP sources&#10;2. Connectivity / gateways&#10;3. Connectivity patterns (8)&#10;4. Fabric storage, compute &amp; BPS&#10;5. Consumption (BI · RTI · AI)" style="text;html=1;align=left;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="840" y="1062" width="380" height="85" as="geometry"/>
         </mxCell>
-        <mxCell id="lg4" value="Choose your path:&#10;• Need data in OneLake → M1/M2/M3/M7&#10;• Keep data in SAP → M4&#10;• Governed exchange → M5&#10;• Need events → M6&#10;• Planned BDC sharing → M8" style="text;html=1;align=left;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="1240" y="1062" width="400" height="70" as="geometry"/>
+        <mxCell id="lg4" value="Read each status separately:&#10;• M3 requires Datasphere; ABAP does not&#10;• M5 exports data before the shortcut&#10;• BPS deploys the business solution&#10;• BDC target: SAP Community roadmap" style="text;html=1;align=left;fontColor=#333333;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="1062" width="400" height="85" as="geometry"/>
         </mxCell>
 
       </root>

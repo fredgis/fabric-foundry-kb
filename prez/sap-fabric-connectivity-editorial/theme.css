@@ -195,6 +195,7 @@ section.chapter p {
 
 /* ── Tables ── */
 table {
+  display: table;
   width: 100%;
   border-collapse: collapse;
   font-size: 0.75em;

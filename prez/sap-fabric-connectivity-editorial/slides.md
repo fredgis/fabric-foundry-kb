@@ -3,7 +3,7 @@ marp: true
 theme: fabric-editorial
 paginate: true
 header: 'SAP × Microsoft Fabric · Connectivity Patterns'
-footer: 'April 2026'
+footer: 'October 2026'
 ---
 
 <!-- _class: lead -->
@@ -11,11 +11,11 @@ footer: 'April 2026'
 <!-- _header: '' -->
 <!-- _footer: '' -->
 
-<div class="tag">Architecture Brief · April 2026</div>
+<div class="tag">Architecture Brief · October 2026</div>
 
 # SAP to Microsoft Fabric.
 
-## Eight integration patterns. One unified data estate.<br>From batch ETL to zero-copy AI.
+## Eight connectivity patterns, plus BPS.<br>SAP ingestion, live queries and business solutions.
 
 ### fredgis · github.com/fredgis/fabric-foundry-kb/
 
@@ -27,13 +27,13 @@ footer: 'April 2026'
 
 <div>
 
-Every SAP-to-Fabric project starts with the same trade-off:
+Choose the data path before choosing the reporting tool:
 
 **move the data, federate it, or stream it?**
 
-The right answer depends on freshness, governance ownership, source system, and whether SAP Datasphere is licensed.
+Check freshness, source objects, extraction rights, and whether SAP Datasphere is available.
 
-Fabric exposes **eight** distinct patterns — picking wisely avoids re-platforming a year later.
+**BPS** adds a separate choice: deploy SAP connections, notebooks, pipelines, and business models as a packaged Fabric solution.
 
 </div>
 
@@ -41,17 +41,17 @@ Fabric exposes **eight** distinct patterns — picking wisely avoids re-platform
 
 <div class="stat">
 <div class="big">8</div>
-<div class="label">integration patterns in 2026</div>
+<div class="label">connectivity patterns</div>
 </div>
 
 <div class="stat">
-<div class="big">3</div>
-<div class="label">categories: movement · federation · events</div>
+<div class="big">BPS</div>
+<div class="label">business processing above connectivity</div>
 </div>
 
 <div class="stat">
-<div class="big">1</div>
-<div class="label">copy of the data — OneLake</div>
+<div class="big">06/10</div>
+<div class="label">2026 source review, including FabCon Europe</div>
 </div>
 
 </div>
@@ -62,9 +62,9 @@ Fabric exposes **eight** distinct patterns — picking wisely avoids re-platform
 
 # Reference Architecture
 
-![h:490](images/architecture.png)
+![h:450](images/architecture.png)
 
-_Five layers · sources → connectivity → methods → Fabric storage → consumption._
+_Five layers with BPS connections and processing. [Full-resolution diagram](images/architecture.png)._
 
 ---
 
@@ -75,21 +75,21 @@ _Five layers · sources → connectivity → methods → Fabric storage → cons
 <div class="card">
 <div class="card-num">CATEGORY A</div>
 <h3>Data Movement</h3>
-<p>Land SAP data in <strong>OneLake</strong> as Delta tables. Best freshness for analytics & AI.</p>
+<p>Land SAP data in <strong>OneLake</strong>. Choose full loads, watermark extraction, or delete-aware CDC.</p>
 <p style="margin-top:8px"><span class="pill">M1 Batch</span> <span class="pill">M2 Mirroring</span> <span class="pill">M3 Copy CDC</span> <span class="pill">M7 Open Mirror</span></p>
 </div>
 
 <div class="card teal">
 <div class="card-num">CATEGORY B</div>
-<h3>Federation & Zero-Copy</h3>
-<p>Data <strong>stays in SAP</strong>. Fabric queries live or via shortcut.</p>
+<h3>Federation & Sharing</h3>
+<p>M4 queries SAP. M5 exports to storage, then uses a shortcut. M8 remains a <strong>roadmap</strong> option.</p>
 <p style="margin-top:8px"><span class="pill">M4 Semantic</span> <span class="pill">M5 Datasphere DP</span> <span class="pill">M8 BDC Connect</span></p>
 </div>
 
 <div class="card orange">
 <div class="card-num">CATEGORY C</div>
 <h3>Event-Driven</h3>
-<p>Sub-second operational signals via <strong>SAP Event Mesh → Fabric RTI</strong>.</p>
+<p>Business events or replicated records feed <strong>Fabric RTI</strong>. Measure end-to-end latency.</p>
 <p style="margin-top:8px"><span class="pill">M6 Eventstream</span></p>
 </div>
 
@@ -105,17 +105,17 @@ _Five layers · sources → connectivity → methods → Fabric storage → cons
 
 ---
 
-# M1 — Data Factory Connectors
+# M1: Data Factory Connectors
 
 <div class="split">
 
 <div>
 
-The **default**, mature path. Seven dedicated SAP connectors plus OData for SaaS sources.
+Seven dedicated SAP connector variants, plus OData where the source exposes a suitable API.
 
-- **SAP HANA**, **SAP BW Application Server**, **SAP BW Open Hub**, **SAP Table**, **SAP ECC**, **SAP S/4HANA**, **SAP Cloud for Customer**
-- Built-in to **Pipelines**, **Dataflow Gen2**, and **Copy Job**
-- On-prem SAP requires **OPDG + SAP .NET Connector (NCo)**
+- **BW Application / Message Server**, **BW Open Hub Application / Message Server**, **HANA**, **SAP Table Application / Message Server**
+- Support differs across Pipelines, Dataflow Gen2, and Copy Job
+- Use **OPDG**, with NCo for RFC or the HANA ODBC driver
 
 **Best for:** historical loads, daily refresh, predictable batch windows.
 
@@ -125,7 +125,7 @@ The **default**, mature path. Seven dedicated SAP connectors plus OData for SaaS
 
 <div class="stat">
 <div class="big">7</div>
-<div class="label">native SAP connectors</div>
+<div class="label">dedicated SAP connector variants</div>
 </div>
 
 <div class="stat">
@@ -135,7 +135,7 @@ The **default**, mature path. Seven dedicated SAP connectors plus OData for SaaS
 
 <div class="stat">
 <div class="big">GA</div>
-<div class="label">since 2023 — proven at scale</div>
+<div class="label">classic connectors; add-on Preview is separate</div>
 </div>
 
 </div>
@@ -144,20 +144,60 @@ The **default**, mature path. Seven dedicated SAP connectors plus OData for SaaS
 
 ---
 
-# M2 — Mirroring for SAP
+# M1 Option: Microsoft ABAP Add-On
 
 <div class="split">
 
 <div>
 
-**Near real-time replication** of SAP data to OneLake — orchestrated through SAP Datasphere.
+Copy Job starts extraction through OPDG. The SAP add-on writes **directly to OneLake staging**.
 
-- Continuous CDC pushed to a managed **Delta Lake** in OneLake
-- **No custom ETL.** Schema and table list configured once
-- SQL Analytics Endpoint auto-provisioned
-- Direct Lake semantic models read it instantly
+- Tables, views, and CDS SQL views
+- Full loads or **watermark-based incremental** loads
+- SAP Basis installs the Microsoft transports
+- Both SAP and the gateway need outbound HTTPS to OneLake
 
-**Trade-off:** requires **SAP Datasphere** licensing.
+**Hard deletes are not captured by a watermark.** Message Server is not supported.
+
+</div>
+
+<div>
+
+<div class="stat">
+<div class="big">PRE</div>
+<div class="label">Preview, not the Datasphere CDC connector</div>
+</div>
+
+<div class="stat">
+<div class="big">7.50</div>
+<div class="label">NetWeaver baseline for ECC EhP 8 / BW 7.50</div>
+</div>
+
+<div class="stat">
+<div class="big">No DS</div>
+<div class="label">S/4HANA and BW/4HANA also supported</div>
+</div>
+
+</div>
+
+</div>
+
+---
+
+# M2: Mirroring for SAP
+
+<div class="split">
+
+<div>
+
+**SAP → Datasphere → ADLS Gen2 → Fabric mirroring.**
+
+- Datasphere lands snapshots and deltas in ADLS
+- Fabric reads the staging shortcut and maintains **Delta tables**
+- SQL analytics endpoint is created automatically
+- Direct Lake freshness also depends on model and report refresh
+
+**Costs remain** for SAP outbound, staging, consumption, and optional extensions.
 
 </div>
 
@@ -169,13 +209,13 @@ The **default**, mature path. Seven dedicated SAP connectors plus OData for SaaS
 </div>
 
 <div class="stat">
-<div class="big">~min</div>
-<div class="label">end-to-end latency</div>
+<div class="big">DS</div>
+<div class="label">Datasphere Premium Outbound required</div>
 </div>
 
 <div class="stat">
 <div class="big">0</div>
-<div class="label">ETL code to write</div>
+<div class="label">Fabric core replication compute charge</div>
 </div>
 
 </div>
@@ -184,38 +224,38 @@ The **default**, mature path. Seven dedicated SAP connectors plus OData for SaaS
 
 ---
 
-# M3 — Copy Job CDC for SAP
+# M3: Copy Job CDC for SAP
 
 <div class="split">
 
 <div>
 
-A **lighter alternative** to Mirroring — scheduled deltas via the **Copy Job** experience, no Datasphere required.
+**Datasphere Outbound is required.** Copy Job applies its staged changes on your schedule.
 
-- Uses **ODP** / **SAP SLT** to capture changes
-- Configurable frequency (minutes → hours)
-- Cheaper compute than continuous mirroring
-- Ideal companion to multi-source Pipelines
+- Reads Datasphere files from **ADLS, S3, or GCS**
+- Applies inserts, updates, and deletes
+- Runs independently or within a pipeline
+- September: SCD Type 2, audit columns, and workspace monitoring announced GA
 
-**Best for:** mid-volume incremental loads, cost-conscious teams.
+**Best for:** controlled processing windows and orchestrated CDC. Check the destination's supported write modes.
 
 </div>
 
 <div>
 
 <div class="stat">
-<div class="big">Preview</div>
-<div class="label">FabCon 2026 announcement</div>
+<div class="big">GA</div>
+<div class="label">Datasphere CDC source since May 2026</div>
 </div>
 
 <div class="stat">
-<div class="big">No DS</div>
-<div class="label">SAP Datasphere not required</div>
+<div class="big">DS</div>
+<div class="label">Premium Outbound plus staging storage</div>
 </div>
 
 <div class="stat">
-<div class="big">CDC</div>
-<div class="label">native delta capture</div>
+<div class="big">I/U/D</div>
+<div class="label">different from the ABAP add-on's watermark</div>
 </div>
 
 </div>
@@ -224,28 +264,28 @@ A **lighter alternative** to Mirroring — scheduled deltas via the **Copy Job**
 
 ---
 
-# M7 — Open Mirroring (Partner-led)
+# M7: Open Mirroring (Partner-led)
 
 <div class="split">
 
 <div>
 
-Same Mirroring **UX and SQL endpoint**, but the replication is driven by a **certified partner connector**.
+A partner extracts SAP data; Fabric maintains the mirrored tables and SQL endpoint.
 
-- **dab Nexus**, **Theobald Xtract Universal**, **Fivetran**, others
+- **dab Nexus**, **Theobald**, **SNP**, **Simplement**, **Qlik**, **CData**, and others
 - No SAP Datasphere licensing required
-- Partner handles ODP / SLT / log-based capture
-- Fabric handles storage, governance, BI
+- The connector publishes **Parquet change files** in the landing zone
+- Fabric converts and merges them into Delta tables
 
-**Best for:** mid-market without Datasphere, or teams already invested in a partner tool.
+**Check:** source coverage, extraction mode, SAP rights, and partner licensing.
 
 </div>
 
 <div>
 
 <div class="stat">
-<div class="big">3+</div>
-<div class="label">certified partners GA</div>
+<div class="big">ISV</div>
+<div class="label">product-specific SAP extraction</div>
 </div>
 
 <div class="stat">
@@ -255,7 +295,7 @@ Same Mirroring **UX and SQL endpoint**, but the replication is driven by a **cer
 
 <div class="stat">
 <div class="big">No DS</div>
-<div class="label">vendor-managed pipe</div>
+<div class="label">partner licensing still applies</div>
 </div>
 
 </div>
@@ -268,42 +308,42 @@ Same Mirroring **UX and SQL endpoint**, but the replication is driven by a **cer
 
 <div class="num">B</div>
 
-# Federation & Zero-Copy.
+# Federation & Sharing.
 
 ---
 
-# M4 — Semantic Federation
+# M4: Semantic Federation
 
 <div class="split">
 
 <div>
 
-Data **never leaves SAP**. Power BI queries SAP BW or HANA **live**.
+Power BI **DirectQuery** avoids a bulk SAP replica. Query results still leave SAP and may be cached.
 
-- **Live Connection** to SAP BW (BEx queries, multi-providers)
+- **DirectQuery** to SAP BW queries and InfoProviders
 - **DirectQuery** to SAP HANA (calc views, native SQL)
-- Single sign-on with Entra ID
-- SAP-side row-level security honored
+- Source permissions apply to the **connection identity**
+- Configure supported SSO for per-user SAP authorizations
 
-**Best when:** governance, regulation, or contracts forbid copying SAP data.
+**Check:** connector modeling limits and whether result transfer/caching is permitted.
 
 </div>
 
 <div>
 
 <div class="stat">
-<div class="big">0</div>
-<div class="label">bytes copied</div>
+<div class="big">DQ</div>
+<div class="label">source executes the queries</div>
 </div>
 
 <div class="stat">
 <div class="big">SAP</div>
-<div class="label">retains governance &amp; security</div>
+<div class="label">authorizations depend on the connection identity</div>
 </div>
 
 <div class="stat">
 <div class="big">BI</div>
-<div class="label">Power BI consumption only</div>
+<div class="label">primary use; SQL/ODBC is a separate interface</div>
 </div>
 
 </div>
@@ -312,20 +352,20 @@ Data **never leaves SAP**. Power BI queries SAP BW or HANA **live**.
 
 ---
 
-# M5 — Datasphere Data Products
+# M5: Datasphere Data Products
 
 <div class="split">
 
 <div>
 
-The **SAP team owns the data product**. They publish governed datasets to cloud storage; Fabric mounts them.
+The SAP team prepares the dataset and **exports it to external storage**. Fabric reads it through a shortcut.
 
-- Datasphere **Premium Outbound** writes Delta to **ADLS / S3 / GCS**
-- Fabric mounts via **OneLake Shortcut** — no copy
-- SAP-side semantics, lineage, contracts preserved
-- Fabric adds enrichment, ML, BI on top
+- Datasphere export produces files such as **Parquet**
+- A shortcut avoids another copy of those exported files
+- Plain Parquet needs processing into **Delta tables** for Direct Lake
+- **OneLake → Datasphere** is also available as a replication-flow source, with Initial Only loading
 
-**Best when:** SAP CoE drives "data as a product" governance.
+**Best when:** the SAP team owns the published data product.
 
 </div>
 
@@ -337,13 +377,13 @@ The **SAP team owns the data product**. They publish governed datasets to cloud 
 </div>
 
 <div class="stat">
-<div class="big">0</div>
-<div class="label">copy in Fabric (shortcut)</div>
+<div class="big">Files</div>
+<div class="label">exported outside SAP before the shortcut</div>
 </div>
 
 <div class="stat">
-<div class="big">→</div>
-<div class="label">SAP-owned governance</div>
+<div class="big">Delta</div>
+<div class="label">required for Direct Lake consumption</div>
 </div>
 
 </div>
@@ -352,20 +392,20 @@ The **SAP team owns the data product**. They publish governed datasets to cloud 
 
 ---
 
-# M8 — SAP BDC Connect for Fabric
+# M8: SAP BDC Connect (Roadmap)
 
 <div class="split">
 
 <div>
 
-The **strategic 2026 milestone**: bi-directional **zero-copy** sharing between SAP Business Data Cloud and OneLake.
+Planned **bidirectional sharing** between SAP Business Data Cloud and OneLake.
 
-- Single source of truth across both platforms
-- **Microsoft Copilot** + **SAP Joule** collaborate on the same data
-- No replication, no schema drift
-- Native BDC governance preserved
+- The original announcement targeted Q3 2026
+- An SAP employee's **31 August roadmap reply** now targets **end Q1 2027**, subject to change
+- FabCon Europe did not confirm GA
+- Sharing does not imply SAP writeback or automatic Copilot/Joule integration
 
-**Status:** Preview now · GA Q3 2026.
+**For production today:** use a released ingestion or query path.
 
 </div>
 
@@ -373,17 +413,17 @@ The **strategic 2026 milestone**: bi-directional **zero-copy** sharing between S
 
 <div class="stat">
 <div class="big">⇄</div>
-<div class="label">bi-directional zero-copy</div>
+<div class="label">intended sharing model</div>
 </div>
 
 <div class="stat">
-<div class="big">AI</div>
-<div class="label">Copilot + Joule cross-platform</div>
+<div class="big">Plan</div>
+<div class="label">not a confirmed public release</div>
 </div>
 
 <div class="stat">
-<div class="big">Q3</div>
-<div class="label">2026 GA target</div>
+<div class="big">Q1</div>
+<div class="label">2027 target, subject to change</div>
 </div>
 
 </div>
@@ -400,33 +440,33 @@ The **strategic 2026 milestone**: bi-directional **zero-copy** sharing between S
 
 ---
 
-# M6 — Event-Driven Integration
+# M6: Event-Driven Integration
 
 <div class="split">
 
 <div>
 
-For **operational analytics** that can't wait for the next CDC cycle.
+Two SAP paths feed Fabric operational analytics.
 
-- **SAP Event Mesh** (BTP) emits CloudEvents
-- **Azure Event Grid** bridges into Azure
-- **Fabric Eventstream** lands them in **KQL DB** or **Lakehouse**
-- **Activator** triggers reflexes (alerts, workflows, downstream calls)
+- Business events: **Event Mesh → configured bridge → Event Grid namespace → Eventstream**
+- Replicated records: **Datasphere → dedicated Eventstream Kafka endpoint**
+- Route events to Eventhouse, Lakehouse, or Activator
+- Define replay, deduplication, and delete handling
 
-**Best for:** order tracking, SLA monitoring, real-time inventory.
+**Freshness is path-dependent.** There is no blanket sub-second end-to-end SLA.
 
 </div>
 
 <div>
 
 <div class="stat">
-<div class="big">&lt;1s</div>
-<div class="label">end-to-end latency</div>
+<div class="big">GA</div>
+<div class="label">Datasphere Eventstream source, September 2026</div>
 </div>
 
 <div class="stat">
-<div class="big">BTP</div>
-<div class="label">requires SAP BTP Event Mesh</div>
+<div class="big">2</div>
+<div class="label">paths with different SAP prerequisites</div>
 </div>
 
 <div class="stat">
@@ -434,6 +474,80 @@ For **operational analytics** that can't wait for the next CDC cycle.
 <div class="label">Real-Time Intelligence target</div>
 </div>
 
+</div>
+
+</div>
+
+---
+
+<!-- _class: chapter -->
+
+<div class="num">D</div>
+
+# Business Process Solutions.
+
+---
+
+# BPS: Connections, Notebooks and Models
+
+<div class="split">
+
+<div>
+
+**BPS is a Fabric workload**, with more than a connection wizard.
+
+- Configure the SAP source and required datasets
+- Deploy notebooks and pipelines for extraction and processing
+- Build **Silver and Gold** business models; Bronze is optional
+- Use finance, sales, and procurement templates, including hierarchy and currency handling
+
+It reuses supported extraction paths rather than introducing another transport protocol.
+
+</div>
+
+<div>
+
+<div class="stat">
+<div class="big">F2</div>
+<div class="label">minimum Fabric capacity in the deployment guide</div>
+</div>
+
+<div class="stat">
+<div class="big">F32+</div>
+<div class="label">recommended capacity; size for the workload</div>
+</div>
+
+<div class="stat">
+<div class="big">3</div>
+<div class="label">business domains: finance, sales, procurement</div>
+</div>
+
+</div>
+
+</div>
+
+---
+
+# BPS: Choose the SAP Connection
+
+| Source | Supported BPS paths | Fabric processing |
+|---|---|---|
+| **S/4HANA 1909+** | ADF SAP CDC + SHIR (patch review); partner Open Mirroring; Datasphere through ADLS | Deployed notebooks, pipelines, Silver/Gold models |
+| **ECC 6.0** | Partner Open Mirroring | ECC-specific processing and business models |
+| **Salesforce** | Fabric pipelines | CRM data for supported business scenarios |
+
+<div class="cards two">
+
+<div class="card purple">
+<div class="card-num">DEPLOYMENT CHECK</div>
+<h3>BPS does not remove source restrictions</h3>
+<p>ADF SAP CDC inherits the SAP Note 3255746 ODP RFC blocking risk. Datasphere and Open Mirroring require DD03ND type metadata. Check region, rights, and costs.</p>
+</div>
+
+<div class="card teal">
+<div class="card-num">ARTIFACTS 1.0.5</div>
+<h3>Processing and monitoring updates</h3>
+<p>Contextual telemetry, selected-table orchestration, high-concurrency sessions, and ECC Record-to-Report views.</p>
 </div>
 
 </div>
@@ -457,19 +571,19 @@ For **operational analytics** that can't wait for the next CDC cycle.
 </div>
 
 <div class="step">
-<div class="step-content"><strong>Data must remain in SAP for governance or regulatory reasons?</strong><span>→ M4 (Semantic Federation) · M5 (Datasphere Data Products) · M8 (BDC Connect)</span></div>
+<div class="step-content"><strong>No bulk SAP replica, but query results may leave SAP?</strong><span>→ M4 DirectQuery, with verified SSO, permissions, and caching rules</span></div>
 </div>
 
 <div class="step">
-<div class="step-content"><strong>Sub-second operational events, alerting, reflexes?</strong><span>→ M6 (Event Mesh → Eventstream → Activator)</span></div>
+<div class="step-content"><strong>Operational events or replicated records for alerts?</strong><span>→ M6 Event Mesh bridge or the Datasphere Eventstream source</span></div>
 </div>
 
 <div class="step">
-<div class="step-content"><strong>Cross-platform AI with Copilot and SAP Joule on one truth?</strong><span>→ M8 (BDC Connect, Q3 2026)</span></div>
+<div class="step-content"><strong>Need SAP finance, sales, or procurement models and processing?</strong><span>→ BPS, with its supported source connection and deployed notebooks/pipelines</span></div>
 </div>
 
 <div class="step">
-<div class="step-content"><strong>No SAP Datasphere license available?</strong><span>→ M1 + OPDG · M3 Copy Job CDC · M7 Open Mirroring (partner)</span></div>
+<div class="step-content"><strong>No SAP Datasphere license available?</strong><span>→ M1 batch · M7 partner CDC · ABAP Preview; legacy ADF requires ODP patch review</span></div>
 </div>
 
 </div>
@@ -480,18 +594,20 @@ For **operational analytics** that can't wait for the next CDC cycle.
 
 | | Movement | Freshness | Datasphere | Custom ETL | Status |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **M1 · Batch ETL** | OneLake | Hours / daily | ✘ | High | GA 2023 |
+| **M1 · Batch ETL** | OneLake | Scheduled | ✘ | Required | GA / ABAP Preview |
 | **M2 · Mirroring** | OneLake | Near real-time | ✔ | None | GA 2026 |
-| **M3 · Copy Job CDC** | OneLake | Minutes | ✘ | Minimal | Preview |
-| **M4 · Semantic Federation** | None | Live query | ✘ | None | GA |
+| **M3 · Copy Job CDC** | OneLake | Scheduled | ✔ | Minimal | GA |
+| **M4 · Semantic Federation** | Query results | Query time | Optional | None | GA |
 | **M5 · Datasphere Products** | Storage + shortcut | Scheduled | ✔ | DS-side | GA |
-| **M6 · Event-Driven** | Events | Sub-second | ✘ | Routing | GA |
+| **M6 · Event-Driven** | Events | Path-dependent | Option B | Routing | DS source GA |
 | **M7 · Open Mirroring** | OneLake | Near real-time | ✘ | Partner | GA |
-| **M8 · BDC Connect** | Zero-copy | Live | ✘ | None | Preview |
+| **M8 · BDC Connect** | Planned sharing | Unconfirmed | BDC scope | Unconfirmed | Roadmap |
+
+_BPS is a solution layer over supported ingestion paths, not a ninth transport._
 
 ---
 
-# Network & Governance — Don't Skip
+# Network & Governance
 
 <div class="two-col">
 
@@ -500,8 +616,9 @@ For **operational analytics** that can't wait for the next CDC cycle.
 ### Network posture
 
 - **OPDG** for on-prem SAP behind firewalls
-- **VNet Data Gateway** when SAP runs in your Azure VNet
-- **Private Link** to OneLake for inbound enterprise access
+- An **OPDG host in Azure** still needs the SAP drivers
+- **ABAP add-on:** SAP also needs outbound HTTPS to OneLake
+- **SHIR** for the ADF SAP CDC path
 - Pair with **Fabric Network Security** patterns (separate brief)
 
 </div>
@@ -510,10 +627,10 @@ For **operational analytics** that can't wait for the next CDC cycle.
 
 ### Governance
 
-- **OneLake = single tenant copy** — federate, don't duplicate
-- **Purview** lineage spans connectors, mirrors, shortcuts
-- **Direct Lake** for BI freshness without re-import
-- Decide **owner** early: Fabric team vs. SAP CoE
+- Validate SAP extraction rights and source-object coverage
+- Reapply permissions at each storage and query boundary
+- DirectQuery uses the configured identity; SSO is not automatic
+- Confirm **BPS region support** and feature-specific preview access
 
 </div>
 
@@ -521,40 +638,134 @@ For **operational analytics** that can't wait for the next CDC cycle.
 
 ---
 
-# Headline Announcements
+# Costs: Separate Ingestion from Consumption
+
+<div class="cards">
+
+<div class="card green">
+<div class="card-num">MIRRORING</div>
+<h3>Core replication compute is free</h3>
+<p>Mirrored storage has a capacity-based allowance. Optional CDF and other extended capabilities incur additional compute charges.</p>
+</div>
+
+<div class="card orange">
+<div class="card-num">SOURCE AND TRANSPORT</div>
+<h3>SAP and staging still have costs</h3>
+<p>Include Datasphere Premium Outbound, ADLS/S3/GCS, gateway or SHIR hosts, and partner licenses where used.</p>
+</div>
+
+<div class="card purple">
+<div class="card-num">FABRIC PROCESSING</div>
+<h3>Size for the actual workload</h3>
+<p>Copy Job, BPS notebooks, transformations, SQL, and Power BI consume resources. Scheduled CDC is not automatically cheaper than mirroring.</p>
+</div>
+
+</div>
+
+---
+
+# FabCon Europe: Released Updates
 
 <div class="cards two">
 
 <div class="card purple">
-<div class="card-num">IGNITE 2025</div>
-<h3>Mirroring for SAP — GA</h3>
-<p>Continuous near-real-time replication to OneLake via Datasphere reaches general availability.</p>
+<div class="card-num">BARCELONA · SEPTEMBER 2026</div>
+<h3>SAP Datasphere → Eventstream: GA</h3>
+<p>A dedicated Kafka endpoint receives replication flows. Premium Outbound is required; no separate ADLS staging.</p>
 </div>
 
 <div class="card teal">
-<div class="card-num">IGNITE 2025</div>
-<h3>Direct Lake — GA March 2026</h3>
-<p>Power BI semantic models read OneLake Delta directly — Import speed, DirectQuery freshness.</p>
+<div class="card-num">COPY JOB · GA</div>
+<h3>History, audit and monitoring</h3>
+<p>CDC, SCD Type 2, audit columns, and workspace monitoring. Check source/destination compatibility.</p>
 </div>
 
 <div class="card orange">
-<div class="card-num">FABCON 2026</div>
-<h3>Copy Job CDC for SAP</h3>
-<p>Scheduled incremental deltas via ODP / SLT — no Datasphere required.</p>
+<div class="card-num">MIRRORING · GA ANNOUNCED</div>
+<h3>Extended capabilities</h3>
+<p>Optional paid CDF supports downstream change processing. The announcement does not establish SAP view mirroring support.</p>
 </div>
 
 <div class="card">
-<div class="card-num">FABCON 2026</div>
-<h3>SAP BDC Connect — Preview</h3>
-<p>Bi-directional zero-copy share between BDC and OneLake. GA target Q3 2026.</p>
+<div class="card-num">PIPELINES · GA</div>
+<h3>Maintenance and retry back-off</h3>
+<p>Orchestrate Lakehouse maintenance after loads and increase retry delays to reduce source pressure.</p>
 </div>
 
 </div>
+
+---
+
+# Preview and Roadmap Boundaries
+
+<div class="cards two">
+
+<div class="card orange">
+<div class="card-num">ABAP ADD-ON · PREVIEW</div>
+<h3>Full and watermark loads</h3>
+<p>Requires supported SAP releases, imported transports, OPDG, and SAP outbound access. It is not delete-aware CDC.</p>
+</div>
+
+<div class="card teal">
+<div class="card-num">COPY JOB · PREVIEW</div>
+<h3>Eventstream source and destination</h3>
+<p>Connect supported batch and streaming paths. Do not assume every connector combination is supported.</p>
+</div>
+
+<div class="card purple">
+<div class="card-num">FABCON EUROPE · PREVIEW</div>
+<h3>Dependencies and network isolation</h3>
+<p>Pipeline-level dependencies and workspace Private Link for Eventstream need workload-specific evaluation.</p>
+</div>
+
+<div class="card">
+<div class="card-num">BDC CONNECT · ROADMAP</div>
+<h3>No confirmed GA at FabCon</h3>
+<p>The SAP Community planning target is end Q1 2027, subject to change. Use released paths for production now.</p>
+</div>
+
+</div>
+
+---
+
+# Sources and Review Scope
+
+<div class="two-col">
+
+<div>
+
+### SAP connection paths
+
+- [Fabric connector matrix](https://learn.microsoft.com/fabric/data-factory/connector-overview)
+- [SAP ABAP Add-On tutorial](https://learn.microsoft.com/fabric/data-factory/copy-job-tutorial-sap-abap)
+- [Mirroring SAP](https://learn.microsoft.com/fabric/mirroring/sap)
+- [Datasphere Outbound in Copy Job](https://learn.microsoft.com/fabric/data-factory/copy-job-tutorial-sap-datasphere)
+- [Datasphere Eventstream source](https://learn.microsoft.com/fabric/real-time-intelligence/event-streams/add-source-sap-datasphere)
+
+</div>
+
+<div>
+
+### BPS and release status
+
+- [Business Process Solutions](https://learn.microsoft.com/azure/sap/business-process-solutions/about-business-process-solutions)
+- [BPS release notes](https://learn.microsoft.com/azure/sap/business-process-solutions/release-notes)
+- [September 2026 feature summary](https://community.fabric.microsoft.com/blog/fbc_fabricupdatesblogs/fabric-september-2026-feature-summary/5325825)
+- [FabCon Europe announcement](https://aka.ms/FabCon-SQLCon-Barcelona)
+- [SAP Community BDC roadmap reply](https://community.sap.com/t5/data-and-ai-professionals-q-a/sap-bdc-connect-for-microsoft-fabric-ga/qaq-p/14469254)
+
+</div>
+
+</div>
+
+_Reviewed 6 October 2026. September release announcements postdate some Learn Preview labels._
 
 ---
 
 <!-- _class: closing -->
 
-# One platform.<br>Eight paths in.<br>Pick by freshness, governance, and AI ambition.
+# SAP connectivity,<br>with the business model in view.
 
-## fredgis · github.com/fredgis/fabric-foundry-kb/markdown/SAP_Fabric_Connectivity.md
+## fredgis · github.com/fredgis/fabric-foundry-kb
+
+Use released paths for production. Add BPS when its business models and processing match the requirement.
