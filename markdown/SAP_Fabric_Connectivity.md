@@ -1,14 +1,14 @@
 ---
 title: "SAP to Microsoft Fabric Connectivity"
 subtitle: "Current architecture patterns, product status, and decision guide"
-date: "October 2026"
+date: "November 2026"
 abstract: |
   This whitepaper compares the supported ways to connect SAP data and events to Microsoft Fabric. It covers Fabric Data Factory connectors, the SAP ABAP Add-On for Copy Job, Mirroring through SAP Datasphere, Copy Job CDC, semantic federation, governed exchange, Eventstream, Open Mirroring partners, and the SAP Business Data Cloud Connect roadmap. It also covers Business Process Solutions, a Fabric workload that deploys SAP connections, notebooks, pipelines, and business models.
 
-  The October 2026 edition incorporates FabCon Europe announcements from Barcelona while retaining the source eligibility, SAP ODP RFC security, Direct Lake identity, network, and production-readiness guidance from the September edition.
+  The November edition covers BPS artifact updates, private ingress for Eventstream custom sources, and SQL endpoint freshness. It distinguishes the SAP agent integrations discussed at TechEd and Ignite from replication into OneLake.
 ---
 
-> **Scope.** Product status and technical claims were reviewed against Microsoft and SAP sources available on October 6, 2026, including FabCon Europe (September 28 to October 1). Preview features, partner capabilities, and roadmap targets can change.
+> **Scope.** Reviewed through November 23, 2026. The November ledger covers changes since the October 6 edition. A release announcement for a platform feature does not establish support for a particular SAP source, destination, or region.
 >
 > **Reading the patterns.** Method 1 has two extraction paths: classic Fabric SAP connectors and the Microsoft ABAP Add-On Preview. BPS is a separate solution layer above supported extraction paths, not a ninth transport protocol.
 
@@ -28,19 +28,16 @@ Microsoft Fabric does not have one universal SAP connector. The right path depen
 | 8. SAP BDC Connect for Fabric | Roadmap; SAP Community target end Q1 2027, not confirmed GA | Planned zero-copy sharing | Future governed SAP BDC and OneLake exchange |
 | Business Process Solutions | Fabric workload; individual preview features have separate access | Depends on source connection | Packaged SAP processing, business models, and templates |
 
-### What changed in the October 2026 edition
+### What changed in the November 2026 edition
 
 | Change | Impact on this guide |
 | --- | --- |
-| Business Process Solutions (BPS) | Added a dedicated section covering SAP connections, deployed notebooks/pipelines, Silver/Gold models, and business templates |
-| BPS Datasphere support and artifacts 1.0.5 | Added ADLS and DD03ND prerequisites, telemetry, selected-table orchestration, and ECC Record-to-Report updates |
-| SAP ABAP Add-On documentation expanded the source list | Added BW/4HANA and BW 7.50; retained Preview and watermark-only boundaries |
-| FabCon Europe announced SAP Datasphere Eventstream GA | Method 6 now includes the dedicated source and its managed Kafka endpoint |
-| September release announced Copy Job CDC, SCD Type 2, audit columns, and monitoring GA | Updated status while retaining source/destination compatibility and net-change guarantees |
-| Extended mirroring capabilities announced GA | Added optional paid CDF; generic announcements do not establish SAP view or Eventstream change-feed support |
-| SAP Community revised BDC Connect planning to end Q1 2027 | Replaced the expired Q3 2026 target; no public GA confirmation was found at FabCon Europe |
+| BPS artifacts 1.0.6 and 1.0.8 | Fixes to ECC and Gold views; row counts, per-table status, an active-dataset check, and special fiscal-period handling |
+| Eventstream | Workspace Private Link for **custom endpoint sources** is in Preview. Publishing and consuming Fabric business events is GA; this is distinct from acquiring SAP business events. |
+| SQL analytics endpoint | New metadata sync is GA; on-demand upgrades of existing endpoints are Preview. This affects when a committed Delta change becomes queryable, not when SAP extracts it. |
+| SAP TechEd and Microsoft Ignite | Power Platform SAP OData OAuth is Preview. Agent access through SAP APIs is separate from Fabric bulk ingestion. Ignite mentions BDC connectivity but does not announce Fabric-specific GA. |
 
-The detailed post-June ledger remains in Appendix A, with the September findings retained as historical records and the October review appended.
+Appendix A retains the September and October findings with their original dates and links the November changes to their sources.
 
 ### Document color key
 
@@ -67,6 +64,7 @@ The detailed post-June ledger remains in Appendix A, with the September findings
 | 2.1 | September 11, 2026 | Decision, security, data-contract, and operations hardening |
 | 2.2 | September 11, 2026 | Direct Lake consumer identity and privileged workspace-role clarification |
 | 2.3 | October 6, 2026 | BPS, FabCon Europe updates, ABAP scope, BDC roadmap, and synchronized diagrams/presentation |
+| 2.4 | November 23, 2026 | BPS 1.0.8, Eventstream private ingress and business events, SQL endpoint sync, and SAP TechEd/Ignite scope |
 
 ## Architecture map
 
@@ -250,6 +248,8 @@ The current Fabric connector overview lists these capabilities:
 | OData | Yes | Yes | Yes, full load | None, on-premises, or virtual network |
 
 The Fabric connector pages describe each connector as a source. They do not provide an SAP destination connector.
+
+Microsoft also lists **automatic partitioning for SAP HANA in Copy Job** as [Preview](https://learn.microsoft.com/en-us/fabric/fundamentals/whats-new). It parallelizes reads and writes for supported copies. It does not add delete capture to watermark extraction or change the ABAP Add-On's release status.
 
 SAP BW Open Hub supports SAP BW 7.01 and later but not SAP BW/4HANA. For BW/4HANA, use a supported BW query path, SAP Datasphere, the ABAP Add-On where applicable, or a verified partner connector.
 
@@ -656,7 +656,7 @@ The configuration requires:
 - the exact Eventstream topic name as the Replication Flow target object name;
 - **Delete All Before Loading** left unchecked, because Datasphere cannot delete the managed Eventstream topic.
 
-The Kafka protocol uses TCP 9093. Do not infer private Kafka ingress from the source connector's GA status or the new workspace Private Link announcement. The legacy custom-endpoint path has explicit Private Link restrictions; validate the detailed matrix for the dedicated source before approving a private-only design.
+The Kafka protocol uses TCP 9093. Microsoft's [October announcement](https://community.fabric.microsoft.com/blog/fbc_fabricupdatesblogs/strengthening-data-security-with-workspace-level-private-connectivity-for-custom/5377347) adds **Preview** workspace-level Private Link for applications publishing to an Eventstream **custom endpoint source**. The producer must be able to resolve and reach the private endpoint. This does not establish private ingress for the dedicated SAP Datasphere source, custom endpoint destinations, or Datasphere tenants without that network path.
 
 ### SAP Kafka message contract
 
@@ -707,6 +707,8 @@ The SAP Event Mesh connector to Azure Event Grid has appeared in SAP beta and co
 SAP Event Mesh Lite is being discontinued. New designs should use a currently supported Event Mesh plan. SAP Integration Suite, advanced event mesh is a separate offering with its own migration process, not a renamed Lite plan.
 
 The September release also announces a **Solace PubSub+ source connector as GA**. It is an option to assess for compatible Solace-based event mesh deployments, not proof that every SAP Event Mesh plan has the same integration.
+
+In November, [publishing and consuming business events within Fabric Eventstream](https://learn.microsoft.com/en-us/fabric/fundamentals/whats-new) reached GA. For example, a team can publish a stock exception after evaluating SAP records already in Fabric. That downstream capability does not make the upstream SAP Event Mesh bridge a native GA connector.
 
 ### Private Kafka sources
 
@@ -829,11 +831,13 @@ flowchart LR
     class OL,BI,AI fabric
 ```
 
-### Status on October 6, 2026
+### Status on November 23, 2026
 
 The joint announcement planned GA for Q3 2026, and SAP Sapphire repeated a second-half 2026 target. A **31 August 2026 SAP Community reply by SAP employee Thierry Audas** gives a revised target of **end Q1 2027**, explicitly subject to change.
 
-The reviewed FabCon Europe announcements do not confirm BDC Connect GA or establish a generally accessible public preview. This guide therefore keeps the capability in **roadmap status**. The community reply is a planning indication, not a release commitment.
+The [November 17 Microsoft and SAP Ignite announcement](https://techcommunity.microsoft.com/blog/SAPApplications/microsoft-and-sap-at-ignite-2026-connecting-sap-customers-to-ai-agents-data-and-/4573931) mentions BDC connectivity with Fabric but does not announce GA or provide provisioning instructions. The end-Q1 2027 date remains an attributed planning target, not a release commitment.
+
+Ignite also describes agent access to SAP ERP through MCP servers on SAP BTP or Azure API Management. At [SAP TechEd](https://techcommunity.microsoft.com/blog/sapapplications/sap-on-azure-product-announcements-summary-%E2%80%93-sap-teched-2026/4567804), Microsoft distinguished the documented Integration Suite MCP Gateway from A2A Agent Gateway testing with selected customers. OAuth 2.0 for the **Power Platform / Copilot Studio SAP OData connector** was announced in Preview. None of these announcements grants the generic Fabric OData connector new authentication modes or replaces a CDC feed.
 
 Do not describe it as an available production service until the owning product documentation confirms:
 
@@ -881,7 +885,7 @@ The ADF path deploys Azure resources and needs SHIR with NCo. The Datasphere and
 
 **The BPS ADF option inherits SAP Note 3255746's ODP RFC blocking risk.** A documented BPS connection does not remove the source-system patch restriction. Confirm applicability with the SAP team before choosing it, and assess the supported Datasphere or partner path where needed.
 
-The published **1.0.5** artifacts add contextual telemetry, selected-table orchestration, high-concurrency sessions, and ECC Record-to-Report views. Choose BPS when the requirement includes reusable SAP business processing and reports, not only a raw data feed. Keep customizations separate from shipped artifacts where the update guidance requires it.
+**Artifact versions.** Version 1.0.6 fixed notebook issues creating ECC views and Gold lakehouse views. In **1.0.8**, notebooks report processed row counts and table status, pipelines check that the dataset is active before processing, and the environment code handles special fiscal periods. When upgrading finance workloads, compare a special-period posting with its SAP control total and check the recorded row counts for each table. These are processing changes, not new extraction rights or source types.
 
 Sources: [BPS overview](https://learn.microsoft.com/en-us/azure/sap/business-process-solutions/about-business-process-solutions), [Deployment and regions](https://learn.microsoft.com/en-us/azure/sap/business-process-solutions/deploy-workload-item), [Datasphere setup](https://learn.microsoft.com/en-us/azure/sap/business-process-solutions/configure-source-system-with-datasphere), [Release notes](https://learn.microsoft.com/en-us/azure/sap/business-process-solutions/release-notes), [Support and preview features](https://learn.microsoft.com/en-us/azure/sap/business-process-solutions/support-private-preview).
 
@@ -930,6 +934,8 @@ Existing ADF SAP CDC deployments need an impact assessment before the SAP patch 
 Sources: [ADF SAP CDC architecture](https://learn.microsoft.com/en-us/azure/data-factory/sap-change-data-capture-introduction-architecture), [ADF SAP CDC to Fabric](https://learn.microsoft.com/en-us/azure/data-factory/change-data-capture-from-sap-to-onelake-with-azure-data-factory).
 
 ## Direct Lake and the semantic layer
+
+**SQL endpoint freshness.** Microsoft announced [new SQL analytics endpoint metadata sync](https://learn.microsoft.com/en-us/fabric/data-engineering/sql-analytics-endpoint-metadata-sync) as GA in November. The workspace setting applies to new endpoints; for an existing endpoint the on-demand upgrade is Preview. Check its sync version and run the preflight before scheduling an upgrade. For an SAP-fed lakehouse, measure three times separately: arrival from SAP, the Delta commit, and visibility to SQL readers. SQL metadata sync does not refresh a Direct Lake on OneLake model.
 
 Direct Lake is a Power BI semantic-model storage mode for Delta tables in OneLake. It should not be described as a connector from SAP.
 
@@ -989,7 +995,7 @@ Sources: [Direct Lake overview](https://learn.microsoft.com/en-us/fabric/fundame
 | ABAP Add-On Preview | Gateway to SAP over RFC; SAP and gateway to OneLake over HTTPS | Add-on transport governance, SAP outbound access, OneLake identity |
 | Mirroring and Copy Job through Datasphere | SAP to Datasphere; Datasphere to cloud storage; Fabric to storage | Storage identity, staging retention, separate monitoring boundaries |
 | Semantic federation | Power BI gateway to SAP BW or HANA | SSO or fixed identity, source capacity, result correctness |
-| Eventstream custom Kafka endpoint | SAP Datasphere to `*.servicebus.windows.net` on 9093 | Connection-string rotation, public endpoint policy |
+| Eventstream custom Kafka endpoint | Producer to Eventstream on 9093; application ingress via workspace Private Link in Preview | Rotate credentials; verify DNS and reachability from the actual producer. Do not assume dedicated Datasphere support. |
 | Dedicated SAP Datasphere Eventstream source | Datasphere to the source's managed Kafka endpoint | SASL credentials, exact topic name, and source-specific private-network support |
 | Open Mirroring partner | Partner-specific SAP connection and Fabric landing-zone access | Vendor runtime, secret storage, least privilege |
 | BPS | ADF/SHIR, Datasphere/ADLS, or partner path according to the source | Source patch compatibility, DD03ND, workload region, deployed identities |
@@ -1183,9 +1189,21 @@ The ledger separates three dates:
 | --- | --- |
 | Effective or first documented date | The first column in each ledger table. This is when behavior changed, or the earliest public documentation date when no product-effective date is published. |
 | Source publication or update date | Stated in the first column when it differs materially, and recoverable from the linked Microsoft or SAP page metadata or repository commit. |
-| KB verification date | September 11, 2026 for the original audit rows; October 6, 2026 for the October review below. |
+| KB verification date | September 11 for the original audit, October 6 for the FabCon review, and November 23 for the updates below (all 2026). |
 
 An updated documentation page does not make an older product restriction new. For example, default semantic-model creation ended for new items on September 5, 2025, existing default models were decoupled on November 30, 2025, and the source page was refreshed on August 19, 2026.
+
+### November 2026 review: changes since October 6
+
+| Publication or review | Scope | Decision |
+| --- | --- | --- |
+| October 26: [Microsoft at SAP TechEd](https://techcommunity.microsoft.com/blog/sapapplications/sap-on-azure-product-announcements-summary-%E2%80%93-sap-teched-2026/4567804) | Agent access and SAP OData authentication | Evaluate interactive OAuth for Power Platform separately from Fabric connector credentials. |
+| October 29: [Eventstream custom ingress](https://community.fabric.microsoft.com/blog/fbc_fabricupdatesblogs/strengthening-data-security-with-workspace-level-private-connectivity-for-custom/5377347) | Workspace Private Link Preview | Test the custom source from the producer network; dedicated SAP source support is a separate check. |
+| November 17: [Fabric feature summary](https://community.fabric.microsoft.com/blog/fbc_fabricupdatesblogs/fabric-november-2026-feature-summary/5414311) and [Fabric release list](https://learn.microsoft.com/en-us/fabric/fundamentals/whats-new) | SQL endpoint sync and Fabric business events | Distinguish SQL visibility from SAP freshness and Fabric event publication from SAP event extraction. |
+| November 17: [Microsoft and SAP at Ignite](https://techcommunity.microsoft.com/blog/SAPApplications/microsoft-and-sap-at-ignite-2026-connecting-sap-customers-to-ai-agents-data-and-/4573931) | Joule, Microsoft 365 Copilot and SAP API access | Agent interoperability does not confirm BDC Connect GA or change analytical replication guarantees. |
+| November 19 documentation: [BPS release notes](https://learn.microsoft.com/en-us/azure/sap/business-process-solutions/release-notes) | Artifacts 1.0.6 and 1.0.8 | Recheck ECC/Gold views, active datasets, processing counts, and fiscal-period reconciliation after upgrading. |
+
+The November review found no change to the eight-pattern classification. The ABAP Add-On remains a Preview full/watermark path; Datasphere CDC still requires a supported source and destination. The published source matrix, DirectQuery identity checks, OneLake-to-Datasphere direction, partner eligibility checks, and the ADF SAP CDC patch warning remain applicable.
 
 ### October 2026 review: BPS and FabCon Europe
 
@@ -1415,4 +1433,4 @@ These rows record the current review. The following September audit tables retai
 
 ---
 
-*Reviewed against public Microsoft and SAP sources available on October 6, 2026. Historical ledger rows retain their stated verification dates.*
+*Reviewed against public Microsoft and SAP sources available on November 23, 2026. Historical ledger rows retain their stated verification dates.*
